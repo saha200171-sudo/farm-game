@@ -185,7 +185,7 @@ const ZONES = {
 const zoneAt = (x, y) => x < 700 ? 'ogorod' : (y < 500 ? 'kuryatnik' : 'sad');
 
 const SPEAKERS = {
-  agata: { name: 'Бабушка Агата', letter: 'А', color: '#9C7BC4' },
+  grandpa: { name: 'Дедушка', letter: 'Д', color: '#B5563A' },
   klara: { name: 'Клара',          letter: 'К', color: '#D99A1E' },
 };
 
@@ -193,13 +193,13 @@ const BEDS = [{ x: 290, y: 600 }, { x: 410, y: 600 }, { x: 530, y: 600 }];
 
 // Точки, к которым героиня подходит, и дистанция, с которой срабатывает действие
 const ANCHORS = {
-  grandma: { x: 300, y: 330, reach: 72, mark: -96 },
+  grandpa: { x: 300, y: 330, reach: 72, mark: -118 },
   well:    { x: 140, y: 560, reach: 92, mark: -92 },
   bed0:    { ...BEDS[0], reach: 62, mark: -50 },
   bed1:    { ...BEDS[1], reach: 62, mark: -50 },
   bed2:    { ...BEDS[2], reach: 62, mark: -50 },
   gate:    { x: 700, y: 250, reach: 64, mark: -72 },
-  klara:   { x: 940, y: 320, reach: 72, mark: -96 },
+  klara:   { x: 940, y: 320, reach: 72, mark: -118 },
 };
 
 // ===================== Сохранение =====================
@@ -233,7 +233,7 @@ const ui = { open: false };
 
 function questTarget() {
   switch (state.step) {
-    case 0: case 3: case 7: return 'grandma';
+    case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
     case 2: { const i = state.watered.findIndex(w => !w); return i < 0 ? null : 'bed' + i; }
     case 4: return 'gate';
@@ -244,14 +244,14 @@ function questTarget() {
 function questText() {
   const n = state.watered.filter(Boolean).length;
   return [
-    'Поговори с бабушкой Агатой',
+    'Поговори с дедушкой',
     'Возьми лейку у колодца',
     `Полей грядки: ${n} из 3`,
-    'Вернись к бабушке Агате',
+    'Вернись к дедушке',
     'Открой калитку в курятник',
     'Познакомься с Кларой',
     'Собери яйца для Клары',
-    'Отнеси корзину яиц бабушке',
+    'Отнеси корзину яиц дедушке',
     'Прототип пройден. Можно гулять по ферме',
   ][state.step] || '';
 }
@@ -410,7 +410,7 @@ function eggGame(onWin) {
 // ===================== Сюжет: что происходит при взаимодействии =====================
 function interact(id) {
   const s = state;
-  if (id === 'grandma') return talkGrandma();
+  if (id === 'grandpa') return talkGrandpa();
   if (id === 'klara') return talkKlara();
   if (id === 'well') {
     if (s.step === 1) { s.items.can = true; s.step = 2; splash(140, 545); toast('Получено: лейка'); progress(); }
@@ -428,27 +428,27 @@ function interact(id) {
   }
   if (id === 'gate') {
     if (s.open.kuryatnik) return;
-    if (!s.items.key) { toast('Калитка заперта. Ключ у бабушки Агаты', 'info'); return; }
+    if (!s.items.key) { toast('Калитка заперта. Ключ у дедушки', 'info'); return; }
     openKuryatnik();
   }
 }
 
-function talkGrandma() {
+function talkGrandpa() {
   const s = state;
   if (s.step === 0) return showDialog([
-    ['agata', 'Вот и ты! Добро пожаловать на нашу ферму.'],
-    ['agata', 'Хозяйство совсем заросло, одной мне не справиться.'],
-    ['agata', 'Начнём с огорода. Возьми лейку у колодца и полей все три грядки.'],
+    ['grandpa', 'Вот и ты! Добро пожаловать на нашу ферму.'],
+    ['grandpa', 'Хозяйство совсем заросло, одному мне не справиться.'],
+    ['grandpa', 'Начнём с огорода. Возьми лейку у колодца и полей все три грядки.'],
   ], () => { s.step = 1; progress(); });
   if (s.step === 3) return showDialog([
-    ['agata', 'Ох, какие всходы! Сразу видно, рука лёгкая.'],
-    ['agata', 'Держи ключ от калитки. За ней курятник, там живёт Клара.'],
-    ['agata', 'Она давно ждёт помощи. Сходи познакомься.'],
+    ['grandpa', 'Ох, какие всходы! Сразу видно, рука лёгкая.'],
+    ['grandpa', 'Держи ключ от калитки. За ней курятник, там живёт Клара.'],
+    ['grandpa', 'Она давно ждёт помощи. Сходи познакомься.'],
   ], () => { s.items.key = true; s.step = 4; toast('Получено: ключ от калитки'); progress(); });
   if (s.step === 7) return showDialog([
-    ['agata', 'Свежие яйца! Испеку пирог на всю округу.'],
-    ['agata', 'А за курятником старый сад. Его хозяин давно не показывался…'],
-    ['agata', 'Но это уже совсем другая история.'],
+    ['grandpa', 'Свежие яйца! Испеку пирог на всю округу.'],
+    ['grandpa', 'А за курятником старый сад. Его хозяин давно не показывался…'],
+    ['grandpa', 'Но это уже совсем другая история.'],
   ], () => { s.step = 8; s.items.eggs = 0; progress(); showFinal(); });
   const idle = {
     1: 'Лейка висит у колодца, слева от грядок.',
@@ -457,8 +457,8 @@ function talkGrandma() {
     5: 'Клара только с виду строгая, не бойся.',
     6: 'Клара просила помочь с яйцами? Она без этого не отпустит.',
     8: 'Пирог уже в печи!',
-  }[s.step] || 'Как дела, милая?';
-  showDialog([['agata', idle]]);
+  }[s.step] || 'Как дела, внучка?';
+  showDialog([['grandpa', idle]]);
 }
 
 function talkKlara() {
@@ -469,18 +469,18 @@ function talkKlara() {
     ['klara', 'Нужно восемь яиц. Только быстро: куры прячут их обратно!'],
   ], () => { s.step = 6; progress(); eggGame(winEggs); });
   if (s.step === 6) return showDialog([['klara', 'Ну что, ещё попытка?']], () => eggGame(winEggs));
-  showDialog([['klara', s.step === 7 ? 'Отнеси корзинку Агате, она давно хотела испечь пирог.' : 'Заходи ещё, куры к тебе уже привыкли.']]);
+  showDialog([['klara', s.step === 7 ? 'Отнеси корзинку дедушке, он давно хотел испечь пирог.' : 'Заходи ещё, куры к тебе уже привыкли.']]);
 }
 function winEggs(n) {
   showDialog([
     ['klara', 'Восемь штук! Вот это ловкость.'],
-    ['klara', 'Отнеси корзинку Агате, она давно хотела испечь пирог.'],
+    ['klara', 'Отнеси корзинку дедушке, он давно хотел испечь пирог.'],
   ], () => { state.step = 7; state.items.eggs = n; progress(); });
 }
 
 function showFinal() {
   openModal(`<div class="card"><div class="badge">Конец прототипа</div><h2>Ферма оживает</h2>
-    <p>Огород полит, курятник открыт, бабушка печёт пирог. В полной игре дальше откроется Сад и его хозяин.</p>
+    <p>Огород полит, курятник открыт, дедушка печёт пирог. В полной игре дальше откроется Сад и его хозяин.</p>
     <div class="row"><button class="btn secondary" id="fStay" type="button">Погулять</button>
     <button class="btn" id="fAgain" type="button">Пройти заново</button></div></div>`);
   $('fStay').onclick = closeModal;
@@ -496,7 +496,7 @@ function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = 
 
 function solids() {
   const list = [
-    [90, 80, 240, 180],            // дом бабушки
+    [90, 80, 240, 180],            // дом дедушки
     [104, 524, 72, 72],            // колодец
     [1120, 70, 220, 150],          // курятник
     [692, 0, 16, 200], [692, 300, 16, 700],      // забор огорода
@@ -535,7 +535,7 @@ function stopWalking() { releaseStick(); keys.clear(); }
 // иначе под пальцем появляется джойстик (в любом месте экрана)
 function hitTest(x, y) {
   const near = (ax, ay, r) => (x - ax) ** 2 + (y - ay) ** 2 <= r * r;
-  if (near(300, 295, 44)) return 'grandma';
+  if (near(300, 295, 44)) return 'grandpa';
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 58 && Math.abs(y - BEDS[i].y) < 44) return 'bed' + i;
@@ -644,18 +644,28 @@ function makeChar(look) {
   b.fillStyle(look.skin, 1).fillCircle(-15, -25, 4.5).fillCircle(15, -25, 4.5);
   b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 5, br: 5 });
   if (look.apron) b.fillStyle(look.apron, 1).fillRoundedRect(-8, -30, 16, 18, 4);
+  if (look.suspenders) b.fillStyle(look.suspenders, 1).fillRect(-8, -39, 4, 28).fillRect(4, -39, 4, 28);
   if (look.hair === 'pony') { b.fillStyle(look.hairColor, 1).fillCircle(14, -58, 7).fillCircle(18, -49, 6); }
   if (look.hair === 'bun')  { b.fillStyle(look.hairColor, 1).fillCircle(0, -70, 8); }
   b.fillStyle(look.skin, 1).fillCircle(0, -52, 14);
   if (look.hair === 'scarf') {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -60, 34, 20).fillTriangle(10, -52, 20, -44, 18, -56);
     b.fillStyle(0xffffff, 0.6).fillCircle(-6, -63, 2).fillCircle(4, -66, 2).fillCircle(10, -60, 2);
+  } else if (look.hair === 'grandpa') {
+    // седые волосы по бокам и кепка
+    b.fillStyle(look.hairColor, 1).fillEllipse(-12, -53, 8, 12).fillEllipse(12, -53, 8, 12);
+    b.fillStyle(look.cap, 1).fillEllipse(0, -62, 30, 14).fillEllipse(4, -57, 30, 6);
   } else {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -61, 30, 15).fillEllipse(-10, -56, 10, 12);
   }
   b.fillStyle(0x2e2418, 1).fillCircle(-5, -51, 2).fillCircle(5, -51, 2);
   b.fillStyle(0xF28B82, 0.6).fillCircle(-8, -46, 2.8).fillCircle(8, -46, 2.8);
-  b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -46, 3.5, 0.15 * Math.PI, 0.85 * Math.PI).strokePath();
+  if (look.beard) {
+    // седая борода и усы вместо рта
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -40, 22, 16).fillEllipse(-4, -45, 9, 5).fillEllipse(4, -45, 9, 5);
+  } else {
+    b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -46, 3.5, 0.15 * Math.PI, 0.85 * Math.PI).strokePath();
+  }
   if (look.glasses) b.lineStyle(1.5, 0x2e2418, 1).strokeCircle(-5, -51, 4.5).strokeCircle(5, -51, 4.5);
   c.add([shadow, b]);
   c.bodyG = b;
@@ -699,7 +709,7 @@ function breakRepetition() {
 // каждый угол — клетка «дорожка» или «трава» (16 вариантов в atlas'е path-mask.png).
 const CELL = 56;
 const PATHS = [
-  [3, 4, 3, 7],     // от дома бабушки вниз
+  [3, 4, 3, 7],     // от дома дедушки вниз
   [3, 7, 10, 7],    // вдоль огорода
   [10, 4, 10, 7],   // вверх к калитке
   [10, 4, 18, 4],   // через калитку к курятнику
@@ -1023,15 +1033,15 @@ class FarmScene extends Phaser.Scene {
 
     for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
 
-    const grandma = makeChar({ skin: 0xF5CBA7, dress: 0x9C7BC4, apron: 0xFFFDF4, hair: 'bun', hairColor: 0xD9D4CC, glasses: true });
-    grandma.setPosition(300, 330).setDepth(330);
-    nameLabel('Бабушка Агата', 300, 252);
+    const grandpa = makeChar({ skin: 0xF0C29E, dress: 0xB5563A, suspenders: 0x3E5A7A, hair: 'grandpa', hairColor: 0xE4E0D8, cap: 0x6B4A2E, beard: true, glasses: true });
+    grandpa.setPosition(300, 330).setDepth(330);
+    nameLabel('Дедушка', 300, 252);
 
     klara = makeChar({ skin: 0xE8B48F, dress: 0x5E9E57, apron: 0xF7E3B5, hair: 'scarf', hairColor: 0xF2C94C });
     klara.setPosition(940, 320).setDepth(320).setVisible(state.open.kuryatnik);
     klara.bodyG.scaleX = -1;
     klaraLabel = nameLabel('Клара', 940, 242).setVisible(state.open.kuryatnik);
-    this.npcs = [grandma, klara];
+    this.npcs = [grandpa, klara];
 
     player = makeChar({ skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A });
     const p = walkable(state.pos.x, state.pos.y) ? state.pos : { x: 300, y: 430 };
