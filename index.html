@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 38;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 39;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1802,9 +1802,13 @@ const COW_BODY_PIVOT = [-60, -60];   // туловище наклоняется 
 const COW_SCALE = 0.3;               // коровка на поле ≈ 86×63
 const COW_LAYERS = ['tail', 'leg-back-far', 'leg-front-far', 'leg-back-near', 'leg-front-near', 'body', 'neck', 'head'];   // снизу вверх; ушко — внутри головы
 const cowPiv = k => [COW_PARTS[k][6], COW_PARTS[k][7]];
+// Расцветки: у всех одна раскладка деталей (COW_PARTS), разные только картинки. Коровка i берёт расцветку COW_SKINS[i % длина]
+const COW_SKINS = ['cowWhite', 'cowPyatna'];   // белая, пятнистая (перекрашена вручную)
 function registerCowFrames() {
-  const t = scene.textures.get('cowWhite');
-  for (const [k, f] of Object.entries(COW_PARTS)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
+  for (const key of COW_SKINS) {
+    const t = scene.textures.get(key);
+    for (const [k, f] of Object.entries(COW_PARTS)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
+  }
 }
 function makeCow(i) {
   const home = COW_HOMES[i];
@@ -1812,7 +1816,8 @@ function makeCow(i) {
   const shadow = scene.add.ellipse(0, -2, 300 * COW_SCALE, 52 * COW_SCALE, 0x1d2a12, 0.22);
   const rig = scene.add.container(0, 0).setScale(COW_SCALE);
   const parts = {};
-  const img = k => { const f = COW_PARTS[k]; return scene.add.image(0, 0, 'cowWhite', k).setOrigin(f[4] / f[2], f[5] / f[3]); };
+  const skin = COW_SKINS[i % COW_SKINS.length];
+  const img = k => { const f = COW_PARTS[k]; return scene.add.image(0, 0, skin, k).setOrigin(f[4] / f[2], f[5] / f[3]); };
   for (const k of COW_LAYERS) {
     if (k === 'head') {
       const head = scene.add.container(0, 0), h = img('head'), ear = img('ear');
@@ -2055,6 +2060,7 @@ class FarmScene extends Phaser.Scene {
   preload() {
     this.load.image('grass', 'assets/ground/grass.jpg');
     this.load.image('cowWhite', 'assets/cows/cow-white.png');
+    this.load.image('cowPyatna', 'assets/cows/cow-pyatna.png');
     this.load.image('fence', 'assets/fence/fence.png');
     this.load.image('iro', 'assets/chars/iro.png');
     this.load.image('kale', 'assets/chars/kale.png');

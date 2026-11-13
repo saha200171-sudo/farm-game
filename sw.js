@@ -1,7 +1,7 @@
 // Service worker: позволяет игре работать без интернета.
 // Стратегия: если есть интернет — всегда берём свежую версию (в обход кэша браузера)
 // и заодно обновляем сохранённую копию; без интернета — играем из сохранённой копии.
-const CACHE = 'farm-v38';
+const CACHE = 'farm-v39';
 const CORE = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const CORE = [
   './assets/paths/path-mask.png',
   './assets/paths/path-rim.png',
   './assets/cows/cow-white.png',
+  './assets/cows/cow-pyatna.png',
   './assets/fence/fence.png',
   './assets/chars/iro.png',
   './assets/chars/kale.png',
