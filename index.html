@@ -186,7 +186,10 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const WORLD = { w: 1400, h: 2000 };   // низ карты (y > 1000) — пастбище Нанамина
+// Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
+const GROUND = -5000;
+// Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
+const WORLD = { w: 1400, top: -1000, h: 3000 };
 const SAVE_KEY = 'farm-prototype-v1';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
@@ -197,13 +200,15 @@ const ZONES = {
   kuryatnik: { name: 'Курятник' },
   sad:       { name: 'Сад' },
   pastbishe: { name: 'Пастбище' },
+  pole:      { name: 'Поле' },
 };
-const zoneAt = (x, y) => y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : (y < 500 ? 'kuryatnik' : 'sad');
+const zoneAt = (x, y) => y < 0 ? 'pole' : y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : (y < 500 ? 'kuryatnik' : 'sad');
 
 const SPEAKERS = {
   grandpa: { name: 'Дедушка', letter: 'Д', color: '#B5563A' },
   klara: { name: 'Клара',          letter: 'К', color: '#D99A1E' },
   nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
+  thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
 };
 
@@ -225,6 +230,8 @@ const ANCHORS = {
   klara:   { x: 940, y: 320, reach: 72, mark: -118 },
   nanamin: { x: 640, y: 1560, reach: 72, mark: -118 },
   door:    { x: 210, y: 280, reach: 62, mark: -100 },   // дверь дома дедушки (вечером — «Лечь спать»)
+  fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
+  thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -232,6 +239,7 @@ const ANCHORS = {
 // Точка цели: у коров она двигается вместе с ними
 function anchorOf(id) {
   if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 64, mark: -52 }; }
+  if (id === 'thorfinn' && thorfinnChar) return { x: thorfinnChar.x, y: thorfinnChar.y, reach: 72, mark: -118 };
   return ANCHORS[id];
 }
 
@@ -240,19 +248,21 @@ const freshState = () => ({
   step: 0,
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
-  open: { ogorod: true, kuryatnik: false, sad: false, pastbishe: true }, // пастбище пока открыто сразу — для тестов
+  open: { ogorod: true, kuryatnik: false, sad: false, pastbishe: true, pole: true }, // пастбище и поле пока открыты сразу — для тестов
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: [0, 0, 0, 0], visited: false },
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
+  // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
+  day2: { stage: 0, visitedField: false },
 });
 function loadState() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time } };
+      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 } };
     }
   } catch (e) {}
   return freshState();
@@ -270,6 +280,7 @@ const ui = { open: false };
 
 function questTarget() {
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
+  if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
@@ -294,8 +305,10 @@ function questText() {
   ][state.step] || '';
 }
 function updateHud() {
-  $('questLabel').textContent = state.step >= 8 ? 'Готово' : 'Задание';
-  $('questText').textContent = questText();
+  const d2 = state.day2.stage;
+  $('questLabel').textContent = d2 ? 'Задание · день 2' : state.step >= 8 ? 'Готово' : 'Задание';
+  $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом дедушки и помоги людям'
+    : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
@@ -503,6 +516,10 @@ function interact(id) {
   if (id === 'klara') return talkKlara();
   if (id === 'nanamin') return talkNanamin();
   if (id === 'door') return goToSleep();
+  if (id === 'thorfinn') return showDialog([
+    // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
+    ['thorfinn', 'Я Торфинн, слежу за полем. Ходи только по дорожкам — и мы поладим.'],
+  ]);
   if (id.startsWith('pen')) return repairPen(+id[3]);
   if (id.startsWith('cow')) return callCow(+id.slice(3));
   if (id === 'well') {
@@ -640,9 +657,9 @@ const TINTS = {
 };
 let timeTint = null, timeHaze = null, windowGlow = null, fireflies = [];
 function buildTimeLayer() {
-  timeTint = scene.add.rectangle(0, 0, WORLD.w, WORLD.h, 0xffffff).setOrigin(0, 0).setDepth(5800).setAlpha(0);
+  timeTint = scene.add.rectangle(0, WORLD.top, WORLD.w, WORLD.h, 0xffffff).setOrigin(0, 0).setDepth(5800).setAlpha(0);
   timeTint.setBlendMode(Phaser.BlendModes.MULTIPLY);
-  timeHaze = scene.add.rectangle(0, 0, WORLD.w, WORLD.h, 0x3E4C92).setOrigin(0, 0).setDepth(5801).setAlpha(0);
+  timeHaze = scene.add.rectangle(0, WORLD.top, WORLD.w, WORLD.h, 0x3E4C92).setOrigin(0, 0).setDepth(5801).setAlpha(0);
   // тёплый свет в окнах дома дедушки
   windowGlow = scene.add.graphics().setDepth(5850).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
   windowGlow.fillStyle(0xFFB040, 0.22).fillEllipse(138, 198, 100, 86).fillEllipse(282, 198, 100, 86);
@@ -675,14 +692,14 @@ function applyTime(instant) {
 function spawnFireflies() {
   if (fireflies.length) return;
   const rnd = mulberry32(99);
-  // карта делится на участки 5×7, в каждом — своя группка: светлячки есть везде
-  const COLS = 5, ROWS = 7, cw = WORLD.w / COLS, ch = WORLD.h / ROWS;
+  // карта делится на участки (5 по ширине, по одному ряду на ~285 точек высоты), в каждом — своя группка
+  const COLS = 5, ROWS = Math.round(WORLD.h / 285), cw = WORLD.w / COLS, ch = WORLD.h / ROWS;
   const cells = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) cells.push([c, r]);
   for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
   for (let g = 0; g < cells.length; g++) {
     const [c, r] = cells[g];
-    const gx = (c + 0.15 + rnd() * 0.7) * cw, gy = (r + 0.15 + rnd() * 0.7) * ch;
+    const gx = (c + 0.15 + rnd() * 0.7) * cw, gy = WORLD.top + (r + 0.15 + rnd() * 0.7) * ch;
     const groupDelay = 1000 + g * 330 + rnd() * 300;        // группы зажигаются по очереди, в случайном порядке
     const n = 3 + Math.floor(rnd() * 3);
     for (let i = 0; i < n; i++) {
@@ -737,7 +754,16 @@ function goToSleep() {
   setTimeout(() => {
     fade.classList.remove('show');
     ui.open = false;
-    setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
+    if (state.time.day === 2 && state.day2.stage === 0) {
+      // утро второго дня: героиню будит дедушка
+      setTimeout(() => showDialog([
+        ['grandpa', 'Просыпайся, соня! Солнце уже высоко.'],
+        ['grandpa', 'В поле за нашим домом сегодня жатва. Людям очень нужны лишние руки.'],
+        ['grandpa', 'Сходи-ка помоги им, внучка. Дорожка от калитки ведёт прямо туда.'],
+      ], () => { state.day2.stage = 1; toast('Новое задание: помоги людям в поле'); progress(); }), 1300);
+    } else {
+      setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
+    }
     // утренний свет постепенно становится обычным дневным
     setTimeout(() => { state.time.phase = 'day'; applyTime(false); progress(); }, 12000);
   }, 5200);
@@ -788,12 +814,13 @@ function solids() {
     [700, 488, 300, 16], [1100, 488, 300, 16],   // забор сада
     [1000, 488, 100, 16],          // калитка в сад (пока закрыта)
     [0, 984, 604, 20], [684, 984, 716, 20],      // забор между фермой и пастбищем (проход у дорожки)
+    [0, -16, 548, 20], [628, -16, 772, 20],      // забор между фермой и полем (проход у дорожки)
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   return list;
 }
 function walkable(x, y) {
-  if (x < 18 || x > WORLD.w - 18 || y < 30 || y > WORLD.h - 12) return false;
+  if (x < 18 || x > WORLD.w - 18 || y < WORLD.top + 30 || y > WORLD.top + WORLD.h - 12) return false;
   if (!state.open[zoneAt(x, y)]) return false;
   const r = 12;
   for (const [sx, sy, sw, sh] of solids()) {
@@ -827,6 +854,7 @@ function hitTest(x, y) {
   for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 58 && Math.abs(y - BEDS[i].y) < 44) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(640, 1525, 44)) return 'nanamin';
+  if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
   for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 18, 34)) return 'cow' + c.idx;
   return null;
@@ -896,6 +924,8 @@ function nearest() {
     if (id === 'gate' && state.open.kuryatnik) continue;
     if (id.startsWith('pen') && (nm.stage !== 1 || nm.fixed[+id[3]])) continue;
     if (id === 'door' && state.time.phase !== 'evening') continue;
+    if (id === 'fieldGate') continue;
+    if (id === 'thorfinn' && thor.mode !== 'idle') continue;
     const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
@@ -943,10 +973,19 @@ function makeChar(look) {
   if (look.suspenders) b.fillStyle(look.suspenders, 1).fillRect(-8, -39, 4, 28).fillRect(4, -39, 4, 28);
   if (look.hair === 'pony') { b.fillStyle(look.hairColor, 1).fillCircle(14, -58, 7).fillCircle(18, -49, 6); }
   if (look.hair === 'bun')  { b.fillStyle(look.hairColor, 1).fillCircle(0, -70, 8); }
+  if (look.hair === 'long') {   // длинные волосы сзади: до плеч, слегка расходятся
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30).fillTriangle(-17, -52, -9, -52, -15, -27).fillTriangle(17, -52, 9, -52, 15, -27);
+  }
+  if (look.belt) b.fillStyle(look.belt, 1).fillRect(-13, -24, 26, 4).fillStyle(0xD9B45A, 1).fillRect(-2, -25, 4, 6);
   b.fillStyle(look.skin, 1).fillCircle(0, -52, 14);
   if (look.hair === 'scarf') {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -60, 34, 20).fillTriangle(10, -52, 20, -44, 18, -56);
     b.fillStyle(0xffffff, 0.6).fillCircle(-6, -63, 2).fillCircle(4, -66, 2).fillCircle(10, -60, 2);
+  } else if (look.hair === 'long') {
+    // светлая чёлка и пряди по бокам лица до плеч
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 31, 14).fillRoundedRect(-16, -60, 6, 26, 3).fillRoundedRect(10, -60, 6, 26, 3);
+    b.fillStyle(look.hairColor, 1).fillTriangle(-9, -58, -1, -58, -6, -52).fillTriangle(2, -58, 9, -58, 6, -53);
+    b.fillStyle(0xB88E3E, 0.6).fillRect(-14, -48, 2, 14).fillRect(12, -48, 2, 14);   // тень в прядях
   } else if (look.hair === 'grandpa') {
     // седые волосы по бокам и кепка
     b.fillStyle(look.hairColor, 1).fillEllipse(-12, -53, 8, 12).fillEllipse(12, -53, 8, 12);
@@ -959,6 +998,12 @@ function makeChar(look) {
   if (look.beard) {
     // седая борода и усы вместо рта
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -40, 22, 16).fillEllipse(-4, -45, 9, 5).fillEllipse(4, -45, 9, 5);
+  } else if (look.angry) {
+    // злое лицо: брови к переносице, рот скобкой вниз
+    b.lineStyle(2, 0x2e2418, 1).lineBetween(-9, -57, -3, -54).lineBetween(9, -57, 3, -54);
+    b.lineStyle(1.8, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.15 * Math.PI, 1.85 * Math.PI).strokePath();
+  } else if (look.calm) {
+    b.lineStyle(1.6, 0x2e2418, 1).lineBetween(-3, -45, 3, -45);
   } else if (look.sad) {
     // грустное лицо: опущенные уголки рта и «домиком» брови
     b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.2 * Math.PI, 1.8 * Math.PI).strokePath();
@@ -995,8 +1040,8 @@ function breakRepetition() {
   const tints = [[0x2F5A22, 0.22], [0x2F5A22, 0.16], [0xD9B45A, 0.16], [0xC8DC7A, 0.14]];
   for (let i = 0; i < Math.round(26 * WORLD.h / 1000); i++) {
     const [tint, a] = tints[i % tints.length];
-    scene.add.image(rnd() * WORLD.w, rnd() * WORLD.h, 'blob').setTint(tint).setAlpha(a)
-      .setScale(1.2 + rnd() * 2.2, 0.8 + rnd() * 1.4).setRotation(rnd() * Math.PI).setDepth(-11);
+    scene.add.image(rnd() * WORLD.w, WORLD.top + rnd() * WORLD.h, 'blob').setTint(tint).setAlpha(a)
+      .setScale(1.2 + rnd() * 2.2, 0.8 + rnd() * 1.4).setRotation(rnd() * Math.PI).setDepth(GROUND - 11);
   }
   // Плоские листья-овалы убраны: они были в другом стиле, чем рисованная земля.
   // Опавшие листья добавим позже отдельными рисованными картинками.
@@ -1019,6 +1064,8 @@ const PATHS = [
   [11, 22, 21, 22], // по пастбищу на восток, к полям
   [6, 22, 11, 22],  // на запад, к загону
   [6, 22, 6, 24],   // ко входу в загон
+  [10, -15, 10, 3], // от калитки курятника вверх, через проход в заборе — в поле
+  [2, -9, 21, -9],  // по полю поперёк, между участками пшеницы
 ];
 const PATH_TILE = 160;          // размер кусочка в атласе, px
 const DIRT_WORLD = 196;         // одна плитка земли = 196 точек карты
@@ -1078,15 +1125,15 @@ function drawPaths() {
   ctx.globalCompositeOperation = 'source-over';
   for (const [sx, sy, dx, dy] of tiles) ctx.drawImage(rimImg, sx, sy, PATH_TILE, PATH_TILE, dx, dy, tileSize, tileSize);
   tex.refresh();
-  scene.add.image(X0, Y0, 'pathLayer').setOrigin(0, 0).setScale(1 / PATH_RES).setDepth(-9);
+  scene.add.image(X0, Y0, 'pathLayer').setOrigin(0, 0).setScale(1 / PATH_RES).setDepth(GROUND - 9);
 }
 
 function drawGround() {
   // трава: бесшовная плитка 1024 px, одна плитка ≈ 360 точек карты
   const GRASS_SCALE = 0.35;
-  scene.add.tileSprite(0, 0, WORLD.w, WORLD.h, 'grass').setOrigin(0, 0).setTileScale(GRASS_SCALE, GRASS_SCALE).setDepth(-12);
+  scene.add.tileSprite(0, WORLD.top, WORLD.w, WORLD.h, 'grass').setOrigin(0, 0).setTileScale(GRASS_SCALE, GRASS_SCALE).setDepth(GROUND - 12);
   breakRepetition();
-  const g = scene.add.graphics().setDepth(-10);
+  const g = scene.add.graphics().setDepth(GROUND - 10);
   drawPaths();
   // пруд в саду
   g.fillStyle(0x3D7FB5, 1).fillEllipse(1180, 820, 220, 120);
@@ -1165,6 +1212,9 @@ function drawFences() {
   horiz(700, 1000, 500); horiz(1100, 1400, 500);
   // забор между фермой и пастбищем, проход — там, где дорожка
   horiz(0, 604, 1000); horiz(684, 1400, 1000);
+  // забор между фермой и полем, проход — там, где дорожка
+  horiz(0, 548, 0); horiz(628, 1400, 0);
+  g.fillStyle(0x6B4226, 1).fillRect(540, -26, 12, 32).fillRect(624, -26, 12, 32);
   g.fillStyle(0x6B4226, 1).fillRect(598, 974, 12, 32).fillRect(678, 974, 12, 32);
   // калитка в сад
   g.fillStyle(0x6B4226, 1).fillRect(996, 472, 10, 32).fillRect(1094, 472, 10, 32);
@@ -1214,7 +1264,111 @@ const PLANTS = [
   ['tree-2', 40, 1430, 1], ['poplar-2', 1385, 1420, 0.9], ['bush-4', 980, 1360, 0.9],
   ['s2-grove-1', 70, 1720, 1], ['bush-1', 720, 1720, 1], ['bush-2', 640, 1800, 0.9],
   ['s1-oak-2', 150, 1995, 1], ['s2-grove-2', 560, 1990, 1], ['tree-1', 840, 1995, 1], ['s2-oak-1', 1330, 1995, 1],
+  // поле: деревья по краям
+  ['poplar-2', 28, -470, 0.9], ['tree-2', 1372, -470, 0.95], ['s1-grove-1', 1300, -22, 0.9],
+  ['bush-3', 30, -30, 0.9], ['poplar-1', 660, -985, 0.9], ['bush-4', 1380, -985, 0.9],
 ];
+// Поле с пшеницей — ЗАГЛУШКА: золотые участки с рядами колосьев (позже заменим рисованными)
+const WHEAT = [[60, -960, 460, 390], [680, -960, 660, 390], [60, -390, 460, 320], [680, -390, 660, 320]];
+function drawWheat() {
+  const g = scene.add.graphics().setDepth(GROUND - 9.5);
+  const rnd = mulberry32(13);
+  for (const [x, y, w, h] of WHEAT) {
+    g.fillStyle(0x8E6A3A, 1).fillRoundedRect(x - 6, y - 6, w + 12, h + 12, 18);
+    g.fillStyle(0xDDB04A, 1).fillRoundedRect(x, y, w, h, 14);
+    for (let ry = y + 10; ry < y + h - 6; ry += 16) {
+      g.fillStyle(0xC4922F, 0.55).fillRect(x + 10, ry + 8, w - 20, 4);
+      g.fillStyle(0xF3D77B, 0.7).fillRect(x + 10, ry + 3, w - 20, 3);
+    }
+    // колоски-точки, чтобы участок не был совсем ровным
+    for (let i = 0; i < w * h / 900; i++) {
+      g.fillStyle(rnd() < 0.5 ? 0xF7E39A : 0xB9852A, 0.8).fillEllipse(x + 12 + rnd() * (w - 24), y + 10 + rnd() * (h - 20), 4, 7);
+    }
+  }
+}
+// ===================== Торфинн: сторож поля =====================
+// Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
+let thorfinnChar = null, thorfinnLabel = null;
+const thor = { mode: 'idle', scolds: 0 };   // idle | chase | scold | return
+const THOR_LOOK = { skin: 0xF1C9A5, dress: 0xE2D6C3, belt: 0x6B4A2E, hair: 'long', hairColor: 0xD4AE5C };
+const THOR_LINES = [
+  'Эй! А ну слезай с поля! Пшеницу затопчешь!',
+  'Сколько раз говорить — по полю не ходят! Только по дорожкам!',
+  'Опять ты?! Это не дорога, это урожай! Кыш отсюда!',
+];
+function inWheat(x, y) { return WHEAT.some(([wx, wy, w, h]) => x > wx - 4 && x < wx + w + 4 && y > wy - 4 && y < wy + h + 4); }
+function wheatExit(x, y) {
+  const r = WHEAT.find(([wx, wy, w, h]) => x > wx - 4 && x < wx + w + 4 && y > wy - 4 && y < wy + h + 4);
+  if (!r) return { x, y };
+  const [wx, wy, w, h] = r, m = 26;
+  const opts = [{ x: wx - m, y }, { x: wx + w + m, y }, { x, y: wy - m }, { x, y: wy + h + m }]
+    .filter(p => walkable(p.x, p.y) && !inWheat(p.x, p.y));
+  opts.sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+  return opts[0] || { x: ANCHORS.thorfinn.x, y: ANCHORS.thorfinn.y + 40 };
+}
+function setThorfinnMood(angry) {
+  const x = thorfinnChar ? thorfinnChar.x : ANCHORS.thorfinn.x, y = thorfinnChar ? thorfinnChar.y : ANCHORS.thorfinn.y;
+  const fx = thorfinnChar ? thorfinnChar.bodyG.scaleX : 1;
+  if (thorfinnChar) { scene.npcs.splice(scene.npcs.indexOf(thorfinnChar), 1); thorfinnChar.destroy(); }
+  thorfinnChar = makeChar({ ...THOR_LOOK, angry, calm: !angry });
+  thorfinnChar.setPosition(x, y).setDepth(y);
+  thorfinnChar.bodyG.scaleX = fx;
+  scene.npcs.push(thorfinnChar);
+}
+function buildThorfinn() {
+  thorfinnChar = null; thor.mode = 'idle';
+  setThorfinnMood(false);
+  thorfinnLabel = nameLabel('Торфинн', ANCHORS.thorfinn.x, ANCHORS.thorfinn.y - 78);
+}
+function updateThorfinn(dt) {
+  const t = thorfinnChar; if (!t) return;
+  const step = sp => sp * Math.min(dt, 50) / 1000;
+  const moveTo = (tx, ty, sp) => {
+    const dx = tx - t.x, dy = ty - t.y, d = Math.hypot(dx, dy);
+    if (d > 1) { const k = Math.min(1, step(sp) / d); t.x += dx * k; t.y += dy * k; if (Math.abs(dx) > 2) t.bodyG.scaleX = dx < 0 ? -1 : 1; }
+    t.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 70)) * 3;
+    return d;
+  };
+  if (!ui.open) {
+    if ((thor.mode === 'idle' || thor.mode === 'return') && inWheat(player.x, player.y)) {
+      if (thor.mode === 'idle') setThorfinnMood(true);
+      thor.mode = 'chase';
+      toast('Торфинн: «Эй! А ну стой!»', 'info');
+    }
+    if (thor.mode === 'chase') {
+      if (!inWheat(player.x, player.y)) {
+        thor.mode = 'return'; toast('Торфинн: «И не возвращайся!»', 'info');
+      } else if (moveTo(player.x + (player.x < thorfinnChar.x ? 30 : -30), player.y, 300) < 14) {
+        thor.mode = 'scold';
+        thorfinnChar.bodyG.scaleX = player.x < thorfinnChar.x ? -1 : 1;
+        showDialog([['thorfinn', THOR_LINES[thor.scolds % THOR_LINES.length]]], () => {
+          const p = wheatExit(player.x, player.y);
+          ui.open = true;
+          scene.tweens.add({ targets: player, x: p.x, y: p.y, duration: 450, ease: 'Quad.easeOut', onComplete: () => {
+            ui.open = false; thor.mode = 'return';
+            if (thor.scolds++ === 0) showThought('Ой… Похоже, по полю лучше не ходить — только по дорожкам.');
+          } });
+        });
+      }
+    }
+    if (thor.mode === 'return' && moveTo(ANCHORS.thorfinn.x, ANCHORS.thorfinn.y, 160) < 3) {
+      thor.mode = 'idle'; setThorfinnMood(false);
+    }
+  }
+  thorfinnChar.setDepth(thorfinnChar.y);
+  thorfinnLabel.setPosition(thorfinnChar.x, thorfinnChar.y - 78).setDepth(4000);
+}
+
+// Первый приход в поле
+function updateField() {
+  if (ui.open || player.y > -20) return;
+  const d2 = state.day2;
+  if (!d2.visitedField) { d2.visitedField = true; save(); toast('Новая локация: Поле'); }
+  if (d2.stage === 1) {
+    d2.stage = 2; progress();
+    showThought('Сколько пшеницы… Где-то здесь должны быть люди, которым нужна помощь.');
+  }
+}
 function plant(key, x, y, s) {
   if (!scene.textures.exists('plantShadow')) {
     const t = scene.textures.createCanvas('plantShadow', 128, 48);
@@ -1226,7 +1380,7 @@ function plant(key, x, y, s) {
   }
   const img = scene.add.image(x, y, key).setOrigin(0.5, 0.97).setScale(s / TREE_PX).setDepth(y);
   const w = img.displayWidth;
-  scene.add.image(x, y, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(-8);
+  scene.add.image(x, y, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(GROUND - 8);
 }
 function makeChicken(x, y) {
   const c = scene.add.container(x, y);
@@ -1255,8 +1409,8 @@ function drawFields() {
   const rnd = mulberry32(5);
   const FIELDS = [[1020, 1520, 3.0, 1.7], [1220, 1800, 2.6, 1.5], [330, 1830, 2.4, 1.2], [880, 1280, 2.0, 1.0]];
   for (const [x, y, sx, sy] of FIELDS) {
-    scene.add.image(x, y, 'blob').setTint(0xE2C062).setAlpha(0.5).setScale(sx, sy).setRotation((rnd() - 0.5) * 0.4).setDepth(-11);
-    scene.add.image(x + 20, y - 10, 'blob').setTint(0xF0D88A).setAlpha(0.35).setScale(sx * 0.7, sy * 0.65).setDepth(-11);
+    scene.add.image(x, y, 'blob').setTint(0xE2C062).setAlpha(0.5).setScale(sx, sy).setRotation((rnd() - 0.5) * 0.4).setDepth(GROUND - 11);
+    scene.add.image(x + 20, y - 10, 'blob').setTint(0xF0D88A).setAlpha(0.35).setScale(sx * 0.7, sy * 0.65).setDepth(GROUND - 11);
   }
 }
 // Загон: забор по периметру, вход сверху; три сломанных места (пока не починены)
@@ -1422,7 +1576,7 @@ function fitCamera() {
   const cam = scene.cameras.main;
   const W = app.clientWidth, H = app.clientHeight;
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
-  if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WORLD.w, H / WORLD.h)); cam.centerOn(WORLD.w / 2, WORLD.h / 2); return; }
+  if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WORLD.w, H / WORLD.h)); cam.centerOn(WORLD.w / 2, WORLD.top + WORLD.h / 2); return; }
   // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WORLD.w, H / WORLD.h);
@@ -1490,6 +1644,8 @@ class FarmScene extends Phaser.Scene {
     this.npcs = [grandpa, klara];
     nanaminChar = null;
     buildPasture();
+    drawWheat();
+    buildThorfinn();
     if (new URLSearchParams(location.search).get('evening')) { state.nanamin.stage = 4; state.time.phase = 'evening'; } // служебное: сразу вечер
     buildTimeLayer();
 
@@ -1509,7 +1665,7 @@ class FarmScene extends Phaser.Scene {
     marker.add([mg, mt]);
 
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, WORLD.w, WORLD.h);
+    cam.setBounds(0, WORLD.top, WORLD.w, WORLD.h);
     fitCamera();
     cam.startFollow(player, false, 0.12, 0.12);
     cam.centerOn(player.x, player.y);
@@ -1517,7 +1673,7 @@ class FarmScene extends Phaser.Scene {
     if (OVERVIEW) {
       cam.stopFollow();
       fitCamera();
-      cam.centerOn(WORLD.w / 2, WORLD.h / 2);
+      cam.centerOn(WORLD.w / 2, WORLD.top + WORLD.h / 2);
       document.body.classList.add('overview');
       Object.values(lockLayers).forEach(l => l.setAlpha(0.35));
     }
@@ -1556,6 +1712,8 @@ class FarmScene extends Phaser.Scene {
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
     chickens.forEach(c => c.setDepth(c.y));
     updatePasture(dt);
+    updateField();
+    updateThorfinn(dt);
 
     const id = questTarget();
     if (id && id !== nearId) { // когда над целью облачко, «!» прячем
