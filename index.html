@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 21;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 22;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1216,11 +1216,18 @@ function registerFenceFrames() {
   const t = scene.textures.get('fence');
   for (const [k, f] of Object.entries(FENCE_FRAMES)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
 }
+// столбики: если рядом уже стоит столбик (на стыке двух заборов) — второй не ставим
+function isPostKey(key) { return key === 'post' || key === 'end-post' || key.startsWith('gate-post'); }
+function postNear(x, y) {
+  return Object.values(fenceObjs).some(l => (l.posts || []).some(p => Math.abs(p[0] - x) < 22 && Math.abs(p[1] - y) < 10));
+}
 function fImg(list, key, x, y, ox, oy, depth, sx = 1, sy = 1) {
+  if (key === 'post' && oy === 1 && postNear(x, y)) return null;
+  if (isPostKey(key) && oy === 1) (list.posts || (list.posts = [])).push([x, y]);
   const im = scene.add.image(x, y, 'fence', key).setOrigin(ox, oy).setScale(FS * sx, FS * sy).setDepth(depth);
   list.push(im); return im;
 }
-function clearFence(list) { list.forEach(o => o.destroy()); list.length = 0; }
+function clearFence(list) { list.forEach(o => o.destroy()); list.length = 0; list.posts = []; }
 // участок забора → куски «забор» и проёмы; edges — края проёмов (там у проёма свои столбики)
 function splitRun(a1, a2, gaps) {
   const pieces = [], sorted = [...gaps].sort((p, q) => p[0] - q[0]); let cur = a1;
@@ -1283,10 +1290,10 @@ function drawGate() {
 }
 function drawFences() {
   registerFenceFrames();
-  fenceObjs.static.length = 0; fenceObjs.coop.length = 0;
+  for (const l of Object.values(fenceObjs)) { l.length = 0; l.posts = []; }
   const L = fenceObjs.static;
   fenceH(L, 700, 1400, 500, [[1000, 1100, 'gate']]);   // забор сада с калиткой (пока закрыта)
-  fenceH(L, 0, 1400, 1000, [[604, 684, 'pass']]);      // между фермой и пастбищем, проход у дорожки
+  fenceH(L, 0, 1400, 1000, [[604, 700, 'pass']]);      // между фермой и пастбищем, проход у дорожки (правый столбик — на углу забора курятника)
   fenceH(L, 0, 1400, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   drawGate();
 }
@@ -1636,7 +1643,6 @@ function dust(x, y) {
 }
 function buildPasture() {
   drawFields();
-  fenceObjs.pen.length = 0;
   drawPen();
   setNanaminMood(state.nanamin.stage < 3);
   nameLabel('Нанамин', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
