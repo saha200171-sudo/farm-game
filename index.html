@@ -163,7 +163,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
     <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
-    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><div class="bag" id="bag"></div></div>
+    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><div class="bag" id="bag"></div></div>
   </div>
   <button class="bubble" id="bubble" type="button" hidden></button>
   <div class="guide" id="guide" hidden><span></span></div>
@@ -314,6 +314,7 @@ function updateHud() {
   }[nm.stage] || (state.time.phase === 'evening' ? 'Вечереет: вернись домой и ложись спать' : null);
   side.hidden = !sideText;
   if (sideText) side.textContent = sideText;
+  $('skipBtn').hidden = nm.stage >= 3;   // ВРЕМЕННО: кнопка для теста смены дня
 }
 function progress() { save(); updateHud(); }
 
@@ -400,6 +401,18 @@ $('resetBtn').addEventListener('click', () => {
     <button class="btn" id="mReset" type="button">Начать заново</button></div></div>`);
   $('mCancel').onclick = closeModal;
   $('mReset').onclick = resetGame;
+});
+// ВРЕМЕННО (для теста): пропустить квест Нанамина — загон починен, коровы дома,
+// героиня рядом с повеселевшим Нанамином; остаётся поговорить с ним, и наступит вечер.
+$('skipBtn').addEventListener('click', () => {
+  if (ui.open) return;
+  const nm = state.nanamin;
+  Object.assign(nm, { seen: true, stage: 3, fixed: [true, true, true], cows: [2, 2, 2, 2], visited: true });
+  state.time.phase = 'day';
+  state.pos = { x: ANCHORS.nanamin.x - 40, y: ANCHORS.nanamin.y + 40 };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+  scene.scene.restart();
+  setTimeout(() => toast('Квест пропущен — поговори с Нанамином', 'info'), 400);
 });
 function resetGame() {
   closeModal();
