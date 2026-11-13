@@ -49,6 +49,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
   box-shadow:0 4px 0 rgba(46,36,24,.35);display:flex;flex-direction:column;gap:2px}
 .quest .label{font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tomato)}
 .quest .text{font-family:var(--display);font-size:19px;font-weight:600;line-height:1.2;text-wrap:balance}
+.quest .sub{margin-top:6px;padding-top:6px;border-top:2px dashed #D9CBA8;font-family:var(--display);font-size:17px;font-weight:600;line-height:1.2;color:#3E5A7A}
 .side{display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
 .bag{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .chip{display:flex;align-items:center;gap:6px;background:var(--paper);border:2px solid var(--wood);border-radius:999px;padding:3px 12px 3px 6px;
@@ -81,6 +82,13 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
   border-radius:12px;padding:8px 18px;box-shadow:0 3px 0 var(--wood);cursor:pointer}
 .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood)}
 .btn.secondary{background:var(--paper);color:var(--ink)}
+/* Окно мыслей героини: светлее, пунктирная рамка, курсив */
+.sheet.thought{background:#F1F6FA;border-style:dashed;border-color:#5C7A93}
+.sheet.thought .line{font-style:italic;color:#34465A}
+.sheet.thought .portrait{border-style:dashed}
+/* Выбор вариантов в разговоре */
+.actions.choices{flex-direction:column;align-items:stretch}
+.actions.choices .btn{font-size:17px;text-align:left}
 
 .modal{position:absolute;inset:0;background:rgba(28,40,18,.55);display:grid;place-items:center;
   padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
@@ -148,7 +156,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div id="game"></div>
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
-    <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div></div>
+    <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
     <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><div class="bag" id="bag"></div></div>
   </div>
   <button class="bubble" id="bubble" type="button" hidden></button>
@@ -171,7 +179,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const WORLD = { w: 1400, h: 1000 };
+const WORLD = { w: 1400, h: 2000 };   // низ карты (y > 1000) — пастбище Нанамина
 const SAVE_KEY = 'farm-prototype-v1';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
@@ -181,13 +189,21 @@ const ZONES = {
   ogorod:    { name: 'Огород' },
   kuryatnik: { name: 'Курятник' },
   sad:       { name: 'Сад' },
+  pastbishe: { name: 'Пастбище' },
 };
-const zoneAt = (x, y) => x < 700 ? 'ogorod' : (y < 500 ? 'kuryatnik' : 'sad');
+const zoneAt = (x, y) => y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : (y < 500 ? 'kuryatnik' : 'sad');
 
 const SPEAKERS = {
   grandpa: { name: 'Дедушка', letter: 'Д', color: '#B5563A' },
   klara: { name: 'Клара',          letter: 'К', color: '#D99A1E' },
+  nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
+  thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
 };
+
+// Пастбище: загон для коров (сломан в 3 местах), Нанамин рядом, 4 коровы бродят по пастбищу
+const PEN = { x: 200, y: 1400, w: 360, h: 240, gateX1: 330, gateX2: 400 };
+const PEN_SPOTS = [{ x: 200, y: 1500 }, { x: 420, y: 1640 }, { x: 560, y: 1470 }];
+const COW_HOMES = [{ x: 1080, y: 1200 }, { x: 930, y: 1720 }, { x: 330, y: 1880 }, { x: 1250, y: 1600 }];
 
 const BEDS = [{ x: 290, y: 600 }, { x: 410, y: 600 }, { x: 530, y: 600 }];
 
@@ -200,22 +216,33 @@ const ANCHORS = {
   bed2:    { ...BEDS[2], reach: 62, mark: -50 },
   gate:    { x: 700, y: 250, reach: 64, mark: -72 },
   klara:   { x: 940, y: 320, reach: 72, mark: -118 },
+  nanamin: { x: 640, y: 1560, reach: 72, mark: -118 },
+  pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
+  pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
+  pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
 };
+// Точка цели: у коров она двигается вместе с ними
+function anchorOf(id) {
+  if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 64, mark: -52 }; }
+  return ANCHORS[id];
+}
 
 // ===================== Сохранение =====================
 const freshState = () => ({
   step: 0,
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
-  open: { ogorod: true, kuryatnik: false, sad: false },
+  open: { ogorod: true, kuryatnik: false, sad: false, pastbishe: true }, // пастбище пока открыто сразу — для тестов
   pos: { x: 300, y: 430 },
+  // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
+  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: [0, 0, 0, 0], visited: false },
 });
 function loadState() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open } };
+      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin } };
     }
   } catch (e) {}
   return freshState();
@@ -263,6 +290,15 @@ function updateHud() {
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7) chips.push([`Яйца × ${state.items.eggs}`, '#FFF6E3']);
   $('bag').innerHTML = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
+  // второе задание — квест Нанамина
+  const nm = state.nanamin, side = $('sideQuest');
+  const sideText = {
+    1: `Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`,
+    2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из 4`,
+    3: 'Поговори с Нанамином',
+  }[nm.stage];
+  side.hidden = !sideText;
+  if (sideText) side.textContent = sideText;
 }
 function progress() { save(); updateHud(); }
 
@@ -286,6 +322,7 @@ function showDialog(lines, onEnd) {
 function renderLine() {
   const [who, text] = dlg.lines[dlg.i];
   const s = SPEAKERS[who];
+  $('sheet').classList.toggle('thought', !!s.thought);
   $('portrait').textContent = s.letter;
   $('portrait').style.background = s.color;
   $('who').textContent = s.name;
@@ -302,8 +339,32 @@ function typeText(text) {
     if (n >= text.length) { clearInterval(dlg.timer); dlg.timer = null; }
   }, 28);
 }
+// Мысли героини — отдельное окно (пунктир, курсив)
+function showThought(text, onEnd) { showDialog([['thought', text]], onEnd); }
+
+// Выбор: о чём спросить персонажа. options = [[текст кнопки, функция], …]
+const actionsEl = document.querySelector('#sheet .actions');
+const actionsHTML = actionsEl.innerHTML;
+function showChoice(who, prompt, options) {
+  ui.open = true; stopWalking();
+  const s = SPEAKERS[who];
+  $('sheet').hidden = false; $('sheet').classList.remove('thought');
+  $('portrait').textContent = s.letter; $('portrait').style.background = s.color;
+  $('who').textContent = s.name; $('line').textContent = prompt;
+  dlg.choice = true;
+  actionsEl.classList.add('choices');
+  actionsEl.innerHTML = options.map(([label], i) => `<button class="btn${i ? '' : ' secondary'}" type="button" data-i="${i}">${label}</button>`).join('');
+  actionsEl.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    dlg.choice = false;
+    actionsEl.classList.remove('choices'); actionsEl.innerHTML = actionsHTML;
+    $('sheet').hidden = true; ui.open = false;
+    options[+b.dataset.i][1]();
+  }));
+}
+
 function advanceDialog() {
-  if (!dlg.lines) return;
+  if (dlg.choice || !dlg.lines) return;
   if (dlg.timer) { clearInterval(dlg.timer); dlg.timer = null; $('line').textContent = dlg.full; return; }
   dlg.i++;
   if (dlg.i >= dlg.lines.length) {
@@ -410,8 +471,11 @@ function eggGame(onWin) {
 // ===================== Сюжет: что происходит при взаимодействии =====================
 function interact(id) {
   const s = state;
-  if (id === 'grandpa') return talkGrandpa();
+  if (id === 'grandpa') return askGrandpa();
   if (id === 'klara') return talkKlara();
+  if (id === 'nanamin') return talkNanamin();
+  if (id.startsWith('pen')) return repairPen(+id[3]);
+  if (id.startsWith('cow')) return callCow(+id.slice(3));
   if (id === 'well') {
     if (s.step === 1) { s.items.can = true; s.step = 2; splash(140, 545); toast('Получено: лейка'); progress(); }
     else toast(s.items.can ? 'Вода в колодце ледяная и чистая' : 'Это колодец. Рядом висит старая лейка', 'info');
@@ -461,6 +525,83 @@ function talkGrandpa() {
   showDialog([['grandpa', idle]]);
 }
 
+// Если героиня уже видела грустного Нанамина, у дедушки можно спросить о нём
+function askGrandpa() {
+  if (state.nanamin.seen && state.nanamin.stage === 0) {
+    return showChoice('grandpa', 'Что-то хотела спросить, внучка?', [
+      ['Как дела на ферме?', talkGrandpa],
+      ['Кто этот грустный человек у загона?', askAboutNanamin],
+    ]);
+  }
+  talkGrandpa();
+}
+function askAboutNanamin() {
+  showDialog([
+    ['grandpa', 'А-а, это Нанамин, наш сосед с пастбища. Хороший парень, у него было целое стадо коров.'],
+    ['grandpa', 'Да вот беда: загон совсем развалился, и коровы разбежались кто куда. С тех пор он сам не свой, ни с кем не разговаривает.'],
+    ['grandpa', 'Хочешь с ним поговорить — сначала помоги ему. Почини загон, а потом собери всех коров обратно.'],
+  ], () => { state.nanamin.stage = 1; toast('Новое задание: почини загон'); progress(); });
+}
+
+// ===================== Пастбище: Нанамин, загон, коровы =====================
+function talkNanamin() {
+  const nm = state.nanamin;
+  if (nm.stage < 3) return nanaminThought();
+  if (nm.stage === 3) return showDialog([
+    // ЗАГЛУШКА: реплики Нанамина после квеста — заменим на твои
+    ['nanamin', 'Ты… ты вернула всех моих коров? И загон теперь как новый!'],
+    ['nanamin', 'Спасибо. Я уж думал, никогда их не соберу. Заходи в гости, когда захочешь.'],
+  ], () => { nm.stage = 4; progress(); });
+  showDialog([['nanamin', 'Коровы снова дома. Спасибо тебе ещё раз!']]);
+}
+function nanaminThought() {
+  const nm = state.nanamin;
+  const first = !nm.seen;
+  nm.seen = true; save();
+  showThought(nm.stage === 0
+    ? 'Он даже не взглянул на меня… Похоже, не настроен разговаривать. Видимо, чем-то сильно расстроен.'
+    : 'Пока я не починю загон и не верну коров, он вряд ли захочет со мной говорить.',
+    first ? () => toast('Может, дедушка знает, кто это?', 'info') : null);
+}
+function penThought() {
+  showThought('Похоже, загон сломан… Кажется, он пустует уже очень давно.');
+}
+function repairPen(i) {
+  const nm = state.nanamin;
+  if (nm.stage === 0) return penThought();
+  if (nm.stage !== 1 || nm.fixed[i]) return;
+  nm.fixed[i] = true;
+  drawPen(); dust(PEN_SPOTS[i].x, PEN_SPOTS[i].y - 10);
+  const n = nm.fixed.filter(Boolean).length;
+  if (n === 3) { nm.stage = 2; toast('Загон починен! Теперь можно собирать коров'); }
+  else toast(`Починено ${n} из 3`, 'info');
+  progress();
+}
+function callCow(i) {
+  const nm = state.nanamin, c = cows[i];
+  if (nm.stage === 0) return showThought('Корова бродит одна… Наверное, чья-то потерялась.');
+  if (nm.stage === 1) return showThought('Сначала нужно починить загон — вести коров пока некуда.');
+  if (nm.stage !== 2 || c.following || nm.cows[i] === 2) return;
+  scene.tweens.killTweensOf(c);
+  c.following = true;
+  followers.push(c);
+  toast('Корова идёт за тобой. Отведи её в загон', 'info');
+}
+function cowPenned(c) {
+  const nm = state.nanamin;
+  c.following = false;
+  followers.splice(followers.indexOf(c), 1);
+  nm.cows[c.idx] = 2;
+  cowWander(c);
+  const n = nm.cows.filter(v => v === 2).length;
+  if (n === 4) {
+    nm.stage = 3;
+    setNanaminMood(false);
+    toast('Все коровы дома! Кажется, Нанамин повеселел');
+  } else toast(`Коров в загоне: ${n} из 4`, 'info');
+  progress();
+}
+
 function talkKlara() {
   const s = state;
   if (s.step === 5) return showDialog([
@@ -491,6 +632,9 @@ function showFinal() {
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG;
 let saveMs = 0, facing = 1, nearId = null;
 const chickens = [];
+const cows = [], followers = [];
+let nanaminChar = null, penBackG = null, penFrontG = null;
+const trig = { pen: false, nanamin: false };   // чтобы мысли всплывали один раз за каждое приближение
 
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
@@ -502,6 +646,7 @@ function solids() {
     [692, 0, 16, 200], [692, 300, 16, 700],      // забор огорода
     [700, 488, 300, 16], [1100, 488, 300, 16],   // забор сада
     [1000, 488, 100, 16],          // калитка в сад (пока закрыта)
+    [0, 984, 604, 20], [684, 984, 716, 20],      // забор между фермой и пастбищем (проход у дорожки)
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   return list;
@@ -540,10 +685,13 @@ function hitTest(x, y) {
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 58 && Math.abs(y - BEDS[i].y) < 44) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
+  if (near(640, 1525, 44)) return 'nanamin';
+  if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
+  for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 18, 34)) return 'cow' + c.idx;
   return null;
 }
 function withinReach(id) {
-  const a = ANCHORS[id];
+  const a = anchorOf(id);
   return Math.hypot(player.x - a.x, player.y - a.y) <= a.reach;
 }
 zone.addEventListener('pointerdown', e => {
@@ -600,16 +748,21 @@ function inputVector() {
 // облачко действия: появляется над ближайшим персонажем или предметом
 function nearest() {
   let best = null, bd = Infinity;
-  for (const id of Object.keys(ANCHORS)) {
+  const nm = state.nanamin;
+  const ids = Object.keys(ANCHORS).concat(cows.filter(c => !c.following && nm.cows[c.idx] !== 2).map(c => 'cow' + c.idx));
+  for (const id of ids) {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
-    const a = ANCHORS[id], d = Math.hypot(player.x - a.x, player.y - a.y);
+    if (id.startsWith('pen') && (nm.stage !== 1 || nm.fixed[+id[3]])) continue;
+    const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
   return best;
 }
 function actionLabel(id) {
   if (!id) return 'Действие';
+  if (id.startsWith('pen')) return 'Починить';
+  if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
   if (id.startsWith('bed')) return state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Осмотреть';
   if (id === 'gate') return 'Открыть';
@@ -621,14 +774,14 @@ function updateControls() {
   if (!nearId) { bubble.hidden = true; return; }
   const label = actionLabel(nearId);
   if (bubble.textContent !== label) bubble.textContent = label;
-  const a = ANCHORS[nearId], cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
+  const a = anchorOf(nearId), cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
   const sx = (a.x - wv.x) * z, sy = (a.y + a.mark - 6 - wv.y) * z;
   bubble.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -100%)`;
   bubble.hidden = false;
 }
 function doAction() {
   if (ui.open || !nearId) return;
-  const a = ANCHORS[nearId];
+  const a = anchorOf(nearId);
   if (Math.abs(a.x - player.x) > 4) facing = a.x < player.x ? -1 : 1;
   interact(nearId);
 }
@@ -663,6 +816,10 @@ function makeChar(look) {
   if (look.beard) {
     // седая борода и усы вместо рта
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -40, 22, 16).fillEllipse(-4, -45, 9, 5).fillEllipse(4, -45, 9, 5);
+  } else if (look.sad) {
+    // грустное лицо: опущенные уголки рта и «домиком» брови
+    b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.2 * Math.PI, 1.8 * Math.PI).strokePath();
+    b.lineStyle(1.6, 0x2e2418, 1).lineBetween(-8, -55, -3, -57).lineBetween(8, -55, 3, -57);
   } else {
     b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -46, 3.5, 0.15 * Math.PI, 0.85 * Math.PI).strokePath();
   }
@@ -693,7 +850,7 @@ function breakRepetition() {
   }
   // тёмные, золотистые и светлые пятна разного размера
   const tints = [[0x2F5A22, 0.22], [0x2F5A22, 0.16], [0xD9B45A, 0.16], [0xC8DC7A, 0.14]];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < Math.round(26 * WORLD.h / 1000); i++) {
     const [tint, a] = tints[i % tints.length];
     scene.add.image(rnd() * WORLD.w, rnd() * WORLD.h, 'blob').setTint(tint).setAlpha(a)
       .setScale(1.2 + rnd() * 2.2, 0.8 + rnd() * 1.4).setRotation(rnd() * Math.PI).setDepth(-11);
@@ -714,6 +871,11 @@ const PATHS = [
   [10, 4, 10, 7],   // вверх к калитке
   [10, 4, 18, 4],   // через калитку к курятнику
   [18, 4, 18, 11],  // вниз, к калитке в сад
+  [10, 7, 11, 7],   // от поворота у огорода — на клетку вправо
+  [11, 7, 11, 22],  // вниз, через проход в заборе — на пастбище
+  [11, 22, 21, 22], // по пастбищу на восток, к полям
+  [6, 22, 11, 22],  // на запад, к загону
+  [6, 22, 6, 24],   // ко входу в загон
 ];
 const PATH_TILE = 160;          // размер кусочка в атласе, px
 const DIRT_WORLD = 196;         // одна плитка земли = 196 точек карты
@@ -858,6 +1020,9 @@ function drawFences() {
   };
   vert(700, 0, 196); vert(700, 304, 1000);
   horiz(700, 1000, 500); horiz(1100, 1400, 500);
+  // забор между фермой и пастбищем, проход — там, где дорожка
+  horiz(0, 604, 1000); horiz(684, 1400, 1000);
+  g.fillStyle(0x6B4226, 1).fillRect(598, 974, 12, 32).fillRect(678, 974, 12, 32);
   // калитка в сад
   g.fillStyle(0x6B4226, 1).fillRect(996, 472, 10, 32).fillRect(1094, 472, 10, 32);
   g.fillStyle(0xC28A4E, 1).fillRect(1006, 478, 88, 8).fillRect(1006, 490, 88, 8);
@@ -890,8 +1055,8 @@ const PLANTS = [
   // огород: верх
   ['tree-4', 60, 150, 0.9], ['poplar-1', 660, 120, 1], ['bush-1', 370, 255, 1],
   // огород: середина
-  ['tree-1', 30, 410, 1], ['bush-2', 470, 505, 0.9], ['bush-3', 645, 560, 1], ['bush-4', 120, 700, 1],
-  ['s2-branchy-2', 640, 860, 0.9], ['bush-1', 560, 720, 0.85],
+  ['tree-1', 30, 410, 1], ['bush-2', 470, 505, 0.9], ['bush-4', 120, 700, 1],
+  ['s2-branchy-2', 470, 880, 0.9], ['bush-1', 500, 730, 0.85],
   // огород: низ — большое дерево и группа
   ['s1-oak-1', 190, 1000, 1], ['s1-grove-1', 470, 995, 1],
   // курятник
@@ -900,6 +1065,12 @@ const PLANTS = [
   // сад
   ['s2-oak-1', 830, 700, 1], ['s2-grove-2', 760, 995, 1], ['s1-grove-2', 990, 995, 1],
   ['tree-3', 1230, 640, 0.9], ['s2-oak-2', 1200, 995, 0.95], ['s1-oak-2', 1420, 780, 1],
+  // пастбище: деревья по краям и между полями
+  ['s2-oak-2', 110, 1190, 0.95], ['s2-branchy-3', 260, 1290, 0.85], ['poplar-1', 740, 1180, 0.95],
+  ['bush-3', 820, 1130, 1], ['tree-4', 920, 1110, 0.9], ['s1-grove-2', 1320, 1150, 1],
+  ['tree-2', 40, 1430, 1], ['poplar-2', 1385, 1420, 0.9], ['bush-4', 980, 1360, 0.9],
+  ['s2-grove-1', 70, 1720, 1], ['bush-1', 720, 1720, 1], ['bush-2', 640, 1800, 0.9],
+  ['s1-oak-2', 150, 1995, 1], ['s2-grove-2', 560, 1990, 1], ['tree-1', 840, 1995, 1], ['s2-oak-1', 1330, 1995, 1],
 ];
 function plant(key, x, y, s) {
   if (!scene.textures.exists('plantShadow')) {
@@ -933,6 +1104,138 @@ function wander(ch) {
     targets: ch, x: nx, y: ny, duration: 1400 + Math.random() * 2200, ease: 'Sine.easeInOut',
     onComplete: () => scene.time.delayedCall(400 + Math.random() * 2000, () => wander(ch)),
   });
+}
+
+// --- Пастбище ---
+// Поля: мягкие золотистые пятна на траве (позже заменим рисованными)
+function drawFields() {
+  const rnd = mulberry32(5);
+  const FIELDS = [[1020, 1520, 3.0, 1.7], [1220, 1800, 2.6, 1.5], [330, 1830, 2.4, 1.2], [880, 1280, 2.0, 1.0]];
+  for (const [x, y, sx, sy] of FIELDS) {
+    scene.add.image(x, y, 'blob').setTint(0xE2C062).setAlpha(0.5).setScale(sx, sy).setRotation((rnd() - 0.5) * 0.4).setDepth(-11);
+    scene.add.image(x + 20, y - 10, 'blob').setTint(0xF0D88A).setAlpha(0.35).setScale(sx * 0.7, sy * 0.65).setDepth(-11);
+  }
+}
+// Загон: забор по периметру, вход сверху; три сломанных места (пока не починены)
+function drawPen() {
+  const fixed = state.nanamin.fixed;
+  const OLD = 0xA87444, NEW = 0xC99A5E, POST = 0x7A4E2D;
+  const { x, y, w, h, gateX1, gateX2 } = PEN;
+  const draw = (g, part) => {
+    g.clear();
+    const hRail = (x1, x2, yy, broken, col) => {
+      for (let px = x1; px <= x2; px += 40) g.fillStyle(POST, 1).fillRect(px - 4, yy - 22, 8, 26);
+      if (broken) {
+        // сломано: перекладины вывалились, одна доска лежит на земле
+        g.fillStyle(OLD, 1).fillRect(x1, yy - 18, (x2 - x1) * 0.3, 5);
+        g.fillStyle(OLD, 0.9).fillTriangle(x1 + 30, yy + 6, x2 - 20, yy - 2, x2 - 18, yy + 4);
+      } else g.fillStyle(col, 1).fillRect(x1, yy - 18, x2 - x1, 5).fillRect(x1, yy - 8, x2 - x1, 5);
+    };
+    const vRail = (xx, y1, y2, broken, col) => {
+      for (let py = y1; py <= y2; py += 40) g.fillStyle(POST, 1).fillRect(xx - 7, py - 4, 14, 12);
+      if (broken) {
+        g.fillStyle(OLD, 1).fillRect(xx - 3, y1, 6, (y2 - y1) * 0.25);
+        g.fillStyle(OLD, 0.9).fillTriangle(xx + 6, y1 + 20, xx + 26, y2 - 6, xx + 18, y2);
+      } else g.fillStyle(col, 1).fillRect(xx - 3, y1, 6, y2 - y1);
+    };
+    if (part === 'back') {
+      hRail(x, gateX1, y, false, OLD); hRail(gateX2, x + w, y, false, OLD);
+      g.fillStyle(POST, 1).fillRect(gateX1 - 6, y - 30, 12, 36).fillRect(gateX2 - 6, y - 30, 12, 36);
+      // левая сторона: сломано в районе PEN_SPOTS[0]
+      vRail(x, y, 1470, false, OLD); vRail(x, 1470, 1530, !fixed[0], fixed[0] ? NEW : OLD); vRail(x, 1530, y + h, false, OLD);
+      // правая сторона: сломано в районе PEN_SPOTS[2]
+      vRail(x + w, y, 1440, false, OLD); vRail(x + w, 1440, 1500, !fixed[2], fixed[2] ? NEW : OLD); vRail(x + w, 1500, y + h, false, OLD);
+    } else {
+      // нижняя сторона: сломано в районе PEN_SPOTS[1]
+      hRail(x, 380, y + h, false, OLD); hRail(380, 460, y + h, !fixed[1], fixed[1] ? NEW : OLD); hRail(460, x + w, y + h, false, OLD);
+    }
+  };
+  draw(penBackG, 'back'); draw(penFrontG, 'front');
+}
+// Коровы (пока простые, как куры; позже — рисованные)
+function makeCow(i) {
+  const home = COW_HOMES[i];
+  const c = scene.add.container(home.x, home.y);
+  const g = scene.add.graphics();
+  g.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 54, 14);
+  g.fillStyle(0x5A4636, 1).fillRect(-18, -12, 5, 12).fillRect(-8, -12, 5, 12).fillRect(6, -12, 5, 12).fillRect(14, -12, 5, 12);
+  g.fillStyle(0xFAF6EE, 1).fillEllipse(0, -22, 50, 28);
+  g.fillStyle(0x3A3027, 1).fillEllipse(-10, -26, 14, 10).fillEllipse(8, -18, 12, 9).fillEllipse(-2, -30, 8, 6);
+  g.fillStyle(0xFAF6EE, 1).fillEllipse(26, -30, 18, 20);
+  g.fillStyle(0xF2B5A6, 1).fillEllipse(31, -24, 12, 8);
+  g.fillStyle(0x2e2418, 1).fillCircle(24, -34, 1.6).fillCircle(29, -34, 1.6);
+  g.fillStyle(0xE8D9B5, 1).fillTriangle(19, -40, 22, -48, 24, -39).fillTriangle(29, -39, 33, -47, 34, -38);
+  g.lineStyle(2, 0x5A4636, 1).lineBetween(-25, -24, -30, -12);
+  c.add(g); c.g = g; c.idx = i; c.home = home; c.following = false;
+  return c;
+}
+function cowWander(c) {
+  const penned = state.nanamin.cows[c.idx] === 2;
+  const nx = penned ? PEN.x + 40 + Math.random() * (PEN.w - 80) : c.home.x + (Math.random() - 0.5) * 220;
+  const ny = penned ? PEN.y + 50 + Math.random() * (PEN.h - 80) : c.home.y + (Math.random() - 0.5) * 140;
+  c.g.scaleX = nx < c.x ? -1 : 1;
+  scene.tweens.add({
+    targets: c, x: nx, y: Math.min(Math.max(ny, 1060), 1980), duration: 2500 + Math.random() * 3000, ease: 'Sine.easeInOut',
+    onComplete: () => { if (!c.following) scene.time.delayedCall(800 + Math.random() * 2500, () => { if (!c.following) cowWander(c); }); },
+  });
+}
+function setNanaminMood(sad) {
+  const pos = { x: ANCHORS.nanamin.x, y: ANCHORS.nanamin.y };
+  if (nanaminChar) { scene.npcs.splice(scene.npcs.indexOf(nanaminChar), 1); nanaminChar.destroy(); }
+  nanaminChar = makeChar({ skin: 0xE9BC96, dress: 0x5B7FA6, suspenders: 0x3E5A7A, hair: 'short', hairColor: 0x3B2A20, sad });
+  nanaminChar.setPosition(pos.x, pos.y).setDepth(pos.y);
+  nanaminChar.bodyG.scaleX = -1;          // смотрит на загон
+  scene.npcs.push(nanaminChar);
+}
+function dust(x, y) {
+  for (let i = 0; i < 10; i++) {
+    const d = scene.add.circle(x, y, 4, 0xD9C29A).setDepth(5900);
+    const a = Math.random() * Math.PI * 2, r = 18 + Math.random() * 24;
+    scene.tweens.add({ targets: d, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r - 10, alpha: 0, duration: 520, onComplete: () => d.destroy() });
+  }
+}
+function buildPasture() {
+  drawFields();
+  penBackG = scene.add.graphics().setDepth(PEN.y);
+  penFrontG = scene.add.graphics().setDepth(PEN.y + PEN.h + 2);
+  drawPen();
+  setNanaminMood(state.nanamin.stage < 3);
+  nameLabel('Нанамин', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
+  cows.length = 0; followers.length = 0;
+  for (let i = 0; i < 4; i++) {
+    const c = makeCow(i);
+    if (state.nanamin.cows[i] === 2) c.setPosition(PEN.x + 60 + i * 70, PEN.y + 120);
+    cows.push(c); cowWander(c);
+  }
+  trig.pen = trig.nanamin = false;
+}
+// Каждый кадр: коровы идут за героиней, мысли у загона и у Нанамина
+function updatePasture(dt) {
+  const nm = state.nanamin;
+  let lead = player;
+  for (const c of [...followers]) {
+    const dx = lead.x - c.x, dy = lead.y - c.y, d = Math.hypot(dx, dy);
+    if (d > 46) {
+      const sp = Math.min(d - 46, 210 * Math.min(dt, 50) / 1000);
+      c.x += dx / d * sp; c.y += dy / d * sp;
+      if (Math.abs(dx) > 2) c.g.scaleX = dx < 0 ? -1 : 1;
+    }
+    if (c.x > PEN.x + 20 && c.x < PEN.x + PEN.w - 20 && c.y > PEN.y + 30 && c.y < PEN.y + PEN.h - 10) { cowPenned(c); continue; }
+    lead = c;
+  }
+  cows.forEach(c => c.setDepth(c.y));
+  if (ui.open) return;
+  // первый раз на пастбище
+  if (!nm.visited && player.y > 1010) { nm.visited = true; save(); toast('Новая локация: Пастбище'); }
+  // загон: мысли, пока о нём ничего не знаем
+  const inPen = player.x > PEN.x - 50 && player.x < PEN.x + PEN.w + 50 && player.y > PEN.y - 50 && player.y < PEN.y + PEN.h + 50;
+  const farPen = player.x < PEN.x - 110 || player.x > PEN.x + PEN.w + 110 || player.y < PEN.y - 110 || player.y > PEN.y + PEN.h + 110;
+  if (nm.stage === 0 && inPen && !trig.pen && Math.hypot(player.x - ANCHORS.nanamin.x, player.y - ANCHORS.nanamin.y) > 90) { trig.pen = true; penThought(); }
+  else if (farPen) trig.pen = false;
+  // Нанамин: мысли, пока квест не выполнен
+  const dN = Math.hypot(player.x - ANCHORS.nanamin.x, player.y - ANCHORS.nanamin.y);
+  if (nm.stage < 3 && dN < 90 && !trig.nanamin) { trig.nanamin = true; nanaminThought(); }
+  else if (dN > 140) trig.nanamin = false;
 }
 
 function makeLock(key, rect, title, sub) {
@@ -1042,6 +1345,8 @@ class FarmScene extends Phaser.Scene {
     klara.bodyG.scaleX = -1;
     klaraLabel = nameLabel('Клара', 940, 242).setVisible(state.open.kuryatnik);
     this.npcs = [grandpa, klara];
+    nanaminChar = null;
+    buildPasture();
 
     player = makeChar({ skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A });
     const p = walkable(state.pos.x, state.pos.y) ? state.pos : { x: 300, y: 430 };
@@ -1072,6 +1377,13 @@ class FarmScene extends Phaser.Scene {
       Object.values(lockLayers).forEach(l => l.setAlpha(0.35));
     }
 
+    // Служебные параметры для скриншотов: ?pos=x,y&seen=1&stage=N&act=id
+    const q = new URLSearchParams(location.search);
+    if (q.get('pos')) { const [px, py] = q.get('pos').split(',').map(Number); player.setPosition(px, py); cam.centerOn(px, py); }
+    if (q.get('seen')) state.nanamin.seen = true;
+    if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
+    if (q.get('act')) setTimeout(() => interact(q.get('act')), 600);
+
     updateHud();
     releaseStick();
     $('loading').hidden = true;
@@ -1098,6 +1410,7 @@ class FarmScene extends Phaser.Scene {
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
     chickens.forEach(c => c.setDepth(c.y));
+    updatePasture(dt);
 
     const id = questTarget();
     if (id && id !== nearId) { // когда над целью облачко, «!» прячем
