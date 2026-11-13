@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 36;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 37;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -250,7 +250,7 @@ const ANCHORS = {
 };
 // Точка цели: у коров она двигается вместе с ними
 function anchorOf(id) {
-  if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 68, mark: -70 }; }
+  if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 72, mark: -82 }; }
   if (id && id.startsWith('bed')) {   // у длинной грядки точка — ближайшее к героине место вдоль неё, облачко — над грядкой
     const b = BEDS[+id[3]], top = b.y - b.len / 2, y = Math.max(top, Math.min(b.y + b.len / 2, player ? player.y : b.y));
     return { x: b.x, y, reach: 56, mark: top - y - 10 };
@@ -903,7 +903,7 @@ function hitTest(x, y) {
   if (near(688, -1250, 62)) return 'kale';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
-  for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 26, 44)) return 'cow' + c.idx;
+  for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 30, 50)) return 'cow' + c.idx;
   return null;
 }
 function withinReach(id) {
@@ -1799,7 +1799,7 @@ function drawPen() {
 // [x, y, w, h в атласе, точка поворота внутри детали (x, y), та же точка в координатах коровки (0,0 — земля под туловищем)]
 const COW_PARTS = {"leg-back-far":[78,132,43,64,21.0,12.0,-44.0,-64.0],"leg-back-near":[0,132,40,76,20.5,13.0,-82.0,-63.0],"leg-front-far":[42,132,34,68,21.5,11.0,69.0,-66.0],"leg-front-near":[457,0,42,82,22.0,12.0,35.0,-68.0],"ear":[123,132,51,38,45.0,20.5,60.0,-168.0],"head":[347,0,108,101,21.0,70.5,60.0,-138.0],"tail":[204,0,54,109,48.0,4.5,-91.5,-165.0],"body":[0,0,202,130,104.5,80.0,0.0,-99.0],"neck":[260,0,85,104,15.0,25.0,27.5,-154.0]};
 const COW_BODY_PIVOT = [-60, -60];   // туловище наклоняется вокруг задних бёдер
-const COW_SCALE = 0.25;              // коровка на поле ≈ 72×53
+const COW_SCALE = 0.3;               // коровка на поле ≈ 86×63
 const COW_LAYERS = ['tail', 'leg-back-far', 'leg-front-far', 'leg-back-near', 'leg-front-near', 'body', 'neck', 'head'];   // снизу вверх; ушко — внутри головы
 const cowPiv = k => [COW_PARTS[k][6], COW_PARTS[k][7]];
 function registerCowFrames() {
