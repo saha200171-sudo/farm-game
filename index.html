@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 20;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 21;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1205,39 +1205,89 @@ function drawBed(i) {
     }
   }
 }
-function drawGate() {
-  gateG.clear();
-  gateG.fillStyle(0x6B4226, 1).fillRect(690, 192, 20, 12).fillRect(690, 296, 20, 12);
-  if (!state.open.kuryatnik) {
-    gateG.fillStyle(0xC28A4E, 1).fillRect(694, 204, 12, 92);
-    gateG.lineStyle(3, 0x8B5A2B, 1).lineBetween(694, 210, 706, 290);
-    gateG.fillStyle(0xE9B94A, 1).fillCircle(700, 250, 5);
-  } else {
-    gateG.fillStyle(0xC28A4E, 1).fillRect(708, 290, 62, 12);
+// ===================== Забор: рисованный, собирается из деталей (как конструктор) =====================
+// Атлас assets/fence/fence.png: [x, y, w, h]. Детали сняты с листа из Magnific, наклон выпрямлен.
+const FENCE_FRAMES = {"post":[718,0,38,119],"rails":[0,279,290,119],"rail-side":[0,0,29,277],"rail-one":[292,279,277,29],"gate-post-l":[505,0,40,149],"gate-post-r":[547,0,38,149],"leaf":[587,0,129,149],"leaf-side":[31,0,43,219],"end-post":[76,0,50,159],"broken":[128,0,375,158]};
+const FS = 1 / 2.96;      // единиц мира на пиксель атласа
+const F_SRC = 3.7;        // пикселей исходного листа на единицу мира (для размеров, снятых с листа)
+const fenceObjs = { static: [], coop: [], pen: [] };
+const fW = k => FENCE_FRAMES[k][2] * FS, fH = k => FENCE_FRAMES[k][3] * FS;
+function registerFenceFrames() {
+  const t = scene.textures.get('fence');
+  for (const [k, f] of Object.entries(FENCE_FRAMES)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
+}
+function fImg(list, key, x, y, ox, oy, depth, sx = 1, sy = 1) {
+  const im = scene.add.image(x, y, 'fence', key).setOrigin(ox, oy).setScale(FS * sx, FS * sy).setDepth(depth);
+  list.push(im); return im;
+}
+function clearFence(list) { list.forEach(o => o.destroy()); list.length = 0; }
+// участок забора → куски «забор» и проёмы; edges — края проёмов (там у проёма свои столбики)
+function splitRun(a1, a2, gaps) {
+  const pieces = [], sorted = [...gaps].sort((p, q) => p[0] - q[0]); let cur = a1;
+  for (const [g1, g2, kind] of sorted) { if (g1 > cur) pieces.push([cur, g1, 'fence']); pieces.push([g1, g2, kind]); cur = g2; }
+  if (a2 > cur) pieces.push([cur, a2, 'fence']);
+  return { pieces, edges: new Set(gaps.flatMap(g => [g[0].toFixed(1), g[1].toFixed(1)])) };
+}
+// Забор «прямо» (слева направо). gaps: [x1, x2, 'gate' | 'gate-open' | 'pass' | 'broken']
+function fenceH(list, x1, x2, y, gaps = [], step = 78) {
+  const { pieces, edges } = splitRun(x1, x2, gaps), pw = fW('post');
+  const afterBroken = new Set(gaps.filter(g => g[2] === 'broken').map(g => g[1].toFixed(1)));
+  for (const [a, b, kind] of pieces) {
+    if (kind === 'fence') {
+      const n = Math.max(1, Math.round((b - a) / step)), xs = Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
+      const lean = afterBroken.has(a.toFixed(1)) ? 46 / F_SRC : 0;   // жерди уходят под наклонённый столбик пролома
+      for (let i = 0; i < n; i++) {
+        const ext = i === 0 ? lean : 0, w = xs[i + 1] - xs[i] + ext - pw * 0.6;
+        fImg(list, 'rails', xs[i] - ext + pw * 0.3, y, 0, 1, y - 1, w / fW('rails'), 1);
+      }
+      for (const xx of xs) if (!edges.has(xx.toFixed(1))) fImg(list, 'post', xx, y, 0.5, 1, y);
+    } else if (kind === 'gate' || kind === 'gate-open') {
+      const gl = fW('gate-post-l');
+      fImg(list, 'gate-post-l', a, y + 1, 0.5, 1, y + 1); fImg(list, 'gate-post-r', b, y + 1, 0.5, 1, y + 1);
+      if (kind === 'gate') fImg(list, 'leaf', a + gl * 0.35, y, 0, 1, y, ((b - a) - gl * 0.7) / fW('leaf'), 1);
+      else fImg(list, 'leaf-side', a + gl * 0.3, y - fH('leaf'), 0, 0, y + 30);
+    } else if (kind === 'pass') {
+      fImg(list, 'end-post', a, y, 0.5, 1, y, 0.85, 0.85); fImg(list, 'end-post', b, y, 0.5, 1, y, 0.85, 0.85);
+    } else if (kind === 'broken') {
+      fImg(list, 'broken', a - 26 / F_SRC, y - 151 / F_SRC, 0, 0, y);
+    }
   }
 }
+// Забор «сбоку» (сверху вниз по экрану): столбики друг под другом, жердь — вертикальная полоска между ними
+function fenceV(list, x, y1, y2, gaps = [], step = 62) {
+  const { pieces, edges } = splitRun(y1, y2, gaps);
+  const railTop = 26 / F_SRC, postH = 149 / F_SRC;
+  const rail = (ya, yb, depth) => fImg(list, 'rail-side', x, ya - postH + railTop, 0.5, 0, depth, 1.3, (yb - ya) / fH('rail-side'));
+  for (const [a, b, kind] of pieces) {
+    if (kind === 'fence') {
+      const n = Math.max(1, Math.round((b - a) / step)), ys = Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
+      for (let i = 0; i < n; i++) rail(ys[i], ys[i + 1], ys[i + 1] - 0.5);
+      for (const yy of ys) if (!edges.has(yy.toFixed(1))) fImg(list, 'post', x, yy, 0.5, 1, yy);
+    } else if (kind === 'gate' || kind === 'gate-open') {
+      const gl = fW('gate-post-l');
+      fImg(list, 'gate-post-l', x, a, 0.5, 1, a); fImg(list, 'gate-post-r', x, b + 1, 0.5, 1, b + 1);
+      if (kind === 'gate') fImg(list, 'leaf-side', x, b, 0.5, 1, b, 1, ((b - a) + fH('leaf')) / fH('leaf-side'));
+      else fImg(list, 'leaf', x + gl * 0.3, a, 0, 1, a + 2);
+    } else if (kind === 'broken') {
+      // сломано: от жерди остался обломок, вторая жердь лежит на земле
+      fImg(list, 'post', x, a, 0.5, 1, a); fImg(list, 'post', x, b, 0.5, 1, b);
+      rail(a, a + (b - a) * 0.3, a + 1);
+      fImg(list, 'rail-one', x + 10, (a + b) / 2 + 4, 0.5, 0.5, b - 1, (b - a) * 0.95 / fW('rail-one'), 1).setRotation(1.2);
+    }
+  }
+}
+// Калитка курятника — в заборе сбоку между огородом и курятником
+function drawGate() {
+  clearFence(fenceObjs.coop);
+  fenceV(fenceObjs.coop, 700, 0, 1000, [[196, 304, state.open.kuryatnik ? 'gate-open' : 'gate']]);
+}
 function drawFences() {
-  const g = scene.add.graphics().setDepth(3);
-  const vert = (x, y1, y2) => {
-    g.fillStyle(0xA87444, 1).fillRect(x - 3, y1, 6, y2 - y1);
-    g.fillStyle(0x7A4E2D, 1); for (let y = y1; y <= y2; y += 40) g.fillRect(x - 7, y - 4, 14, 12);
-  };
-  const horiz = (x1, x2, y) => {
-    g.fillStyle(0x7A4E2D, 1); for (let x = x1; x <= x2; x += 40) g.fillRect(x - 4, y - 22, 8, 26);
-    g.fillStyle(0xA87444, 1).fillRect(x1, y - 18, x2 - x1, 5).fillRect(x1, y - 8, x2 - x1, 5);
-  };
-  vert(700, 0, 196); vert(700, 304, 1000);
-  horiz(700, 1000, 500); horiz(1100, 1400, 500);
-  // забор между фермой и пастбищем, проход — там, где дорожка
-  horiz(0, 604, 1000); horiz(684, 1400, 1000);
-  // забор между фермой и полем, проход — там, где дорожка
-  horiz(0, 548, 0); horiz(628, 1400, 0);
-  g.fillStyle(0x6B4226, 1).fillRect(540, -26, 12, 32).fillRect(624, -26, 12, 32);
-  g.fillStyle(0x6B4226, 1).fillRect(598, 974, 12, 32).fillRect(678, 974, 12, 32);
-  // калитка в сад
-  g.fillStyle(0x6B4226, 1).fillRect(996, 472, 10, 32).fillRect(1094, 472, 10, 32);
-  g.fillStyle(0xC28A4E, 1).fillRect(1006, 478, 88, 8).fillRect(1006, 490, 88, 8);
-  gateG = scene.add.graphics().setDepth(4);
+  registerFenceFrames();
+  fenceObjs.static.length = 0; fenceObjs.coop.length = 0;
+  const L = fenceObjs.static;
+  fenceH(L, 700, 1400, 500, [[1000, 1100, 'gate']]);   // забор сада с калиткой (пока закрыта)
+  fenceH(L, 0, 1400, 1000, [[604, 684, 'pass']]);      // между фермой и пастбищем, проход у дорожки
+  fenceH(L, 0, 1400, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   drawGate();
 }
 function drawCoop() {
@@ -1440,39 +1490,13 @@ function drawFields() {
 }
 // Загон: забор по периметру, вход сверху; три сломанных места (пока не починены)
 function drawPen() {
-  const fixed = state.nanamin.fixed;
-  const OLD = 0xA87444, NEW = 0xC99A5E, POST = 0x7A4E2D;
-  const { x, y, w, h, gateX1, gateX2 } = PEN;
-  const draw = (g, part) => {
-    g.clear();
-    const hRail = (x1, x2, yy, broken, col) => {
-      for (let px = x1; px <= x2; px += 40) g.fillStyle(POST, 1).fillRect(px - 4, yy - 22, 8, 26);
-      if (broken) {
-        // сломано: перекладины вывалились, одна доска лежит на земле
-        g.fillStyle(OLD, 1).fillRect(x1, yy - 18, (x2 - x1) * 0.3, 5);
-        g.fillStyle(OLD, 0.9).fillTriangle(x1 + 30, yy + 6, x2 - 20, yy - 2, x2 - 18, yy + 4);
-      } else g.fillStyle(col, 1).fillRect(x1, yy - 18, x2 - x1, 5).fillRect(x1, yy - 8, x2 - x1, 5);
-    };
-    const vRail = (xx, y1, y2, broken, col) => {
-      for (let py = y1; py <= y2; py += 40) g.fillStyle(POST, 1).fillRect(xx - 7, py - 4, 14, 12);
-      if (broken) {
-        g.fillStyle(OLD, 1).fillRect(xx - 3, y1, 6, (y2 - y1) * 0.25);
-        g.fillStyle(OLD, 0.9).fillTriangle(xx + 6, y1 + 20, xx + 26, y2 - 6, xx + 18, y2);
-      } else g.fillStyle(col, 1).fillRect(xx - 3, y1, 6, y2 - y1);
-    };
-    if (part === 'back') {
-      hRail(x, gateX1, y, false, OLD); hRail(gateX2, x + w, y, false, OLD);
-      g.fillStyle(POST, 1).fillRect(gateX1 - 6, y - 30, 12, 36).fillRect(gateX2 - 6, y - 30, 12, 36);
-      // левая сторона: сломано в районе PEN_SPOTS[0]
-      vRail(x, y, 1470, false, OLD); vRail(x, 1470, 1530, !fixed[0], fixed[0] ? NEW : OLD); vRail(x, 1530, y + h, false, OLD);
-      // правая сторона: сломано в районе PEN_SPOTS[2]
-      vRail(x + w, y, 1440, false, OLD); vRail(x + w, 1440, 1500, !fixed[2], fixed[2] ? NEW : OLD); vRail(x + w, 1500, y + h, false, OLD);
-    } else {
-      // нижняя сторона: сломано в районе PEN_SPOTS[1]
-      hRail(x, 380, y + h, false, OLD); hRail(380, 460, y + h, !fixed[1], fixed[1] ? NEW : OLD); hRail(460, x + w, y + h, false, OLD);
-    }
-  };
-  draw(penBackG, 'back'); draw(penFrontG, 'front');
+  const L = fenceObjs.pen, fixed = state.nanamin.fixed, { x, y, w, h, gateX1, gateX2 } = PEN;
+  clearFence(L);
+  const BW = (440 - 26) / F_SRC;   // ширина сломанного куска (между его столбиками)
+  fenceH(L, x, x + w, y, [[gateX1, gateX2, 'pass']]);
+  fenceV(L, x, y, y + h, fixed[0] ? [] : [[1470, 1530, 'broken']]);       // левая сторона (PEN_SPOTS[0])
+  fenceV(L, x + w, y, y + h, fixed[2] ? [] : [[1440, 1500, 'broken']]);   // правая сторона (PEN_SPOTS[2])
+  fenceH(L, x, x + w, y + h, fixed[1] ? [] : [[420 - BW / 2, 420 + BW / 2, 'broken']]);   // низ (PEN_SPOTS[1])
 }
 // ===================== Коровы: рисованные, из 9 деталей (перекладная анимация) =====================
 // Атлас assets/cows/cow-white.png (детали в 0.5 от исходника). Для каждой детали:
@@ -1612,8 +1636,7 @@ function dust(x, y) {
 }
 function buildPasture() {
   drawFields();
-  penBackG = scene.add.graphics().setDepth(PEN.y);
-  penFrontG = scene.add.graphics().setDepth(PEN.y + PEN.h + 2);
+  fenceObjs.pen.length = 0;
   drawPen();
   setNanaminMood(state.nanamin.stage < 3);
   nameLabel('Нанамин', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
@@ -1737,6 +1760,7 @@ class FarmScene extends Phaser.Scene {
   preload() {
     this.load.image('grass', 'assets/ground/grass.jpg');
     this.load.image('cowWhite', 'assets/cows/cow-white.png');
+    this.load.image('fence', 'assets/fence/fence.png');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
