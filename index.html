@@ -1289,7 +1289,14 @@ function drawWheat() {
 // ===================== Торфинн: сторож поля =====================
 // Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
 let thorfinnChar = null, thorfinnLabel = null;
-const thor = { mode: 'idle', scolds: 0 };   // idle | chase | scold | return
+const thor = { mode: 'idle', scolds: 0, lefts: 0 };   // idle | chase | scold | return
+// Если героиня успела уйти с поля сама — ворчит, но по-доброму
+const THOR_LEFT_LINES = [
+  'Вот и правильно! По дорожке — оно надёжнее',
+  'Ладно, ладно… Только под ноги смотри!',
+  'Так-то лучше. Пшеница тебе спасибо скажет',
+  'Хм. Ну хоть понятливая…',
+];
 const THOR_LOOK = { skin: 0xF1C9A5, dress: 0xE2D6C3, belt: 0x6B4A2E, hair: 'long', hairColor: 0xD4AE5C };
 const THOR_LINES = [
   'Эй! А ну слезай с поля! Пшеницу затопчешь!',
@@ -1337,7 +1344,7 @@ function updateThorfinn(dt) {
     }
     if (thor.mode === 'chase') {
       if (!inWheat(player.x, player.y)) {
-        thor.mode = 'return'; toast('Торфинн: «И не возвращайся!»', 'info');
+        thor.mode = 'return'; toast(`Торфинн: «${THOR_LEFT_LINES[thor.lefts++ % THOR_LEFT_LINES.length]}»`, 'info');
       } else if (moveTo(player.x + (player.x < thorfinnChar.x ? 30 : -30), player.y, 300) < 14) {
         thor.mode = 'scold';
         thorfinnChar.bodyG.scaleX = player.x < thorfinnChar.x ? -1 : 1;
