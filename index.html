@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 19;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 20;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -216,7 +216,8 @@ const SPEAKERS = {
 // Пастбище: загон для коров (сломан в 3 местах), Нанамин рядом, 4 коровы бродят по пастбищу
 const PEN = { x: 200, y: 1400, w: 360, h: 240, gateX1: 330, gateX2: 400 };
 const PEN_SPOTS = [{ x: 200, y: 1500 }, { x: 420, y: 1640 }, { x: 560, y: 1470 }];
-const COW_HOMES = [{ x: 1080, y: 1200 }, { x: 930, y: 1720 }, { x: 330, y: 1880 }, { x: 1250, y: 1600 }];
+const COW_HOMES = [{ x: 1080, y: 1200 }, { x: 930, y: 1720 }, { x: 330, y: 1880 }, { x: 1250, y: 1600 },
+                   { x: 760, y: 1160 }, { x: 420, y: 1230 }, { x: 1150, y: 1900 }, { x: 640, y: 1870 }];
 
 const BEDS = [{ x: 290, y: 600 }, { x: 410, y: 600 }, { x: 530, y: 600 }];
 
@@ -239,7 +240,7 @@ const ANCHORS = {
 };
 // Точка цели: у коров она двигается вместе с ними
 function anchorOf(id) {
-  if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 64, mark: -52 }; }
+  if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 68, mark: -70 }; }
   if (id === 'thorfinn' && thorfinnChar) return { x: thorfinnChar.x, y: thorfinnChar.y, reach: 72, mark: -118 };
   return ANCHORS[id];
 }
@@ -252,7 +253,7 @@ const freshState = () => ({
   open: { ogorod: true, kuryatnik: false, sad: false, pastbishe: true, pole: true }, // пастбище и поле пока открыты сразу — для тестов
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
-  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: [0, 0, 0, 0], visited: false },
+  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false },
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
@@ -263,7 +264,11 @@ function loadState() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 } };
+      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 } };
+      // старые сохранения: коров было 4, теперь 8 — новые коровы дома, если квест уже пройден
+      const nc = st.nanamin.cows;
+      while (nc.length < COW_HOMES.length) nc.push(st.nanamin.stage >= 3 ? 2 : 0);
+      return st;
     }
   } catch (e) {}
   return freshState();
@@ -323,7 +328,7 @@ function updateHud() {
   const nm = state.nanamin, side = $('sideQuest');
   const sideText = {
     1: `Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`,
-    2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из 4`,
+    2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из ${COW_HOMES.length}`,
     3: 'Поговори с Нанамином',
   }[nm.stage] || (state.time.phase === 'evening' ? 'Вечереет: вернись домой и ложись спать' : null);
   side.hidden = !sideText;
@@ -422,7 +427,7 @@ $('resetBtn').addEventListener('click', () => {
 $('skipBtn').addEventListener('click', () => {
   if (ui.open) return;
   const nm = state.nanamin;
-  Object.assign(nm, { seen: true, stage: 3, fixed: [true, true, true], cows: [2, 2, 2, 2], visited: true });
+  Object.assign(nm, { seen: true, stage: 3, fixed: [true, true, true], cows: COW_HOMES.map(() => 2), visited: true });
   state.time.phase = 'day';
   state.pos = { x: ANCHORS.nanamin.x - 40, y: ANCHORS.nanamin.y + 40 };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
@@ -631,6 +636,7 @@ function callCow(i) {
   if (nm.stage === 1) return showThought('Сначала нужно починить загон — вести коров пока некуда.');
   if (nm.stage !== 2 || c.following || nm.cows[i] === 2) return;
   scene.tweens.killTweensOf(c);
+  c.moving = false;
   c.following = true;
   followers.push(c);
   toast('Корова идёт за тобой. Отведи её в загон', 'info');
@@ -642,11 +648,11 @@ function cowPenned(c) {
   nm.cows[c.idx] = 2;
   cowWander(c);
   const n = nm.cows.filter(v => v === 2).length;
-  if (n === 4) {
+  if (n === COW_HOMES.length) {
     nm.stage = 3;
     setNanaminMood(false);
     toast('Все коровы дома! Кажется, Нанамин повеселел');
-  } else toast(`Коров в загоне: ${n} из 4`, 'info');
+  } else toast(`Коров в загоне: ${n} из ${COW_HOMES.length}`, 'info');
   progress();
 }
 
@@ -858,7 +864,7 @@ function hitTest(x, y) {
   if (near(640, 1525, 44)) return 'nanamin';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
-  for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 18, 34)) return 'cow' + c.idx;
+  for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 26, 44)) return 'cow' + c.idx;
   return null;
 }
 function withinReach(id) {
@@ -1468,31 +1474,125 @@ function drawPen() {
   };
   draw(penBackG, 'back'); draw(penFrontG, 'front');
 }
-// Коровы (пока простые, как куры; позже — рисованные)
+// ===================== Коровы: рисованные, из 9 деталей (перекладная анимация) =====================
+// Атлас assets/cows/cow-white.png (детали в 0.5 от исходника). Для каждой детали:
+// [x, y, w, h в атласе, точка поворота внутри детали (x, y), та же точка в координатах коровки (0,0 — земля под туловищем)]
+const COW_PARTS = {"leg-back-far":[78,132,43,64,21.0,12.0,-44.0,-64.0],"leg-back-near":[0,132,40,76,20.5,13.0,-82.0,-63.0],"leg-front-far":[42,132,34,68,21.5,11.0,69.0,-66.0],"leg-front-near":[457,0,42,82,22.0,12.0,35.0,-68.0],"ear":[123,132,51,38,45.0,20.5,60.0,-168.0],"head":[347,0,108,101,21.0,70.5,60.0,-138.0],"tail":[204,0,54,109,48.0,4.5,-91.5,-165.0],"body":[0,0,202,130,104.5,80.0,0.0,-99.0],"neck":[260,0,85,104,15.0,25.0,27.5,-154.0]};
+const COW_BODY_PIVOT = [-60, -60];   // туловище наклоняется вокруг задних бёдер
+const COW_SCALE = 0.25;              // коровка на поле ≈ 72×53
+const COW_LAYERS = ['tail', 'leg-back-far', 'leg-front-far', 'leg-back-near', 'leg-front-near', 'body', 'neck', 'head'];   // снизу вверх; ушко — внутри головы
+const cowPiv = k => [COW_PARTS[k][6], COW_PARTS[k][7]];
+function registerCowFrames() {
+  const t = scene.textures.get('cowWhite');
+  for (const [k, f] of Object.entries(COW_PARTS)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
+}
 function makeCow(i) {
   const home = COW_HOMES[i];
   const c = scene.add.container(home.x, home.y);
-  const g = scene.add.graphics();
-  g.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 54, 14);
-  g.fillStyle(0x5A4636, 1).fillRect(-18, -12, 5, 12).fillRect(-8, -12, 5, 12).fillRect(6, -12, 5, 12).fillRect(14, -12, 5, 12);
-  g.fillStyle(0xFAF6EE, 1).fillEllipse(0, -22, 50, 28);
-  g.fillStyle(0x3A3027, 1).fillEllipse(-10, -26, 14, 10).fillEllipse(8, -18, 12, 9).fillEllipse(-2, -30, 8, 6);
-  g.fillStyle(0xFAF6EE, 1).fillEllipse(26, -30, 18, 20);
-  g.fillStyle(0xF2B5A6, 1).fillEllipse(31, -24, 12, 8);
-  g.fillStyle(0x2e2418, 1).fillCircle(24, -34, 1.6).fillCircle(29, -34, 1.6);
-  g.fillStyle(0xE8D9B5, 1).fillTriangle(19, -40, 22, -48, 24, -39).fillTriangle(29, -39, 33, -47, 34, -38);
-  g.lineStyle(2, 0x5A4636, 1).lineBetween(-25, -24, -30, -12);
-  c.add(g); c.g = g; c.idx = i; c.home = home; c.following = false;
+  const shadow = scene.add.ellipse(0, -2, 300 * COW_SCALE, 52 * COW_SCALE, 0x1d2a12, 0.22);
+  const rig = scene.add.container(0, 0).setScale(COW_SCALE);
+  const parts = {};
+  const img = k => { const f = COW_PARTS[k]; return scene.add.image(0, 0, 'cowWhite', k).setOrigin(f[4] / f[2], f[5] / f[3]); };
+  for (const k of COW_LAYERS) {
+    if (k === 'head') {
+      const head = scene.add.container(0, 0), h = img('head'), ear = img('ear');
+      const e = cowPiv('ear'), hp = cowPiv('head');
+      ear.setPosition(e[0] - hp[0], e[1] - hp[1]);
+      head.add([h, ear]); parts.head = head; parts.ear = ear; rig.add(head);
+    } else { parts[k] = img(k); rig.add(parts[k]); }
+  }
+  c.add([shadow, rig]);
+  Object.assign(c, { rig, parts, idx: i, home, following: false, face: 1, moving: false, walkT: 0, act: null });
+  setCowFace(c, Math.random() < 0.5 ? -1 : 1);
+  poseCow(c, {});
   return c;
+}
+function setCowFace(c, face) { c.face = face; c.rig.scaleX = COW_SCALE * face; }
+
+// Позы — углы в градусах (плюс — против часовой, как в превью в Figma), сдвиги — в пикселях атласа
+const cowEase = x => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, x)));
+const TAU = Math.PI * 2;
+function cowWalkPose(t) {
+  const s = Math.sin(TAU * t / 0.7);
+  return { 'leg-front-near': 16 * s, 'leg-back-far': 16 * s, 'leg-front-far': -16 * s, 'leg-back-near': -16 * s,
+           body: -1.5 * Math.abs(s), head: 3 * Math.sin(TAU * t / 0.35), tail: -8 * s };
+}
+const COW_ACTS = {   // что коровка делает, когда стоит; weight — как часто
+  stand: { weight: 3, dur: () => 2.5 + Math.random() * 2.5, pose: t => ({ head: 2 * Math.sin(TAU * t / 1.6), tail: -10 * Math.sin(TAU * t / 0.8) }) },
+  ears: { weight: 1.3, dur: () => 1.4, pose: t => {
+    let e = 0;
+    for (const s of [0.15, 0.75]) if (t >= s && t < s + 0.36) e = 22 * Math.sin(Math.PI * (t - s) / 0.18) * (1 - (t - s) / 0.36);
+    return { ear: e, head: t > 0.1 && t < 1.2 ? 2.5 * Math.sin(TAU * t / 0.5) : 0, tail: -8 * Math.sin(TAU * t / 0.8) };
+  } },
+  graze: { weight: 3, dur: () => 3 + Math.random() * 4, pose: (t, d) => {
+    const k = t < 0.7 ? cowEase(t / 0.7) : cowEase((d - t) / 0.7);
+    const chew = t >= 0.7 && t < d - 0.7 ? 2.5 * Math.sin(TAU * t / 0.35) : 0;
+    return { tilt: -7 * k, neck: -16 * k, head: -10 * k + chew, headDx: 7 * k, headDy: 1 * k, tail: -6 * Math.sin(TAU * t / 1.0), ear: 6 * Math.sin(TAU * t / 0.9) * k };
+  } },
+  up: { weight: 1.2, dur: () => 2.2, pose: (t, d) => {
+    const k = t < 0.6 ? cowEase(t / 0.6) : cowEase((d - t) / 0.6);
+    const sniff = t >= 0.6 && t < d - 0.6 ? 1.8 * Math.sin(TAU * t / 0.25) : 0;
+    return { tilt: 2 * k, neck: 5 * k, head: 6 * k + sniff, ear: -8 * k, tail: -6 * Math.sin(TAU * t / 1.0) };
+  } },
+};
+function pickCowAct(prev) {
+  const names = Object.keys(COW_ACTS).filter(n => n === 'stand' || n !== prev);   // одно и то же (кроме «стоит») два раза подряд не делаем
+  let r = Math.random() * names.reduce((s, n) => s + COW_ACTS[n].weight, 0);
+  for (const n of names) if ((r -= COW_ACTS[n].weight) <= 0) return n;
+  return 'stand';
+}
+function cowRot(p, c, deg) {
+  const a = -deg * Math.PI / 180, x = p[0] - c[0], y = p[1] - c[1];
+  return [c[0] + x * Math.cos(a) - y * Math.sin(a), c[1] + x * Math.sin(a) + y * Math.cos(a)];
+}
+// Раскладывает детали по позе: туловище → шея → голова → ушко; передние ножки подгибаются, копыта на земле
+function poseCow(c, P) {
+  const tilt = P.tilt || 0, by = P.body || 0, pp = c.parts;
+  const T = p => { const q = cowRot(p, COW_BODY_PIVOT, tilt); return [q[0], q[1] + by]; };
+  const put = (o, p, deg) => { o.setPosition(p[0], p[1]); o.rotation = -deg * Math.PI / 180; };
+  put(pp.tail, T(cowPiv('tail')), tilt + (P.tail || 0));
+  for (const k of ['leg-back-far', 'leg-front-far', 'leg-back-near', 'leg-front-near']) {
+    const hip = T(cowPiv(k));
+    put(pp[k], hip, P[k] || 0);
+    pp[k].scaleY = k.startsWith('leg-front') ? Math.min(1, Math.max(0.6, hip[1] / cowPiv(k)[1])) : 1;
+  }
+  put(pp.body, T(cowPiv('body')), tilt);
+  const na = P.neck || 0, ex = [P.headDx || 0, P.headDy || 0], NP = cowPiv('neck'), np = T(NP);
+  put(pp.neck, [np[0] + ex[0] * 0.5, np[1] + ex[1] * 0.5], tilt + na);
+  const hp = T(cowRot(cowPiv('head'), NP, na));
+  put(pp.head, [hp[0] + ex[0], hp[1] + ex[1]], tilt + na + (P.head || 0));
+  pp.ear.rotation = -(P.ear || 0) * Math.PI / 180;
+}
+// Каждый кадр: идущая коровка шагает, стоящая — сама выбирает, что делать
+function animateCows(dt) {
+  const s = Math.min(dt, 50) / 1000, view = scene.cameras.main.worldView;
+  for (const c of cows) {
+    let P;
+    if (c.moving) { c.walkT += s; P = cowWalkPose(c.walkT); }
+    else {
+      c.walkT = 0;
+      if (!c.act || c.act.t >= c.act.d) { const n = pickCowAct(c.act && c.act.name); c.act = { name: n, t: 0, d: COW_ACTS[n].dur() }; }
+      c.act.t += s;
+      P = COW_ACTS[c.act.name].pose(c.act.t, c.act.d);
+    }
+    if (REDUCED) P = {};
+    // за кадром не пересчитываем — экономим телефон
+    if (c.x < view.x - 120 || c.x > view.right + 120 || c.y < view.y - 40 || c.y > view.bottom + 160) continue;
+    poseCow(c, P);
+  }
 }
 function cowWander(c) {
   const penned = state.nanamin.cows[c.idx] === 2;
-  const nx = penned ? PEN.x + 40 + Math.random() * (PEN.w - 80) : c.home.x + (Math.random() - 0.5) * 220;
-  const ny = penned ? PEN.y + 50 + Math.random() * (PEN.h - 80) : c.home.y + (Math.random() - 0.5) * 140;
-  c.g.scaleX = nx < c.x ? -1 : 1;
+  const nx = penned ? PEN.x + 60 + Math.random() * (PEN.w - 120) : c.home.x + (Math.random() - 0.5) * 220;
+  const ny = penned ? PEN.y + 60 + Math.random() * (PEN.h - 80) : c.home.y + (Math.random() - 0.5) * 140;
+  if (Math.abs(nx - c.x) > 4) setCowFace(c, nx < c.x ? -1 : 1);
+  c.moving = true;
   scene.tweens.add({
     targets: c, x: nx, y: Math.min(Math.max(ny, 1060), 1980), duration: 2500 + Math.random() * 3000, ease: 'Sine.easeInOut',
-    onComplete: () => { if (!c.following) scene.time.delayedCall(800 + Math.random() * 2500, () => { if (!c.following) cowWander(c); }); },
+    onComplete: () => {
+      c.moving = false;
+      if (!c.following) scene.time.delayedCall(3000 + Math.random() * 6000, () => { if (!c.following) cowWander(c); });
+    },
   });
 }
 function setNanaminMood(sad) {
@@ -1518,9 +1618,10 @@ function buildPasture() {
   setNanaminMood(state.nanamin.stage < 3);
   nameLabel('Нанамин', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
   cows.length = 0; followers.length = 0;
-  for (let i = 0; i < 4; i++) {
+  registerCowFrames();
+  for (let i = 0; i < COW_HOMES.length; i++) {
     const c = makeCow(i);
-    if (state.nanamin.cows[i] === 2) c.setPosition(PEN.x + 60 + i * 70, PEN.y + 120);
+    if (state.nanamin.cows[i] === 2) c.setPosition(PEN.x + 70 + (i % 4) * 75, PEN.y + 90 + Math.floor(i / 4) * 95);
     cows.push(c); cowWander(c);
   }
   trig.pen = trig.nanamin = false;
@@ -1531,14 +1632,16 @@ function updatePasture(dt) {
   let lead = player;
   for (const c of [...followers]) {
     const dx = lead.x - c.x, dy = lead.y - c.y, d = Math.hypot(dx, dy);
-    if (d > 46) {
-      const sp = Math.min(d - 46, 210 * Math.min(dt, 50) / 1000);
+    c.moving = d > 62;
+    if (c.moving) {
+      const sp = Math.min(d - 62, 210 * Math.min(dt, 50) / 1000);
       c.x += dx / d * sp; c.y += dy / d * sp;
-      if (Math.abs(dx) > 2) c.g.scaleX = dx < 0 ? -1 : 1;
+      if (Math.abs(dx) > 2) setCowFace(c, dx < 0 ? -1 : 1);
     }
     if (c.x > PEN.x + 20 && c.x < PEN.x + PEN.w - 20 && c.y > PEN.y + 30 && c.y < PEN.y + PEN.h - 10) { cowPenned(c); continue; }
     lead = c;
   }
+  animateCows(dt);
   cows.forEach(c => c.setDepth(c.y));
   if (ui.open) return;
   // первый раз на пастбище
@@ -1633,6 +1736,7 @@ class FarmScene extends Phaser.Scene {
   constructor() { super('farm'); }
   preload() {
     this.load.image('grass', 'assets/ground/grass.jpg');
+    this.load.image('cowWhite', 'assets/cows/cow-white.png');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
