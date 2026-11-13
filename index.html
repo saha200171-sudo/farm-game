@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Ферма</title>
+<meta name="theme-color" content="#4F8A3A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ферма">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@600;700;800&display=swap">
+<style>
+/* Layout: full-bleed game canvas; quest card top-left, bag top-right, dialog sheet bottom, modals centered */
+:root{
+  --grass-deep:#4F8A3A;
+  --wood:#5B3A1E;
+  --paper:#FFFDF4;
+  --ink:#2E2418;
+  --muted:#7A6A55;
+  --tomato:#E2553A;
+  --leaf:#3E8E41;
+  --sky:#4DA3D9;
+  --straw:#E9C77B;
+  --display:"Fredoka","Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+html{box-sizing:border-box;height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-family:var(--body);font-size:17px;overflow:hidden;
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{position:relative;width:100%;height:100%;overflow:hidden}
+#game{position:absolute;inset:0}
+#game canvas{display:block;touch-action:none}
+
+.hud{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));
+  display:flex;gap:8px;align-items:flex-start;justify-content:space-between;pointer-events:none}
+.quest{background:var(--paper);border:3px solid var(--wood);border-radius:14px;padding:8px 14px 10px;max-width:min(340px,64vw);
+  box-shadow:0 4px 0 rgba(46,36,24,.35);display:flex;flex-direction:column;gap:2px}
+.quest .label{font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tomato)}
+.quest .text{font-family:var(--display);font-size:19px;font-weight:600;line-height:1.2;text-wrap:balance}
+.side{display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
+.bag{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.chip{display:flex;align-items:center;gap:6px;background:var(--paper);border:2px solid var(--wood);border-radius:999px;padding:3px 12px 3px 6px;
+  font-weight:800;font-size:16px;box-shadow:0 2px 0 rgba(46,36,24,.3);animation:pop .35s ease-out}
+.chip i{width:20px;height:20px;border-radius:50%;border:2px solid var(--wood);display:block}
+.ghost-btn{font-family:var(--body);font-weight:800;font-size:16px;color:var(--ink);background:rgba(255,253,244,.85);border:2px solid var(--wood);
+  border-radius:999px;padding:5px 12px;cursor:pointer}
+.ghost-btn:focus-visible,.btn:focus-visible,.nest:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+
+.guide{position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none;
+  background:var(--tomato);border:3px solid var(--wood);border-radius:50%;display:grid;place-items:center;box-shadow:0 3px 0 rgba(46,36,24,.35)}
+.guide span{display:block;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:13px solid #fff;margin-left:3px}
+
+.toast{position:absolute;left:50%;top:118px;transform:translate(-50%,-8px);max-width:calc(100% - 32px);text-align:center;
+  background:var(--leaf);color:#fff;font-family:var(--display);font-weight:600;font-size:19px;padding:9px 18px;border-radius:14px;
+  border:3px solid var(--wood);box-shadow:0 4px 0 rgba(46,36,24,.35);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.toast.info{background:var(--paper);color:var(--ink)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+.sheet{position:absolute;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:10px;
+  margin-inline:auto;max-width:640px;background:var(--paper);border:3px solid var(--wood);border-radius:18px;padding:14px 16px;
+  display:flex;gap:14px;align-items:flex-start;box-shadow:0 5px 0 rgba(46,36,24,.4);cursor:pointer;animation:rise .25s ease-out}
+.portrait{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:600;
+  font-size:30px;color:#fff;border:3px solid var(--wood)}
+.say{min-width:0;flex:1;display:flex;flex-direction:column;gap:6px}
+.who{font-family:var(--display);font-weight:600;font-size:18px;color:var(--muted)}
+.line{font-size:18px;line-height:1.4;min-height:2.8em}
+.actions{display:flex;justify-content:flex-end;gap:8px}
+.btn{font-family:var(--display);font-size:18px;font-weight:600;background:var(--tomato);color:#fff;border:3px solid var(--wood);
+  border-radius:12px;padding:8px 18px;box-shadow:0 3px 0 var(--wood);cursor:pointer}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--wood)}
+.btn.secondary{background:var(--paper);color:var(--ink)}
+
+.modal{position:absolute;inset:0;background:rgba(28,40,18,.55);display:grid;place-items:center;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.card{background:var(--paper);border:3px solid var(--wood);border-radius:20px;padding:18px;width:min(420px,100%);
+  display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 6px 0 rgba(46,36,24,.45);animation:pop .3s ease-out;
+  max-height:100%;overflow:auto}
+.card h2{font-family:var(--display);font-weight:600;font-size:26px;margin:0;text-wrap:balance}
+.card p{margin:0;line-height:1.45;font-size:17px}
+.badge{align-self:center;font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tomato)}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.mg-stats{display:flex;justify-content:space-between;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.bar{height:12px;border-radius:999px;background:#EADFC8;border:2px solid var(--wood);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--leaf);transition:width .2s}
+.nests{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:300px;width:100%;margin-inline:auto}
+.nest{position:relative;aspect-ratio:1;border-radius:50%;padding:0;cursor:pointer;border:3px solid var(--wood);
+  background:radial-gradient(circle at 50% 60%,#8A5A33 0 34%,var(--straw) 36% 100%)}
+.nest .egg{position:absolute;left:50%;top:50%;width:40%;height:50%;transform:translate(-50%,-58%) scale(0);
+  background:#FFF6E3;border:3px solid #C9A46B;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;transition:transform .14s ease-out}
+.nest.has .egg{transform:translate(-50%,-58%) scale(1)}
+.nest.gold .egg{background:#FFD447;border-color:#C79A12}
+
+.info{display:flex;flex-direction:column;gap:12px}
+
+/* Джойстик и кнопка действия */
+.stick-zone{position:absolute;left:0;bottom:0;width:50%;height:70%;touch-action:none}
+.stick{position:absolute;left:0;top:0;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;
+  background:rgba(255,253,244,.22);border:3px solid rgba(255,253,244,.75);pointer-events:none;transition:opacity .2s}
+.stick.idle{opacity:.55}
+.knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
+  background:var(--paper);border:3px solid var(--wood);box-shadow:0 3px 0 rgba(46,36,24,.35)}
+.act{position:absolute;right:max(22px,calc(env(safe-area-inset-right,0px) + 12px));bottom:22px;min-width:96px;height:96px;
+  border-radius:999px;padding:0 18px;font-family:var(--display);font-weight:600;font-size:18px;color:#fff;background:var(--tomato);
+  border:3px solid var(--wood);box-shadow:0 4px 0 var(--wood);cursor:pointer;transition:opacity .15s,transform .15s}
+.act:disabled{opacity:.4;background:var(--muted);transform:scale(.88);cursor:default}
+.act:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--wood)}
+.act:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.off{visibility:hidden}
+
+/* Просьба повернуть телефон */
+.rotate{position:absolute;inset:0;z-index:10;display:none;place-items:center;align-content:center;gap:16px;text-align:center;
+  background:var(--grass-deep);color:#fff;padding:24px;font-family:var(--display);font-weight:600;font-size:22px}
+.rotate .phone{width:52px;height:88px;border:4px solid #fff;border-radius:12px;animation:turn 2.4s ease-in-out infinite}
+@keyframes turn{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (pointer:coarse){.rotate{display:grid}}
+
+/* Горизонтальный телефон: невысокий экран */
+@media (max-height:500px){
+  .card.mg{width:min(680px,100%);display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;text-align:left}
+  .card.mg .badge{align-self:flex-start}
+  .card.mg .nests{width:min(280px,62vh)}
+  .card.mg .row{justify-content:flex-start}
+  .toast{top:96px}
+}
+
+.loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--grass-deep);color:#fff;font-family:var(--display);font-size:22px}
+
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes rise{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game"></div>
+  <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
+  <div class="hud">
+    <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div></div>
+    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><div class="bag" id="bag"></div></div>
+  </div>
+  <button class="act" id="actBtn" type="button" disabled>Действие</button>
+  <div class="guide" id="guide" hidden><span></span></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="sheet" id="sheet" hidden>
+    <div class="portrait" id="portrait"></div>
+    <div class="say">
+      <div class="who" id="who"></div>
+      <div class="line" id="line"></div>
+      <div class="actions"><button class="btn" id="nextBtn" type="button">Дальше</button></div>
+    </div>
+  </div>
+  <div class="modal" id="modal" hidden></div>
+  <div class="rotate"><div class="phone"></div><div>Поверни телефон горизонтально</div></div>
+  <div class="loading" id="loading">Загружаем ферму…</div>
+</div>
+
+<script src="lib/phaser.min.js"></script>
+<script>
+// ===================== Общие настройки =====================
+const DPR = Math.min(window.devicePixelRatio || 1, 3);
+const WORLD = { w: 1400, h: 1000 };
+const SAVE_KEY = 'farm-prototype-v1';
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const app = $('app');
+
+const ZONES = {
+  ogorod:    { name: 'Огород' },
+  kuryatnik: { name: 'Курятник' },
+  sad:       { name: 'Сад' },
+};
+const zoneAt = (x, y) => x < 700 ? 'ogorod' : (y < 500 ? 'kuryatnik' : 'sad');
+
+const SPEAKERS = {
+  agata: { name: 'Бабушка Агата', letter: 'А', color: '#9C7BC4' },
+  klara: { name: 'Клара',          letter: 'К', color: '#D99A1E' },
+};
+
+const BEDS = [{ x: 290, y: 600 }, { x: 410, y: 600 }, { x: 530, y: 600 }];
+
+// Точки, к которым героиня подходит, и дистанция, с которой срабатывает действие
+const ANCHORS = {
+  grandma: { x: 300, y: 330, reach: 72, mark: -96 },
+  well:    { x: 140, y: 560, reach: 92, mark: -92 },
+  bed0:    { ...BEDS[0], reach: 62, mark: -50 },
+  bed1:    { ...BEDS[1], reach: 62, mark: -50 },
+  bed2:    { ...BEDS[2], reach: 62, mark: -50 },
+  gate:    { x: 700, y: 250, reach: 64, mark: -72 },
+  klara:   { x: 940, y: 320, reach: 72, mark: -96 },
+};
+
+// ===================== Сохранение =====================
+const freshState = () => ({
+  step: 0,
+  items: { can: false, key: false, eggs: 0 },
+  watered: [false, false, false],
+  open: { ogorod: true, kuryatnik: false, sad: false },
+  pos: { x: 300, y: 430 },
+});
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw), d = freshState();
+      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open } };
+    }
+  } catch (e) {}
+  return freshState();
+}
+let state = loadState();
+function save() {
+  try {
+    if (player) state.pos = { x: Math.round(player.x), y: Math.round(player.y) };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (e) {}
+}
+
+// ===================== Интерфейс (HTML поверх игры) =====================
+const ui = { open: false };
+
+function questTarget() {
+  switch (state.step) {
+    case 0: case 3: case 7: return 'grandma';
+    case 1: return 'well';
+    case 2: { const i = state.watered.findIndex(w => !w); return i < 0 ? null : 'bed' + i; }
+    case 4: return 'gate';
+    case 5: case 6: return 'klara';
+    default: return null;
+  }
+}
+function questText() {
+  const n = state.watered.filter(Boolean).length;
+  return [
+    'Поговори с бабушкой Агатой',
+    'Возьми лейку у колодца',
+    `Полей грядки: ${n} из 3`,
+    'Вернись к бабушке Агате',
+    'Открой калитку в курятник',
+    'Познакомься с Кларой',
+    'Собери яйца для Клары',
+    'Отнеси корзину яиц бабушке',
+    'Прототип пройден. Можно гулять по ферме',
+  ][state.step] || '';
+}
+function updateHud() {
+  $('questLabel').textContent = state.step >= 8 ? 'Готово' : 'Задание';
+  $('questText').textContent = questText();
+  const chips = [];
+  if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
+  if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
+  if (state.step === 7) chips.push([`Яйца × ${state.items.eggs}`, '#FFF6E3']);
+  $('bag').innerHTML = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
+}
+function progress() { save(); updateHud(); }
+
+let toastTimer;
+function toast(msg, kind) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' ' + kind : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast' + (kind ? ' ' + kind : ''); }, 2400);
+}
+
+// --- Диалоги ---
+const dlg = { lines: null, i: 0, timer: null, full: '', onEnd: null };
+function showDialog(lines, onEnd) {
+  ui.open = true; stopWalking();
+  dlg.lines = lines; dlg.i = 0; dlg.onEnd = onEnd || null;
+  $('sheet').hidden = false;
+  renderLine();
+}
+function renderLine() {
+  const [who, text] = dlg.lines[dlg.i];
+  const s = SPEAKERS[who];
+  $('portrait').textContent = s.letter;
+  $('portrait').style.background = s.color;
+  $('who').textContent = s.name;
+  $('nextBtn').textContent = dlg.i === dlg.lines.length - 1 ? 'Хорошо' : 'Дальше';
+  typeText(text);
+}
+function typeText(text) {
+  clearInterval(dlg.timer); dlg.timer = null; dlg.full = text;
+  const el = $('line');
+  if (REDUCED) { el.textContent = text; return; }
+  let n = 0; el.textContent = '';
+  dlg.timer = setInterval(() => {
+    n += 2; el.textContent = text.slice(0, n);
+    if (n >= text.length) { clearInterval(dlg.timer); dlg.timer = null; }
+  }, 28);
+}
+function advanceDialog() {
+  if (!dlg.lines) return;
+  if (dlg.timer) { clearInterval(dlg.timer); dlg.timer = null; $('line').textContent = dlg.full; return; }
+  dlg.i++;
+  if (dlg.i >= dlg.lines.length) {
+    $('sheet').hidden = true; ui.open = false; dlg.lines = null;
+    const cb = dlg.onEnd; dlg.onEnd = null; cb && cb();
+  } else renderLine();
+}
+$('sheet').addEventListener('click', advanceDialog);
+
+// --- Модальные окна ---
+function openModal(html) { $('modal').innerHTML = html; $('modal').hidden = false; ui.open = true; stopWalking(); }
+function closeModal() { $('modal').hidden = true; $('modal').innerHTML = ''; ui.open = false; }
+
+$('resetBtn').addEventListener('click', () => {
+  if (ui.open) return;
+  openModal(`<div class="card"><h2>Начать заново?</h2><p>Весь прогресс прототипа сотрётся.</p>
+    <div class="row"><button class="btn secondary" id="mCancel" type="button">Отмена</button>
+    <button class="btn" id="mReset" type="button">Начать заново</button></div></div>`);
+  $('mCancel').onclick = closeModal;
+  $('mReset').onclick = resetGame;
+});
+function resetGame() {
+  closeModal();
+  state = freshState(); save();
+  scene.scene.restart();
+}
+
+// ===================== Мини-игра «Собери яйца» =====================
+function eggGame(onWin) {
+  const GOAL = 8, TIME = 20;
+  openModal(`<div class="card mg">
+    <div class="info">
+      <div class="badge">Мини-игра</div>
+      <h2>Собери яйца</h2>
+      <p>Нажимай на яйца, пока куры их не спрятали. Золотое считается за два.</p>
+      <div class="mg-stats"><span>Яйца: <b id="mgCount">0</b> из ${GOAL}</span><span>Время: <b id="mgTime">${TIME}</b> с</span></div>
+      <div class="bar"><i id="mgBar"></i></div>
+      <div class="row"><button class="btn" id="mgStart" type="button">Начать</button></div>
+    </div>
+    <div class="nests" id="nests">${Array.from({ length: 9 }, (_, i) => `<button class="nest" type="button" data-i="${i}" aria-label="Гнездо ${i + 1}"><span class="egg"></span></button>`).join('')}</div>
+  </div>`);
+  const nests = [...document.querySelectorAll('.nest')];
+  let count = 0, left = TIME, running = false, tick = null, spawnAcc = 0;
+  const life = new Array(9).fill(0);
+
+  const paint = () => {
+    $('mgCount').textContent = Math.min(count, GOAL);
+    $('mgTime').textContent = Math.ceil(left);
+    $('mgBar').style.width = Math.min(100, count / GOAL * 100) + '%';
+  };
+  nests.forEach((n, i) => n.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (!running || !n.classList.contains('has')) return;
+    count += n.classList.contains('gold') ? 2 : 1;
+    n.classList.remove('has', 'gold'); life[i] = 0;
+    paint();
+    if (count >= GOAL) finish(true);
+  }));
+
+  function start() {
+    $('mgStart').closest('.row').hidden = true;
+    running = true; count = 0; left = TIME; paint();
+    tick = setInterval(() => {
+      left -= 0.1;
+      const t = 1 - left / TIME;
+      // яйца появляются всё чаще и прячутся быстрее
+      spawnAcc += 100;
+      if (spawnAcc >= 760 - t * 280) {
+        spawnAcc = 0;
+        const free = nests.map((n, i) => i).filter(i => !nests[i].classList.contains('has'));
+        if (free.length) {
+          const i = free[Math.floor(Math.random() * free.length)];
+          nests[i].classList.add('has');
+          if (Math.random() < 0.15) nests[i].classList.add('gold');
+          life[i] = 1300 - t * 450;
+        }
+      }
+      nests.forEach((n, i) => {
+        if (life[i] > 0) { life[i] -= 100; if (life[i] <= 0) n.classList.remove('has', 'gold'); }
+      });
+      paint();
+      if (left <= 0) finish(false);
+    }, 100);
+  }
+  function finish(win) {
+    running = false; clearInterval(tick);
+    if (win) {
+      openModal(`<div class="card"><div class="badge">Получилось</div><h2>Корзина полна!</h2>
+        <p>Восемь яиц собраны. Клара будет довольна.</p>
+        <div class="row"><button class="btn" id="mgOk" type="button">Отдать Кларе</button></div></div>`);
+      $('mgOk').onclick = () => { closeModal(); onWin(Math.max(count, GOAL)); };
+    } else {
+      openModal(`<div class="card"><div class="badge">Почти</div><h2>Собрано ${count} из ${GOAL}</h2>
+        <p>Куры оказались быстрее. Попробуем ещё раз?</p>
+        <div class="row"><button class="btn secondary" id="mgLater" type="button">Позже</button>
+        <button class="btn" id="mgAgain" type="button">Ещё раз</button></div></div>`);
+      $('mgLater').onclick = () => { closeModal(); toast('Клара подождёт. Подойди к ней, когда будешь готова', 'info'); };
+      $('mgAgain').onclick = () => { closeModal(); eggGame(onWin); };
+    }
+  }
+  $('mgStart').onclick = start;
+}
+
+// ===================== Сюжет: что происходит при взаимодействии =====================
+function interact(id) {
+  const s = state;
+  if (id === 'grandma') return talkGrandma();
+  if (id === 'klara') return talkKlara();
+  if (id === 'well') {
+    if (s.step === 1) { s.items.can = true; s.step = 2; splash(140, 545); toast('Получено: лейка'); progress(); }
+    else toast(s.items.can ? 'Вода в колодце ледяная и чистая' : 'Это колодец. Рядом висит старая лейка', 'info');
+    return;
+  }
+  if (id.startsWith('bed')) {
+    const i = +id[3];
+    if (!s.items.can) { toast('Сначала возьми лейку у колодца', 'info'); return; }
+    if (s.watered[i]) { toast('Эта грядка уже полита', 'info'); return; }
+    s.watered[i] = true; drawBed(i); splash(BEDS[i].x, BEDS[i].y - 10);
+    const n = s.watered.filter(Boolean).length;
+    if (n === 3) { s.step = 3; toast('Все грядки политы!'); } else toast(`Полито ${n} из 3`, 'info');
+    progress(); return;
+  }
+  if (id === 'gate') {
+    if (s.open.kuryatnik) return;
+    if (!s.items.key) { toast('Калитка заперта. Ключ у бабушки Агаты', 'info'); return; }
+    openKuryatnik();
+  }
+}
+
+function talkGrandma() {
+  const s = state;
+  if (s.step === 0) return showDialog([
+    ['agata', 'Вот и ты! Добро пожаловать на нашу ферму.'],
+    ['agata', 'Хозяйство совсем заросло, одной мне не справиться.'],
+    ['agata', 'Начнём с огорода. Возьми лейку у колодца и полей все три грядки.'],
+  ], () => { s.step = 1; progress(); });
+  if (s.step === 3) return showDialog([
+    ['agata', 'Ох, какие всходы! Сразу видно, рука лёгкая.'],
+    ['agata', 'Держи ключ от калитки. За ней курятник, там живёт Клара.'],
+    ['agata', 'Она давно ждёт помощи. Сходи познакомься.'],
+  ], () => { s.items.key = true; s.step = 4; toast('Получено: ключ от калитки'); progress(); });
+  if (s.step === 7) return showDialog([
+    ['agata', 'Свежие яйца! Испеку пирог на всю округу.'],
+    ['agata', 'А за курятником старый сад. Его хозяин давно не показывался…'],
+    ['agata', 'Но это уже совсем другая история.'],
+  ], () => { s.step = 8; s.items.eggs = 0; progress(); showFinal(); });
+  const idle = {
+    1: 'Лейка висит у колодца, слева от грядок.',
+    2: 'Полей все три грядки, они совсем пересохли.',
+    4: 'Калитка справа, в конце дорожки.',
+    5: 'Клара только с виду строгая, не бойся.',
+    6: 'Клара просила помочь с яйцами? Она без этого не отпустит.',
+    8: 'Пирог уже в печи!',
+  }[s.step] || 'Как дела, милая?';
+  showDialog([['agata', idle]]);
+}
+
+function talkKlara() {
+  const s = state;
+  if (s.step === 5) return showDialog([
+    ['klara', 'Ну наконец-то помощь! Я Клара, а это мои несушки.'],
+    ['klara', 'Сегодня они разнеслись, а я не успеваю собирать. Поможешь?'],
+    ['klara', 'Нужно восемь яиц. Только быстро: куры прячут их обратно!'],
+  ], () => { s.step = 6; progress(); eggGame(winEggs); });
+  if (s.step === 6) return showDialog([['klara', 'Ну что, ещё попытка?']], () => eggGame(winEggs));
+  showDialog([['klara', s.step === 7 ? 'Отнеси корзинку Агате, она давно хотела испечь пирог.' : 'Заходи ещё, куры к тебе уже привыкли.']]);
+}
+function winEggs(n) {
+  showDialog([
+    ['klara', 'Восемь штук! Вот это ловкость.'],
+    ['klara', 'Отнеси корзинку Агате, она давно хотела испечь пирог.'],
+  ], () => { state.step = 7; state.items.eggs = n; progress(); });
+}
+
+function showFinal() {
+  openModal(`<div class="card"><div class="badge">Конец прототипа</div><h2>Ферма оживает</h2>
+    <p>Огород полит, курятник открыт, бабушка печёт пирог. В полной игре дальше откроется Сад и его хозяин.</p>
+    <div class="row"><button class="btn secondary" id="fStay" type="button">Погулять</button>
+    <button class="btn" id="fAgain" type="button">Пройти заново</button></div></div>`);
+  $('fStay').onclick = closeModal;
+  $('fAgain').onclick = resetGame;
+}
+
+// ===================== Игровой мир (Phaser) =====================
+let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG;
+let saveMs = 0, facing = 1, nearId = null;
+const chickens = [];
+
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function solids() {
+  const list = [
+    [90, 80, 240, 180],            // дом бабушки
+    [104, 524, 72, 72],            // колодец
+    [1120, 70, 220, 150],          // курятник
+    [692, 0, 16, 200], [692, 300, 16, 700],      // забор огорода
+    [700, 488, 300, 16], [1100, 488, 300, 16],   // забор сада
+    [1000, 488, 100, 16],          // калитка в сад (пока закрыта)
+  ];
+  if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
+  return list;
+}
+function walkable(x, y) {
+  if (x < 18 || x > WORLD.w - 18 || y < 30 || y > WORLD.h - 12) return false;
+  if (!state.open[zoneAt(x, y)]) return false;
+  const r = 12;
+  for (const [sx, sy, sw, sh] of solids()) {
+    if (x > sx - r && x < sx + sw + r && y > sy - r && y < sy + sh + r) return false;
+  }
+  return true;
+}
+// ===================== Управление: джойстик, кнопка действия, клавиатура =====================
+const zone = $('stickZone'), stickEl = $('stick'), knob = $('knob'), actBtn = $('actBtn');
+const STICK_R = 52;
+const move = { x: 0, y: 0 };
+const stick = { id: null, bx: 0, by: 0 };
+const keys = new Set();
+
+function placeStick(x, y) { stickEl.style.transform = `translate(${x}px, ${y}px)`; }
+function idleStick() {
+  placeStick(110, Math.max(80, zone.clientHeight - 100));
+  knob.style.transform = '';
+  stickEl.classList.add('idle');
+}
+function releaseStick() { stick.id = null; move.x = move.y = 0; idleStick(); }
+function stopWalking() { releaseStick(); keys.clear(); }
+
+// джойстик появляется там, где палец коснулся левой половины экрана
+zone.addEventListener('pointerdown', e => {
+  if (ui.open || stick.id !== null) return;
+  e.preventDefault();
+  stick.id = e.pointerId;
+  try { zone.setPointerCapture(e.pointerId); } catch (_) {}
+  const r = zone.getBoundingClientRect();
+  stick.bx = e.clientX - r.left; stick.by = e.clientY - r.top;
+  placeStick(stick.bx, stick.by);
+  stickEl.classList.remove('idle');
+  knob.style.transform = '';
+});
+zone.addEventListener('pointermove', e => {
+  if (e.pointerId !== stick.id) return;
+  const r = zone.getBoundingClientRect();
+  let dx = e.clientX - r.left - stick.bx, dy = e.clientY - r.top - stick.by;
+  const d = Math.hypot(dx, dy);
+  if (d > STICK_R) { dx *= STICK_R / d; dy *= STICK_R / d; }
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  if (d < 6) { move.x = move.y = 0; } else { move.x = dx / STICK_R; move.y = dy / STICK_R; }
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
+  zone.addEventListener(t, e => { if (e.pointerId === stick.id) releaseStick(); }));
+
+// клавиатура на компьютере: стрелки/WASD — ходьба, пробел/E/Enter — действие
+const KEYMAP = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
+window.addEventListener('keydown', e => {
+  if (KEYMAP[e.code]) { keys.add(e.code); e.preventDefault(); return; }
+  if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') {
+    if (e.repeat) return;
+    if (dlg.lines) { e.preventDefault(); advanceDialog(); }
+    else if (!ui.open) { e.preventDefault(); doAction(); }
+  }
+});
+window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
+function inputVector() {
+  if (keys.size) {
+    let kx = 0, ky = 0;
+    keys.forEach(k => { kx += KEYMAP[k][0]; ky += KEYMAP[k][1]; });
+    const d = Math.hypot(kx, ky);
+    if (d) return { x: kx / d, y: ky / d };
+  }
+  return { x: move.x, y: move.y };
+}
+
+// кнопка действия: активна, когда героиня рядом с кем-то или чем-то
+function nearest() {
+  let best = null, bd = Infinity;
+  for (const id of Object.keys(ANCHORS)) {
+    if (id === 'klara' && !state.open.kuryatnik) continue;
+    if (id === 'gate' && state.open.kuryatnik) continue;
+    const a = ANCHORS[id], d = Math.hypot(player.x - a.x, player.y - a.y);
+    if (d <= a.reach && d < bd) { bd = d; best = id; }
+  }
+  return best;
+}
+function actionLabel(id) {
+  if (!id) return 'Действие';
+  if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
+  if (id.startsWith('bed')) return state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Осмотреть';
+  if (id === 'gate') return 'Открыть';
+  return 'Поговорить';
+}
+function updateControls() {
+  nearId = ui.open ? null : nearest();
+  const label = actionLabel(nearId);
+  if (actBtn.textContent !== label) actBtn.textContent = label;
+  actBtn.disabled = !nearId;
+  zone.classList.toggle('off', ui.open);
+  actBtn.classList.toggle('off', ui.open);
+}
+function doAction() {
+  if (ui.open || !nearId) return;
+  const a = ANCHORS[nearId];
+  if (Math.abs(a.x - player.x) > 4) facing = a.x < player.x ? -1 : 1;
+  interact(nearId);
+}
+actBtn.addEventListener('click', doAction);
+
+// --- Персонажи ---
+function makeChar(look) {
+  const c = scene.add.container(0, 0);
+  const shadow = scene.add.graphics();
+  shadow.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 36, 12);
+  const b = scene.add.graphics();
+  b.fillStyle(0x4a3424, 1).fillRoundedRect(-8, -14, 6, 14, 2).fillRoundedRect(2, -14, 6, 14, 2);
+  b.fillStyle(look.skin, 1).fillCircle(-15, -25, 4.5).fillCircle(15, -25, 4.5);
+  b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 5, br: 5 });
+  if (look.apron) b.fillStyle(look.apron, 1).fillRoundedRect(-8, -30, 16, 18, 4);
+  if (look.hair === 'pony') { b.fillStyle(look.hairColor, 1).fillCircle(14, -58, 7).fillCircle(18, -49, 6); }
+  if (look.hair === 'bun')  { b.fillStyle(look.hairColor, 1).fillCircle(0, -70, 8); }
+  b.fillStyle(look.skin, 1).fillCircle(0, -52, 14);
+  if (look.hair === 'scarf') {
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -60, 34, 20).fillTriangle(10, -52, 20, -44, 18, -56);
+    b.fillStyle(0xffffff, 0.6).fillCircle(-6, -63, 2).fillCircle(4, -66, 2).fillCircle(10, -60, 2);
+  } else {
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -61, 30, 15).fillEllipse(-10, -56, 10, 12);
+  }
+  b.fillStyle(0x2e2418, 1).fillCircle(-5, -51, 2).fillCircle(5, -51, 2);
+  b.fillStyle(0xF28B82, 0.6).fillCircle(-8, -46, 2.8).fillCircle(8, -46, 2.8);
+  b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -46, 3.5, 0.15 * Math.PI, 0.85 * Math.PI).strokePath();
+  if (look.glasses) b.lineStyle(1.5, 0x2e2418, 1).strokeCircle(-5, -51, 4.5).strokeCircle(5, -51, 4.5);
+  c.add([shadow, b]);
+  c.bodyG = b;
+  return c;
+}
+function nameLabel(text, x, y) {
+  return scene.add.text(x, y, text, {
+    fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '16px',
+    color: '#FFFDF4', stroke: '#2E2418', strokeThickness: 4, resolution: 3,
+  }).setOrigin(0.5, 1).setDepth(4000);
+}
+
+// --- Отрисовка окружения ---
+function drawGround() {
+  const g = scene.add.graphics().setDepth(-10);
+  g.fillStyle(0x86C45F, 1).fillRect(0, 0, WORLD.w, WORLD.h);
+  const rnd = mulberry32(7);
+  for (let i = 0; i < 70; i++) {
+    g.fillStyle(rnd() < 0.5 ? 0x7AB954 : 0x96CF6E, 0.55);
+    g.fillEllipse(rnd() * WORLD.w, rnd() * WORLD.h, 60 + rnd() * 140, 30 + rnd() * 60);
+  }
+  g.lineStyle(2, 0x5E9A44, 0.7);
+  for (let i = 0; i < 600; i++) {
+    const x = rnd() * WORLD.w, y = rnd() * WORLD.h;
+    g.lineBetween(x, y, x - 3, y - 7); g.lineBetween(x, y, x + 3, y - 7);
+  }
+  // тропинка
+  const pts = [[210, 262], [210, 430], [580, 430], [580, 250], [1050, 250], [1050, 650]];
+  const stroke = (w, col) => {
+    g.lineStyle(w, col, 1);
+    for (let i = 0; i < pts.length - 1; i++) g.lineBetween(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+    g.fillStyle(col, 1); pts.forEach(([x, y]) => g.fillCircle(x, y, w / 2));
+  };
+  stroke(48, 0xC79D63); stroke(38, 0xDDBB86);
+  // цветы
+  const flowers = [0xF2A0C0, 0xFFE07A, 0xFFFFFF, 0xE2553A];
+  for (let i = 0; i < 90; i++) {
+    const x = rnd() * WORLD.w, y = rnd() * WORLD.h;
+    if (Math.abs(y - 250) < 40 || Math.abs(y - 430) < 30) continue;
+    g.fillStyle(flowers[i % 4], 0.95).fillCircle(x, y, 3);
+  }
+  // пруд в саду
+  g.fillStyle(0x3D7FB5, 1).fillEllipse(1180, 820, 220, 120);
+  g.fillStyle(0x6FB1E0, 1).fillEllipse(1170, 812, 180, 90);
+}
+
+function drawHouse() {
+  const g = scene.add.graphics().setDepth(260);
+  g.fillStyle(0xF3E3C3, 1).fillRect(90, 150, 240, 110);
+  g.lineStyle(2, 0xD8C29B, 1); for (let y = 170; y < 260; y += 18) g.lineBetween(92, y, 328, y);
+  g.fillStyle(0xB94A35, 1).fillRoundedRect(78, 76, 264, 90, 10);
+  g.fillStyle(0x9E3B29, 1); for (let x = 92; x < 340; x += 26) g.fillRect(x, 80, 6, 84);
+  g.fillStyle(0x6B4226, 1).fillRoundedRect(190, 195, 40, 65, { tl: 18, tr: 18, bl: 0, br: 0 });
+  g.fillStyle(0xFFD447, 1).fillCircle(222, 230, 3);
+  [[118, 180], [262, 180]].forEach(([x, y]) => {
+    g.fillStyle(0x6B4226, 1).fillRect(x - 3, y - 3, 46, 41);
+    g.fillStyle(0xBFE3F5, 1).fillRect(x, y, 40, 35);
+    g.lineStyle(3, 0x6B4226, 1).lineBetween(x + 20, y, x + 20, y + 35).lineBetween(x, y + 17, x + 40, y + 17);
+  });
+  g.fillStyle(0x8D6E63, 1).fillRect(280, 56, 26, 40);
+}
+function drawWell() {
+  const g = scene.add.graphics().setDepth(598);
+  g.fillStyle(0x1d2a12, 0.2).fillEllipse(140, 594, 92, 22);
+  g.fillStyle(0x9AA0A6, 1).fillCircle(140, 560, 38);
+  g.fillStyle(0x7D848B, 1); for (let a = 0; a < 12; a++) { const t = a / 12 * Math.PI * 2; g.fillCircle(140 + Math.cos(t) * 32, 560 + Math.sin(t) * 32, 5); }
+  g.fillStyle(0x2F6E9E, 1).fillCircle(140, 560, 24);
+  g.fillStyle(0x7A4E2D, 1).fillRect(100, 506, 8, 54).fillRect(172, 506, 8, 54);
+  g.fillStyle(0xB94A35, 1).fillRoundedRect(90, 494, 100, 18, 5);
+  if (!state.items.can) { // лейка висит на столбе
+    g.fillStyle(0x4DA3D9, 1).fillRoundedRect(182, 532, 22, 18, 4);
+    g.lineStyle(4, 0x4DA3D9, 1).lineBetween(204, 536, 214, 528);
+  }
+  scene.wellG = g;
+}
+function drawBed(i) {
+  const { x, y } = BEDS[i], g = bedG[i];
+  const wet = state.watered[i];
+  g.clear();
+  g.fillStyle(0x6B4226, 1).fillRoundedRect(x - 52, y - 36, 104, 76, 10);
+  g.fillStyle(wet ? 0x5C3A1F : 0x9A6A3E, 1).fillRoundedRect(x - 48, y - 32, 96, 66, 8);
+  g.lineStyle(3, wet ? 0x462C17 : 0x7E5530, 1);
+  for (let k = -1; k <= 1; k++) g.lineBetween(x - 40, y + k * 18, x + 40, y + k * 18);
+  for (let k = -1; k <= 1; k++) for (let j = -1; j <= 1; j++) {
+    const px = x + j * 28, py = y + k * 18 - 4;
+    if (wet) {
+      g.fillStyle(0x3E8E41, 1).fillEllipse(px - 4, py, 9, 5).fillEllipse(px + 4, py, 9, 5);
+      g.fillStyle(0x5DB05F, 1).fillRect(px - 1, py, 2, 5);
+    } else {
+      g.fillStyle(0xB58A5A, 1).fillCircle(px, py + 3, 2);
+    }
+  }
+}
+function drawGate() {
+  gateG.clear();
+  gateG.fillStyle(0x6B4226, 1).fillRect(690, 192, 20, 12).fillRect(690, 296, 20, 12);
+  if (!state.open.kuryatnik) {
+    gateG.fillStyle(0xC28A4E, 1).fillRect(694, 204, 12, 92);
+    gateG.lineStyle(3, 0x8B5A2B, 1).lineBetween(694, 210, 706, 290);
+    gateG.fillStyle(0xE9B94A, 1).fillCircle(700, 250, 5);
+  } else {
+    gateG.fillStyle(0xC28A4E, 1).fillRect(708, 290, 62, 12);
+  }
+}
+function drawFences() {
+  const g = scene.add.graphics().setDepth(3);
+  const vert = (x, y1, y2) => {
+    g.fillStyle(0xA87444, 1).fillRect(x - 3, y1, 6, y2 - y1);
+    g.fillStyle(0x7A4E2D, 1); for (let y = y1; y <= y2; y += 40) g.fillRect(x - 7, y - 4, 14, 12);
+  };
+  const horiz = (x1, x2, y) => {
+    g.fillStyle(0x7A4E2D, 1); for (let x = x1; x <= x2; x += 40) g.fillRect(x - 4, y - 22, 8, 26);
+    g.fillStyle(0xA87444, 1).fillRect(x1, y - 18, x2 - x1, 5).fillRect(x1, y - 8, x2 - x1, 5);
+  };
+  vert(700, 0, 196); vert(700, 304, 1000);
+  horiz(700, 1000, 500); horiz(1100, 1400, 500);
+  // калитка в сад
+  g.fillStyle(0x6B4226, 1).fillRect(996, 472, 10, 32).fillRect(1094, 472, 10, 32);
+  g.fillStyle(0xC28A4E, 1).fillRect(1006, 478, 88, 8).fillRect(1006, 490, 88, 8);
+  gateG = scene.add.graphics().setDepth(4);
+  drawGate();
+}
+function drawCoop() {
+  const g = scene.add.graphics().setDepth(220);
+  g.fillStyle(0x1d2a12, 0.2).fillEllipse(1230, 222, 240, 26);
+  g.fillStyle(0xB07A45, 1).fillRect(1120, 115, 220, 105);
+  g.lineStyle(2, 0x8B5A2B, 1); for (let x = 1140; x < 1340; x += 20) g.lineBetween(x, 117, x, 218);
+  g.fillStyle(0x7A4B2A, 1).fillRoundedRect(1108, 66, 244, 60, 8);
+  g.fillStyle(0x3E2A1A, 1).fillRoundedRect(1210, 168, 40, 52, { tl: 14, tr: 14, bl: 0, br: 0 });
+  g.fillStyle(0xFFE9A8, 1).fillCircle(1160, 150, 13).fillCircle(1300, 150, 13);
+  g.lineStyle(3, 0x7A4B2A, 1).strokeCircle(1160, 150, 13).strokeCircle(1300, 150, 13);
+}
+function drawTree(x, y, s, apples) {
+  const g = scene.add.graphics().setDepth(y);
+  g.fillStyle(0x1d2a12, 0.22).fillEllipse(x, y, 70 * s, 20 * s);
+  g.fillStyle(0x7A4E2D, 1).fillRect(x - 7 * s, y - 40 * s, 14 * s, 40 * s);
+  g.fillStyle(0x3F7F35, 1).fillCircle(x - 22 * s, y - 60 * s, 26 * s).fillCircle(x + 22 * s, y - 60 * s, 26 * s).fillCircle(x, y - 82 * s, 30 * s);
+  g.fillStyle(0x57A048, 1).fillCircle(x - 8 * s, y - 86 * s, 18 * s).fillCircle(x + 14 * s, y - 70 * s, 14 * s);
+  if (apples) { g.fillStyle(0xE2553A, 1); [[-20, -62], [16, -78], [4, -54], [-6, -92], [26, -56]].forEach(([dx, dy]) => g.fillCircle(x + dx * s, y + dy * s, 4.5 * s)); }
+}
+function makeChicken(x, y) {
+  const c = scene.add.container(x, y);
+  const g = scene.add.graphics();
+  g.fillStyle(0x1d2a12, 0.2).fillEllipse(0, 0, 22, 7);
+  g.fillStyle(0xE8A33D, 1).fillRect(-3, -6, 2, 6).fillRect(2, -6, 2, 6);
+  g.fillStyle(0xFFFFFF, 1).fillEllipse(-2, -12, 22, 15).fillCircle(7, -20, 6.5);
+  g.fillStyle(0xE2553A, 1).fillCircle(7, -27, 3).fillCircle(10, -17, 2);
+  g.fillStyle(0xF2B233, 1).fillTriangle(12, -21, 17, -19, 12, -17);
+  g.fillStyle(0x2e2418, 1).fillCircle(8.5, -21, 1.3);
+  c.add(g); c.g = g;
+  return c;
+}
+function wander(ch) {
+  const nx = 760 + Math.random() * 560, ny = 270 + Math.random() * 190;
+  ch.g.scaleX = nx < ch.x ? -1 : 1;
+  scene.tweens.add({
+    targets: ch, x: nx, y: ny, duration: 1400 + Math.random() * 2200, ease: 'Sine.easeInOut',
+    onComplete: () => scene.time.delayedCall(400 + Math.random() * 2000, () => wander(ch)),
+  });
+}
+
+function makeLock(key, rect, title, sub) {
+  const [x, y, w, h] = rect, cx = x + w / 2, cy = y + h / 2 - 10;
+  const c = scene.add.container(0, 0).setDepth(5000);
+  const g = scene.add.graphics();
+  g.fillStyle(0x22331A, 0.62).fillRect(x, y, w, h);
+  g.fillStyle(0xFFFDF4, 1).fillRoundedRect(cx - 24, cy - 8, 48, 38, 7);
+  g.lineStyle(7, 0xFFFDF4, 1).beginPath().arc(cx, cy - 8, 15, Math.PI, 0).strokePath();
+  g.fillStyle(0x22331A, 1).fillCircle(cx, cy + 8, 5).fillRect(cx - 2, cy + 8, 4, 12);
+  const t1 = scene.add.text(cx, cy + 46, title, { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: '28px', color: '#FFFDF4', resolution: 3 }).setOrigin(0.5, 0);
+  const t2 = scene.add.text(cx, cy + 82, sub, { fontFamily: 'Nunito, sans-serif', fontStyle: '700', fontSize: '17px', color: '#E3EBD6', resolution: 3 }).setOrigin(0.5, 0);
+  c.add([g, t1, t2]);
+  lockLayers[key] = c;
+}
+
+function openKuryatnik() {
+  state.open.kuryatnik = true; state.items.key = false; state.step = 5;
+  drawGate();
+  const lock = lockLayers.kuryatnik;
+  if (lock) scene.tweens.add({ targets: lock, alpha: 0, duration: 700, onComplete: () => lock.destroy() });
+  klara.setVisible(true).setScale(0.2); klaraLabel.setVisible(true);
+  scene.tweens.add({ targets: klara, scale: 1, duration: 500, ease: 'Back.easeOut' });
+  toast('Новая локация: Курятник!');
+  progress();
+}
+
+// --- Эффекты ---
+function splash(x, y) {
+  for (let i = 0; i < 10; i++) {
+    const d = scene.add.circle(x, y, 4, 0x6FB1E0).setDepth(5900);
+    const a = Math.random() * Math.PI * 2, r = 20 + Math.random() * 26;
+    scene.tweens.add({ targets: d, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r - 14, alpha: 0, duration: 520, onComplete: () => d.destroy() });
+  }
+}
+
+
+// --- Камера и размеры ---
+function fitCamera() {
+  const cam = scene.cameras.main;
+  const W = app.clientWidth, H = app.clientHeight;
+  cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
+  const base = Math.min(W, H) < 500 ? 1 : 1.15;
+  const cover = Math.max(W / WORLD.w, H / WORLD.h);
+  cam.setZoom(DPR * Math.max(base, cover));
+}
+function resizeGame() {
+  if (stick.id === null) idleStick();
+  if (!game) return;
+  const W = app.clientWidth, H = app.clientHeight;
+  game.scale.resize(Math.round(W * DPR), Math.round(H * DPR));
+  game.scale.setZoom(1 / DPR);
+  if (scene && scene.cameras && scene.cameras.main) fitCamera();
+}
+
+// --- Подсказка-стрелка к цели задания за краем экрана ---
+function updateGuide() {
+  const el = $('guide');
+  const id = questTarget();
+  if (!id || ui.open) { el.hidden = true; return; }
+  const a = ANCHORS[id], cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
+  const sx = (a.x - wv.x) * z, sy = (a.y - 40 - wv.y) * z;
+  const W = app.clientWidth, H = app.clientHeight, m = 34, top = 100;
+  if (sx > m && sx < W - m && sy > top && sy < H - m) { el.hidden = true; return; }
+  const cx = W / 2, cy = H / 2, dx = sx - cx, dy = sy - cy;
+  const kx = dx ? ((dx > 0 ? W - m : m) - cx) / dx : Infinity;
+  const ky = dy ? ((dy > 0 ? H - m : top) - cy) / dy : Infinity;
+  const k = Math.min(kx, ky);
+  el.style.transform = `translate(${cx + dx * k}px, ${cy + dy * k}px)`;
+  el.firstElementChild.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+  el.hidden = false;
+}
+
+class FarmScene extends Phaser.Scene {
+  constructor() { super('farm'); }
+  create() {
+    scene = this;
+    lockLayers = {}; bedG = []; chickens.length = 0; nearId = null;
+
+    drawGround();
+    drawFences();
+    drawHouse();
+    drawWell();
+    drawCoop();
+    for (let i = 0; i < 3; i++) { bedG[i] = this.add.graphics().setDepth(1); drawBed(i); }
+    [[44, 340, 1], [640, 110, 0.9], [40, 960, 1.1], [650, 960, 1], [380, 990, 0.9], [60, 140, 0.85]].forEach(([x, y, s]) => drawTree(x, y, s, false));
+    [[820, 640, 1], [960, 780, 1.1], [1300, 640, 0.95], [1340, 950, 1], [840, 940, 1]].forEach(([x, y, s]) => drawTree(x, y, s, true));
+    [[1360, 420, 0.8], [760, 70, 0.8]].forEach(([x, y, s]) => drawTree(x, y, s, false));
+
+    for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
+
+    const grandma = makeChar({ skin: 0xF5CBA7, dress: 0x9C7BC4, apron: 0xFFFDF4, hair: 'bun', hairColor: 0xD9D4CC, glasses: true });
+    grandma.setPosition(300, 330).setDepth(330);
+    nameLabel('Бабушка Агата', 300, 252);
+
+    klara = makeChar({ skin: 0xE8B48F, dress: 0x5E9E57, apron: 0xF7E3B5, hair: 'scarf', hairColor: 0xF2C94C });
+    klara.setPosition(940, 320).setDepth(320).setVisible(state.open.kuryatnik);
+    klara.bodyG.scaleX = -1;
+    klaraLabel = nameLabel('Клара', 940, 242).setVisible(state.open.kuryatnik);
+    this.npcs = [grandma, klara];
+
+    player = makeChar({ skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A });
+    const p = walkable(state.pos.x, state.pos.y) ? state.pos : { x: 300, y: 430 };
+    player.setPosition(p.x, p.y);
+
+    if (!state.open.kuryatnik) makeLock('kuryatnik', [708, 0, 692, 488], 'Курятник', 'Откроется по ходу игры');
+    makeLock('sad', [700, 504, 700, 496], 'Сад', 'Будет в полной версии');
+
+    // маркер «!» над целью задания
+    marker = this.add.container(0, 0).setDepth(6000);
+    const mg = this.add.graphics();
+    mg.fillStyle(0xE2553A, 1).fillCircle(0, 0, 15).lineStyle(3, 0x5B3A1E, 1).strokeCircle(0, 0, 15);
+    mg.fillStyle(0xE2553A, 1).fillTriangle(-7, 11, 7, 11, 0, 21);
+    const mt = this.add.text(0, 1, '!', { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: '22px', color: '#FFFFFF', resolution: 3 }).setOrigin(0.5);
+    marker.add([mg, mt]);
+
+    const cam = this.cameras.main;
+    cam.setBounds(0, 0, WORLD.w, WORLD.h);
+    fitCamera();
+    cam.startFollow(player, false, 0.12, 0.12);
+    cam.centerOn(player.x, player.y);
+
+    updateHud();
+    releaseStick();
+    $('loading').hidden = true;
+    if (state.step === 0) this.time.delayedCall(700, () => toast('Джойстик слева, кнопка действия справа', 'info'));
+  }
+
+  update(time, dt) {
+    let moving = false;
+    const v = ui.open ? { x: 0, y: 0 } : inputVector();
+    const mag = Math.hypot(v.x, v.y);
+    if (mag > 0.05) {
+      // скорость зависит от наклона джойстика; полная — с 70% наклона
+      const sp = 240 * Math.min(1, mag / 0.7) * Math.min(dt, 50) / 1000;
+      const ux = v.x / mag, uy = v.y / mag;
+      const nx = player.x + ux * sp, ny = player.y + uy * sp;
+      if (Math.abs(ux) > 0.2) facing = ux < 0 ? -1 : 1;
+      if (walkable(nx, ny)) { player.setPosition(nx, ny); moving = true; }
+      else if (Math.abs(ux) > 0.1 && walkable(nx, player.y)) { player.x = nx; moving = true; }
+      else if (Math.abs(uy) > 0.1 && walkable(player.x, ny)) { player.y = ny; moving = true; }
+    }
+
+    player.setDepth(player.y);
+    player.bodyG.scaleX = facing;
+    player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
+    this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
+    chickens.forEach(c => c.setDepth(c.y));
+
+    const id = questTarget();
+    if (id) {
+      const a = ANCHORS[id];
+      marker.setVisible(true).setPosition(a.x, a.y + a.mark + (REDUCED ? 0 : Math.sin(time / 220) * 5));
+    } else marker.setVisible(false);
+
+    updateGuide();
+    updateControls();
+    saveMs += dt;
+    if (saveMs > 2000) { saveMs = 0; save(); }
+  }
+}
+
+// ===================== Запуск =====================
+function boot() {
+  const W = app.clientWidth, H = app.clientHeight;
+  game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    backgroundColor: '#4F8A3A',
+    banner: false,
+    input: { activePointers: 1 },
+    scale: { mode: Phaser.Scale.NONE, width: Math.round(W * DPR), height: Math.round(H * DPR), zoom: 1 / DPR },
+    scene: FarmScene,
+  });
+  if ('ResizeObserver' in window) new ResizeObserver(resizeGame).observe(app);
+  window.addEventListener('resize', resizeGame);
+}
+const fontsReady = document.fonts
+  ? Promise.all([document.fonts.load('800 16px Nunito'), document.fonts.load('600 22px Fredoka')]).catch(() => {})
+  : Promise.resolve();
+Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(boot);
+
+// Офлайн-режим и установка на телефон (PWA)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
