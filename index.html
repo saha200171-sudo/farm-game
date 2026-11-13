@@ -668,19 +668,44 @@ function nameLabel(text, x, y) {
 }
 
 // --- Отрисовка окружения ---
+// Пятна и опавшие листья поверх травы: разбивают повтор плитки
+function breakRepetition() {
+  const rnd = mulberry32(21);
+  if (!scene.textures.exists('blob')) {
+    const t = scene.textures.createCanvas('blob', 256, 256);
+    const ctx = t.getContext();
+    const grd = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.55, 'rgba(255,255,255,0.55)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, 256, 256); t.refresh();
+  }
+  // тёмные, золотистые и светлые пятна разного размера
+  const tints = [[0x2F5A22, 0.22], [0x2F5A22, 0.16], [0xD9B45A, 0.16], [0xC8DC7A, 0.14]];
+  for (let i = 0; i < 26; i++) {
+    const [tint, a] = tints[i % tints.length];
+    scene.add.image(rnd() * WORLD.w, rnd() * WORLD.h, 'blob').setTint(tint).setAlpha(a)
+      .setScale(1.2 + rnd() * 2.2, 0.8 + rnd() * 1.4).setRotation(rnd() * Math.PI).setDepth(-11);
+  }
+  if (!scene.textures.exists('leaf')) {
+    const lg = scene.make.graphics({ x: 0, y: 0, add: false });
+    lg.fillStyle(0xffffff, 1).fillEllipse(8, 5, 14, 7);
+    lg.generateTexture('leaf', 16, 10); lg.destroy();
+  }
+  const leafColors = [0xE07B2E, 0xF2A93B, 0xC9502A, 0xE8C24A];
+  for (let i = 0; i < 140; i++) {
+    scene.add.image(rnd() * WORLD.w, rnd() * WORLD.h, 'leaf').setTint(leafColors[i % 4]).setAlpha(0.9)
+      .setRotation(rnd() * Math.PI * 2).setScale(0.7 + rnd() * 0.6).setDepth(-11);
+  }
+}
+
 function drawGround() {
+  // трава: бесшовная плитка 1024 px, одна плитка ≈ 360 точек карты
+  const GRASS_SCALE = 0.35;
+  scene.add.tileSprite(0, 0, WORLD.w, WORLD.h, 'grass').setOrigin(0, 0).setTileScale(GRASS_SCALE, GRASS_SCALE).setDepth(-12);
+  breakRepetition();
   const g = scene.add.graphics().setDepth(-10);
-  g.fillStyle(0x86C45F, 1).fillRect(0, 0, WORLD.w, WORLD.h);
   const rnd = mulberry32(7);
-  for (let i = 0; i < 70; i++) {
-    g.fillStyle(rnd() < 0.5 ? 0x7AB954 : 0x96CF6E, 0.55);
-    g.fillEllipse(rnd() * WORLD.w, rnd() * WORLD.h, 60 + rnd() * 140, 30 + rnd() * 60);
-  }
-  g.lineStyle(2, 0x5E9A44, 0.7);
-  for (let i = 0; i < 600; i++) {
-    const x = rnd() * WORLD.w, y = rnd() * WORLD.h;
-    g.lineBetween(x, y, x - 3, y - 7); g.lineBetween(x, y, x + 3, y - 7);
-  }
   // тропинка
   const pts = [[210, 262], [210, 430], [580, 430], [580, 250], [1050, 250], [1050, 650]];
   const stroke = (w, col) => {
@@ -689,13 +714,6 @@ function drawGround() {
     g.fillStyle(col, 1); pts.forEach(([x, y]) => g.fillCircle(x, y, w / 2));
   };
   stroke(48, 0xC79D63); stroke(38, 0xDDBB86);
-  // цветы
-  const flowers = [0xF2A0C0, 0xFFE07A, 0xFFFFFF, 0xE2553A];
-  for (let i = 0; i < 90; i++) {
-    const x = rnd() * WORLD.w, y = rnd() * WORLD.h;
-    if (Math.abs(y - 250) < 40 || Math.abs(y - 430) < 30) continue;
-    g.fillStyle(flowers[i % 4], 0.95).fillCircle(x, y, 3);
-  }
   // пруд в саду
   g.fillStyle(0x3D7FB5, 1).fillEllipse(1180, 820, 220, 120);
   g.fillStyle(0x6FB1E0, 1).fillEllipse(1170, 812, 180, 90);
@@ -891,6 +909,9 @@ function updateGuide() {
 
 class FarmScene extends Phaser.Scene {
   constructor() { super('farm'); }
+  preload() {
+    this.load.image('grass', 'assets/ground/grass.jpg');
+  }
   create() {
     scene = this;
     lockLayers = {}; bedG = []; chickens.length = 0; nearId = null;
