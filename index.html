@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 42;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 43;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1440,8 +1440,31 @@ const seaShoreY = x => -1255 + 20 * Math.sin(x / 150) + 10 * Math.sin(x / 53 + 2
 const SEA_PIER = { x: 588, w: 50, top: -1540 };
 function onSeaPier(x, y) { return Math.abs(x - SEA_PIER.x) < SEA_PIER.w / 2 && y > SEA_PIER.top + 6 && y < seaShoreY(x) + 40; }
 function inSea(x, y) { return y < seaShoreY(x) + 8 && !onSeaPier(x, y); }
+// ===================== Отсечение: рисуем только то, что рядом с экраном =====================
+// Неподвижные картинки и рисованные фигуры за пределами экрана (+ запас) не рисуются — телефону легче.
+const CULL = [];   // [объект, x1, y1, x2, y2]
+function cullG(o, x1, y1, x2, y2) { CULL.push([o, x1, y1, x2, y2]); return o; }
+function cullStatic() {   // после постройки сцены: все неподвижные картинки
+  for (const o of scene.children.list) {
+    if (o.type !== 'Image' && o.type !== 'TileSprite') continue;
+    const b = o.getBounds(); CULL.push([o, b.x, b.y, b.right, b.bottom]);
+  }
+}
+let cullTimer = 0;
+function updateCull(dt, force) {
+  if (OVERVIEW || !player) return;
+  if (!force && (cullTimer -= dt) > 0) return;
+  cullTimer = 120;
+  // видимая область — вокруг героини (камера всегда идёт за ней), с запасом
+  const cam = scene.cameras.main, hw = cam.width / cam.zoom / 2 + 320, hh = cam.height / cam.zoom / 2 + 320;
+  const vx1 = player.x - hw, vx2 = player.x + hw, vy1 = player.y - hh, vy2 = player.y + hh;
+  for (const [o, x1, y1, x2, y2] of CULL) {
+    if (!o.active) continue;
+    o.visible = x2 > vx1 && x1 < vx2 && y2 > vy1 && y1 < vy2;
+  }
+}
 function drawSea() {
-  const g = scene.add.graphics().setDepth(GROUND - 8.5);
+  const g = cullG(scene.add.graphics().setDepth(GROUND - 8.5), WORLD.x, WORLD.top, WORLD.w, -990);
   const X = []; for (let x = WORLD.x; x <= WORLD.w; x += 20) X.push(x);
   // песок: от кромки воды до забора, нижний край неровный — песок переходит в траву
   g.fillStyle(0xDCC690, 1).beginPath(); g.moveTo(X[0], seaShoreY(X[0]));
@@ -1476,14 +1499,15 @@ function drawSea() {
     g.fillStyle(0xCFEAF0, 0.5).fillRoundedRect(x, y, 22 + rnd() * 34, 4, 2);
   }
   // пристань: уходит в море вверх, доски поперёк, сваи
-  const p = scene.add.graphics().setDepth(GROUND - 8);
+  const p = cullG(scene.add.graphics().setDepth(GROUND - 8), SEA_PIER.x - 60, SEA_PIER.top - 20, SEA_PIER.x + 60, -1180);
   const px = SEA_PIER.x - SEA_PIER.w / 2, bottom = seaShoreY(SEA_PIER.x) + 34;
   for (let y = SEA_PIER.top + 20; y < bottom - 30; y += 60) p.fillStyle(0x3E2A1A, 1).fillRect(px - 6, y, 8, 22).fillRect(px + SEA_PIER.w - 2, y, 8, 22);
   p.fillStyle(0x5A3D24, 1).fillRect(px - 4, SEA_PIER.top - 4, SEA_PIER.w + 8, bottom - SEA_PIER.top + 4);
   for (let y = SEA_PIER.top, k = 0; y < bottom; y += 13, k++) p.fillStyle(k % 2 ? 0xA97B48 : 0xB98A55, 1).fillRect(px, y, SEA_PIER.w, 11);
   p.fillStyle(0x6B4A2C, 1).fillRect(px - 4, SEA_PIER.top - 4, 6, bottom - SEA_PIER.top + 4).fillRect(px + SEA_PIER.w - 2, SEA_PIER.top - 4, 6, bottom - SEA_PIER.top + 4);
   // кораблик у пристани (справа): корпус, палуба, мачта, парус, флажок
-  const s = scene.add.graphics().setDepth(GROUND - 7.9), bx = SEA_PIER.x + 112, by = SEA_PIER.top + 150;
+  const bx = SEA_PIER.x + 112, by = SEA_PIER.top + 150;
+  const s = cullG(scene.add.graphics().setDepth(GROUND - 7.9), bx - 120, by - 120, bx + 120, by + 100);
   s.fillStyle(0x1d3a52, 0.35).fillEllipse(bx + 6, by + 64, 150, 26);                                 // тень на воде
   s.fillStyle(0x6B3E22, 1).fillRoundedRect(bx - 52, by - 70, 104, 150, 46);                          // корпус (вид сверху-спереди)
   s.fillStyle(0x8E5A32, 1).fillRoundedRect(bx - 42, by - 60, 84, 128, 38);                           // палуба
@@ -1505,7 +1529,7 @@ const ROCK_CRAGS = [
   [2645, 812, 200, 120], [2735, 846, 130, 80],                                // справа снизу
 ];
 function drawRocks() {
-  const g = scene.add.graphics().setDepth(GROUND - 8.5);
+  const g = cullG(scene.add.graphics().setDepth(GROUND - 8.5), OZERO_X - 20, 0, WORLD.w, 1000);
   const rnd = mulberry32(31);
   // каменистые проплешины на траве (под группами скал)
   for (const [cx, cy, rx, ry] of [[2300, 190, 170, 80], [2620, 160, 230, 90], [2710, 460, 200, 100], [2480, 630, 170, 80], [2270, 790, 140, 70], [2680, 830, 190, 80], [2450, 380, 120, 60]]) {
@@ -1541,7 +1565,7 @@ function inPoly(x, y, poly) {
 }
 function inHill(x, y) { return inPoly(x, y, HILL_BLOCK); }
 function boulder(x, y, r, depth) {
-  const b = scene.add.graphics().setDepth(depth ?? y);
+  const b = cullG(scene.add.graphics().setDepth(depth ?? y), x - 2 * r, y - 2 * r, x + 2 * r, y + r);
   b.fillStyle(0x1d2a12, 0.22).fillEllipse(x + 4, y + 2, r * 2.1, r * 0.7);
   b.fillStyle(0x5E6159, 1).fillEllipse(x, y - r * 0.55, r * 2, r * 1.5);
   b.fillStyle(0x80847A, 1).fillEllipse(x - r * 0.15, y - r * 0.75, r * 1.6, r * 1.05);
@@ -1555,7 +1579,7 @@ const CRAGS = [[2730, 935, 150, 92], [2785, 1012, 175, 78], [2575, 1012, 128, 96
   [2530, 982, 200, 128], [2650, 960, 250, 150], [2452, 986, 128, 86], [2775, 880, 230, 120], [2700, 905, 120, 74]];
 function inCrag(x, y) { return [...CRAGS, ...ROCK_CRAGS].some(([cx, cy, h, w]) => Math.abs(x - cx) < w * 0.55 && y > cy - 26 && y < cy + 12); }
 function crag(x, y, h, w) {
-  const g = scene.add.graphics().setDepth(y + 12);
+  const g = cullG(scene.add.graphics().setDepth(y + 12), x - w, y - h - 12, x + w, y + 24);
   const P = (fx, fy) => [x + w * fx, y - h * fy];
   const outline = [P(-0.5, 0), P(-0.46, 0.38), P(-0.36, 0.6), P(-0.3, 0.83), P(-0.12, 0.96), P(0.02, 1), P(0.16, 0.9), P(0.26, 0.74), P(0.38, 0.62), P(0.44, 0.34), P(0.5, 0)];
   const poly = (pts, col, a = 1) => { g.fillStyle(col, a).beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) g.lineTo(p[0], p[1]); g.closePath().fillPath(); };
@@ -1575,7 +1599,7 @@ function crag(x, y, h, w) {
 }
 function drawHill() {
   for (const c of CRAGS) crag(...c);
-  const g = scene.add.graphics().setDepth(GROUND - 7);
+  const g = cullG(scene.add.graphics().setDepth(GROUND - 7), 2380, 990, WORLD.w, 1520);
   const down = HILL_EDGE.map(([x, y]) => [x - 8, y + HILL_H]);
   // тень от холма на траве
   g.fillStyle(0x1d2a12, 0.18).beginPath(); g.moveTo(down[0][0], down[0][1]);
@@ -1606,7 +1630,7 @@ function drawHill() {
   for (const [x, y] of HILL_EDGE) m.lineTo(x, y);
   m.lineTo(WORLD.w, 990).closePath().fillPath();
   top.setMask(m.createGeometryMask());
-  const g2 = scene.add.graphics().setDepth(GROUND - 6.8);
+  const g2 = cullG(scene.add.graphics().setDepth(GROUND - 6.8), 2380, 990, WORLD.w, 1520);
   // кромка: тёмная линия и пучки травы, свисающие с края
   g2.lineStyle(3, 0x3F5E28, 1).beginPath(); g2.moveTo(HILL_EDGE[0][0], HILL_EDGE[0][1]);
   for (const [x, y] of HILL_EDGE) g2.lineTo(x, y);
@@ -2152,6 +2176,7 @@ class FarmScene extends Phaser.Scene {
     if (q.get('seen')) state.nanamin.seen = true;
     if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
     if (q.get('act')) setTimeout(() => interact(q.get('act')), 600);
+    cullStatic(); updateCull(0, true);   // сразу — по уже известной позиции героини
 
     updateHud();
     releaseStick();
@@ -2179,6 +2204,7 @@ class FarmScene extends Phaser.Scene {
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
     chickens.forEach(c => c.setDepth(c.y));
+    updateCull(dt);
     updatePasture(dt);
     updateField();
     updateThorfinn(dt);
