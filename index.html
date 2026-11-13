@@ -668,7 +668,7 @@ function nameLabel(text, x, y) {
 }
 
 // --- Отрисовка окружения ---
-// Пятна и опавшие листья поверх травы: разбивают повтор плитки
+// Мягкие пятна поверх травы: разбивают повтор плитки
 function breakRepetition() {
   const rnd = mulberry32(21);
   if (!scene.textures.exists('blob')) {
@@ -687,16 +687,82 @@ function breakRepetition() {
     scene.add.image(rnd() * WORLD.w, rnd() * WORLD.h, 'blob').setTint(tint).setAlpha(a)
       .setScale(1.2 + rnd() * 2.2, 0.8 + rnd() * 1.4).setRotation(rnd() * Math.PI).setDepth(-11);
   }
-  if (!scene.textures.exists('leaf')) {
-    const lg = scene.make.graphics({ x: 0, y: 0, add: false });
-    lg.fillStyle(0xffffff, 1).fillEllipse(8, 5, 14, 7);
-    lg.generateTexture('leaf', 16, 10); lg.destroy();
+  // Плоские листья-овалы убраны: они были в другом стиле, чем рисованная земля.
+  // Опавшие листья добавим позже отдельными рисованными картинками.
+}
+
+// ===================== Дорожки из кусочков =====================
+// Карта поделена на клетки CELL×CELL. В PATHS перечислены отрезки дорожек
+// [колонка1, ряд1, колонка2, ряд2] — горизонтальные или вертикальные.
+// Кусочки (углы, края, развилки) игра подбирает сама: у каждого кусочка 4 угла,
+// каждый угол — клетка «дорожка» или «трава» (16 вариантов в atlas'е path-mask.png).
+const CELL = 56;
+const PATHS = [
+  [3, 4, 3, 7],     // от дома бабушки вниз
+  [3, 7, 10, 7],    // вдоль огорода
+  [10, 4, 10, 7],   // вверх к калитке
+  [10, 4, 18, 4],   // через калитку к курятнику
+  [18, 4, 18, 11],  // вниз, к калитке в сад
+];
+const PATH_TILE = 160;          // размер кусочка в атласе, px
+const DIRT_WORLD = 196;         // одна плитка земли = 196 точек карты
+const PATH_RES = 2;             // во сколько раз чётче точек карты рисуем дорожку
+
+function pathCells() {
+  const set = new Set();
+  for (const [c1, r1, c2, r2] of PATHS) {
+    for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++)
+      for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) set.add(c + ',' + r);
   }
-  const leafColors = [0xE07B2E, 0xF2A93B, 0xC9502A, 0xE8C24A];
-  for (let i = 0; i < 140; i++) {
-    scene.add.image(rnd() * WORLD.w, rnd() * WORLD.h, 'leaf').setTint(leafColors[i % 4]).setAlpha(0.9)
-      .setRotation(rnd() * Math.PI * 2).setScale(0.7 + rnd() * 0.6).setDepth(-11);
+  return set;
+}
+
+function drawPaths() {
+  const cells = pathCells();
+  if (!cells.size) return;
+  const list = [...cells].map(k => k.split(',').map(Number));
+  const c0 = Math.min(...list.map(p => p[0])), c1 = Math.max(...list.map(p => p[0]));
+  const r0 = Math.min(...list.map(p => p[1])), r1 = Math.max(...list.map(p => p[1]));
+  // область, которую занимают кусочки (они сдвинуты на полклетки)
+  const X0 = (c0 - 0.5) * CELL, Y0 = (r0 - 0.5) * CELL;
+  const W = (c1 - c0 + 2) * CELL, H = (r1 - r0 + 2) * CELL;
+  const cw = Math.round(W * PATH_RES), ch = Math.round(H * PATH_RES);
+  const has = (c, r) => cells.has(c + ',' + r) ? 1 : 0;
+  const maskImg = scene.textures.get('pathMask').getSourceImage();
+  const rimImg = scene.textures.get('pathRim').getSourceImage();
+  const dirtImg = scene.textures.get('dirt').getSourceImage();
+  const tileSize = CELL * PATH_RES;
+
+  // 1) маска: где земля
+  const mask = document.createElement('canvas'); mask.width = cw; mask.height = ch;
+  const m = mask.getContext('2d');
+  const tiles = [];
+  for (let j = r0; j <= r1 + 1; j++) {
+    for (let i = c0; i <= c1 + 1; i++) {
+      const idx = has(i - 1, j - 1) | has(i, j - 1) << 1 | has(i - 1, j) << 2 | has(i, j) << 3;
+      if (!idx) continue;
+      const dx = ((i - 0.5) * CELL - X0) * PATH_RES, dy = ((j - 0.5) * CELL - Y0) * PATH_RES;
+      const sx = (idx % 4) * PATH_TILE, sy = Math.floor(idx / 4) * PATH_TILE;
+      tiles.push([sx, sy, dx, dy]);
+      m.drawImage(maskImg, sx, sy, PATH_TILE, PATH_TILE, dx, dy, tileSize, tileSize);
+    }
   }
+  // 2) земля, привязанная к координатам карты, обрезанная по маске
+  if (scene.textures.exists('pathLayer')) scene.textures.remove('pathLayer'); // при «Начать заново»
+  const tex = scene.textures.createCanvas('pathLayer', cw, ch);
+  const ctx = tex.getContext();
+  const step = DIRT_WORLD * PATH_RES;
+  const startX = -((X0 % DIRT_WORLD) + DIRT_WORLD) % DIRT_WORLD * PATH_RES;
+  const startY = -((Y0 % DIRT_WORLD) + DIRT_WORLD) % DIRT_WORLD * PATH_RES;
+  for (let y = startY; y < ch; y += step)
+    for (let x = startX; x < cw; x += step) ctx.drawImage(dirtImg, x, y, step, step);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(mask, 0, 0);
+  // 3) тонкая тёмная кромка по краю
+  ctx.globalCompositeOperation = 'source-over';
+  for (const [sx, sy, dx, dy] of tiles) ctx.drawImage(rimImg, sx, sy, PATH_TILE, PATH_TILE, dx, dy, tileSize, tileSize);
+  tex.refresh();
+  scene.add.image(X0, Y0, 'pathLayer').setOrigin(0, 0).setScale(1 / PATH_RES).setDepth(-9);
 }
 
 function drawGround() {
@@ -705,15 +771,7 @@ function drawGround() {
   scene.add.tileSprite(0, 0, WORLD.w, WORLD.h, 'grass').setOrigin(0, 0).setTileScale(GRASS_SCALE, GRASS_SCALE).setDepth(-12);
   breakRepetition();
   const g = scene.add.graphics().setDepth(-10);
-  const rnd = mulberry32(7);
-  // тропинка
-  const pts = [[210, 262], [210, 430], [580, 430], [580, 250], [1050, 250], [1050, 650]];
-  const stroke = (w, col) => {
-    g.lineStyle(w, col, 1);
-    for (let i = 0; i < pts.length - 1; i++) g.lineBetween(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
-    g.fillStyle(col, 1); pts.forEach(([x, y]) => g.fillCircle(x, y, w / 2));
-  };
-  stroke(48, 0xC79D63); stroke(38, 0xDDBB86);
+  drawPaths();
   // пруд в саду
   g.fillStyle(0x3D7FB5, 1).fillEllipse(1180, 820, 220, 120);
   g.fillStyle(0x6FB1E0, 1).fillEllipse(1170, 812, 180, 90);
@@ -911,6 +969,9 @@ class FarmScene extends Phaser.Scene {
   constructor() { super('farm'); }
   preload() {
     this.load.image('grass', 'assets/ground/grass.jpg');
+    this.load.image('dirt', 'assets/paths/dirt.jpg');
+    this.load.image('pathMask', 'assets/paths/path-mask.png');
+    this.load.image('pathRim', 'assets/paths/path-rim.png');
   }
   create() {
     scene = this;

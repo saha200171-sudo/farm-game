@@ -1,13 +1,16 @@
 // Service worker: позволяет игре работать без интернета.
 // Стратегия: сразу отдаём сохранённую копию, а в фоне скачиваем свежую версию.
 // Поэтому обновление игры у игрока появляется со второго запуска.
-const CACHE = 'farm-v4';
+const CACHE = 'farm-v5';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
   './lib/phaser.min.js',
   './assets/ground/grass.jpg',
+  './assets/paths/dirt.jpg',
+  './assets/paths/path-mask.png',
+  './assets/paths/path-rim.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
