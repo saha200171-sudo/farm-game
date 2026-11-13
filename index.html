@@ -144,6 +144,12 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   .toast{top:96px}
 }
 
+/* Затемнение экрана при смене дня */
+.fade{position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:#141826;opacity:0;pointer-events:none;transition:opacity 1.2s ease}
+.fade.show{opacity:1;pointer-events:auto}
+.fade-text{font-family:var(--display);font-weight:600;font-size:46px;color:#FFF3D6;letter-spacing:.02em;opacity:0;transition:opacity .8s ease .4s}
+.fade.show .fade-text{opacity:1}
+
 .loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--grass-deep);color:#fff;font-family:var(--display);font-size:22px}
 
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
@@ -171,6 +177,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
     </div>
   </div>
   <div class="modal" id="modal" hidden></div>
+  <div class="fade" id="fade"><div class="fade-text" id="fadeText"></div></div>
   <div class="rotate"><div class="phone"></div><div>Поверни телефон вертикально</div></div>
   <div class="loading" id="loading">Загружаем ферму…</div>
 </div>
@@ -217,6 +224,7 @@ const ANCHORS = {
   gate:    { x: 700, y: 250, reach: 64, mark: -72 },
   klara:   { x: 940, y: 320, reach: 72, mark: -118 },
   nanamin: { x: 640, y: 1560, reach: 72, mark: -118 },
+  door:    { x: 210, y: 280, reach: 62, mark: -100 },   // дверь дома дедушки (вечером — «Лечь спать»)
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -236,13 +244,15 @@ const freshState = () => ({
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: [0, 0, 0, 0], visited: false },
+  // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
+  time: { day: 1, phase: 'day' },
 });
 function loadState() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin } };
+      return { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time } };
     }
   } catch (e) {}
   return freshState();
@@ -259,6 +269,7 @@ function save() {
 const ui = { open: false };
 
 function questTarget() {
+  if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
@@ -289,6 +300,10 @@ function updateHud() {
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7) chips.push([`Яйца × ${state.items.eggs}`, '#FFF6E3']);
+  if (state.time.day > 1 || state.time.phase !== 'day') {
+    const sky = { day: '#9FD3F0', evening: '#F2A66B', morning: '#F7D9C4' }[state.time.phase] || '#9FD3F0';
+    chips.unshift([`День ${state.time.day}`, sky]);
+  }
   $('bag').innerHTML = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
   // второе задание — квест Нанамина
   const nm = state.nanamin, side = $('sideQuest');
@@ -296,7 +311,7 @@ function updateHud() {
     1: `Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`,
     2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из 4`,
     3: 'Поговори с Нанамином',
-  }[nm.stage];
+  }[nm.stage] || (state.time.phase === 'evening' ? 'Вечереет: вернись домой и ложись спать' : null);
   side.hidden = !sideText;
   if (sideText) side.textContent = sideText;
 }
@@ -474,6 +489,7 @@ function interact(id) {
   if (id === 'grandpa') return askGrandpa();
   if (id === 'klara') return talkKlara();
   if (id === 'nanamin') return talkNanamin();
+  if (id === 'door') return goToSleep();
   if (id.startsWith('pen')) return repairPen(+id[3]);
   if (id.startsWith('cow')) return callCow(+id.slice(3));
   if (id === 'well') {
@@ -551,7 +567,7 @@ function talkNanamin() {
     // ЗАГЛУШКА: реплики Нанамина после квеста — заменим на твои
     ['nanamin', 'Ты… ты вернула всех моих коров? И загон теперь как новый!'],
     ['nanamin', 'Спасибо. Я уж думал, никогда их не соберу. Заходи в гости, когда захочешь.'],
-  ], () => { nm.stage = 4; progress(); });
+  ], () => { nm.stage = 4; progress(); startEvening(); });
   showDialog([['nanamin', 'Коровы снова дома. Спасибо тебе ещё раз!']]);
 }
 function nanaminThought() {
@@ -600,6 +616,99 @@ function cowPenned(c) {
     toast('Все коровы дома! Кажется, Нанамин повеселел');
   } else toast(`Коров в загоне: ${n} из 4`, 'info');
   progress();
+}
+
+// ===================== Время суток =====================
+// Цветной фильтр поверх всей фермы: вечер — тёплый закат, утро — мягкий розоватый свет
+// Вечер = тёплый закат (умножение) + полупрозрачная сине-сиреневая дымка сумерек поверх
+const TINTS = {
+  evening: { color: 0xE58C58, alpha: 0.62, haze: 0x3E4C92, hazeAlpha: 0.2 },   // тёплый закат + немного синевы
+  morning: { color: 0xF6C7B4, alpha: 0.3 },
+};
+let timeTint = null, timeHaze = null, windowGlow = null, fireflies = [];
+function buildTimeLayer() {
+  timeTint = scene.add.rectangle(0, 0, WORLD.w, WORLD.h, 0xffffff).setOrigin(0, 0).setDepth(5800).setAlpha(0);
+  timeTint.setBlendMode(Phaser.BlendModes.MULTIPLY);
+  timeHaze = scene.add.rectangle(0, 0, WORLD.w, WORLD.h, 0x3E4C92).setOrigin(0, 0).setDepth(5801).setAlpha(0);
+  // тёплый свет в окнах дома дедушки
+  windowGlow = scene.add.graphics().setDepth(5850).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
+  windowGlow.fillStyle(0xFFB040, 0.22).fillEllipse(138, 198, 100, 86).fillEllipse(282, 198, 100, 86);
+  windowGlow.fillStyle(0xFFC864, 0.75).fillRect(118, 180, 40, 35).fillRect(262, 180, 40, 35);
+  if (!scene.textures.exists('firefly')) {
+    const t = scene.textures.createCanvas('firefly', 32, 32);
+    const ctx = t.getContext();
+    const grd = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grd.addColorStop(0, 'rgba(255,252,200,1)'); grd.addColorStop(0.25, 'rgba(230,255,140,0.9)'); grd.addColorStop(1, 'rgba(200,255,120,0)');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, 32, 32); t.refresh();
+  }
+  fireflies = [];
+  applyTime(true);
+}
+function applyTime(instant) {
+  const ph = state.time.phase, t = TINTS[ph];
+  if (t) timeTint.setFillStyle(t.color);
+  const to = (obj, alpha, dur) => {
+    scene.tweens.killTweensOf(obj);
+    if (instant) obj.setAlpha(alpha); else scene.tweens.add({ targets: obj, alpha, duration: dur, ease: 'Sine.easeInOut' });
+  };
+  to(timeTint, t ? t.alpha : 0, ph === 'day' ? 6000 : 4000);
+  if (t && t.haze) timeHaze.setFillStyle(t.haze);
+  to(timeHaze, t && t.haze ? t.hazeAlpha : 0, 4000);
+  to(windowGlow, ph === 'evening' ? 1 : 0, 3000);
+  if (ph === 'evening') spawnFireflies(); else clearFireflies();
+}
+// Светлячки: мерцают и медленно летают над травой
+function spawnFireflies() {
+  if (fireflies.length) return;
+  const rnd = mulberry32(99);
+  for (let i = 0; i < 70; i++) {
+    const f = scene.add.image(rnd() * WORLD.w, 40 + rnd() * (WORLD.h - 80), 'firefly')
+      .setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale(0.65 + rnd() * 0.6).setAlpha(rnd() * 0.9);
+    fireflies.push(f);
+    const drift = () => {
+      if (!f.active) return;
+      scene.tweens.add({ targets: f, x: f.x + (Math.random() - 0.5) * 120, y: f.y + (Math.random() - 0.5) * 90,
+        duration: 2500 + Math.random() * 3000, ease: 'Sine.easeInOut', onComplete: drift });
+    };
+    drift();
+    scene.tweens.add({ targets: f, alpha: { from: 0.1, to: 0.95 }, duration: 700 + Math.random() * 900,
+      yoyo: true, repeat: -1, delay: Math.random() * 1500, hold: 300 + Math.random() * 800, repeatDelay: Math.random() * 1200 });
+  }
+}
+function clearFireflies() {
+  fireflies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); });
+  fireflies = [];
+}
+function startEvening() {
+  state.time.phase = 'evening';
+  progress();
+  applyTime(false);
+  setTimeout(() => showThought('Солнце садится… Уже вечер. Пора домой — отдохнуть после такого дня.'), 2600);
+}
+// Сон: экран гаснет → «День N» → утро у дома дедушки
+function goToSleep() {
+  ui.open = true; stopWalking();
+  const fade = $('fade'), text = $('fadeText');
+  text.textContent = 'Спокойной ночи…';
+  fade.classList.add('show');
+  setTimeout(() => { text.style.opacity = 0; }, 2000);
+  setTimeout(() => {
+    state.time.day += 1;
+    state.time.phase = 'morning';
+    player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1;
+    scene.cameras.main.centerOn(player.x, player.y);
+    applyTime(true);
+    progress();
+    text.textContent = `День ${state.time.day}`;
+    text.style.opacity = '';
+  }, 2800);
+  setTimeout(() => {
+    fade.classList.remove('show');
+    ui.open = false;
+    setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
+    // утренний свет постепенно становится обычным дневным
+    setTimeout(() => { state.time.phase = 'day'; applyTime(false); progress(); }, 12000);
+  }, 5200);
 }
 
 function talkKlara() {
@@ -754,6 +863,7 @@ function nearest() {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
     if (id.startsWith('pen') && (nm.stage !== 1 || nm.fixed[+id[3]])) continue;
+    if (id === 'door' && state.time.phase !== 'evening') continue;
     const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
@@ -762,6 +872,7 @@ function nearest() {
 function actionLabel(id) {
   if (!id) return 'Действие';
   if (id.startsWith('pen')) return 'Починить';
+  if (id === 'door') return 'Лечь спать';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
   if (id.startsWith('bed')) return state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Осмотреть';
@@ -1347,6 +1458,8 @@ class FarmScene extends Phaser.Scene {
     this.npcs = [grandpa, klara];
     nanaminChar = null;
     buildPasture();
+    if (new URLSearchParams(location.search).get('evening')) { state.nanamin.stage = 4; state.time.phase = 'evening'; } // служебное: сразу вечер
+    buildTimeLayer();
 
     player = makeChar({ skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A });
     const p = walkable(state.pos.x, state.pos.y) ? state.pos : { x: 300, y: 430 };
