@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 47;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 49;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1216,8 +1216,10 @@ const BUILDINGS = [
   // (край карты проходит по дровнику; длинный дом и второй дровник убраны)
 ];
 function drawHouse() {
-  for (const [k, x, y, sc, ox] of BUILDINGS) {
-    scene.add.image(x, y, 'h-' + k).setOrigin(ox, 1).setScale(sc).setDepth(y);
+  for (const [k, x, y, sc, ox, sol] of BUILDINGS) {
+    // глубина = самая близкая точка, куда героиня может подойти снизу (низ «стены» + её радиус 12),
+    // иначе в узкой полоске у фасада она оказывалась «за» домом
+    scene.add.image(x, y, 'h-' + k).setOrigin(ox, 1).setScale(sc).setDepth(y + sol[3] + 11);
   }
 }
 function drawWell() {
@@ -1446,6 +1448,25 @@ function cullStatic() {   // после постройки сцены: все н
   for (const o of scene.children.list) {
     if (o.type !== 'Image' && o.type !== 'TileSprite') continue;
     const b = o.getBounds(); CULL.push([o, b.x, b.y, b.right, b.bottom]);
+  }
+}
+// Большие векторные рисунки (море с пляжем, каменистые проплешины, откос холма) телефон пересчитывал КАЖДЫЙ кадр.
+// Один раз «запекаем» их в картинки кусками ≤1024 точек карты (в 1.5 раза чётче карты) — дальше рисуется только готовая картинка.
+function bakeBigGraphics() {
+  if (OVERVIEW) return;
+  const R = 1.5, T = 1024;
+  for (let i = CULL.length - 1; i >= 0; i--) {
+    const [o, x1, y1, x2, y2] = CULL[i];
+    if (o.type !== 'Graphics' || (x2 - x1) * (y2 - y1) < 150000) continue;
+    CULL.splice(i, 1);
+    o.setScale(R);
+    for (let tx = x1; tx < x2; tx += T) for (let ty = y1; ty < y2; ty += T) {
+      const w = Math.min(T, x2 - tx), h = Math.min(T, y2 - ty);
+      const rt = scene.add.renderTexture(tx, ty, Math.ceil(w * R), Math.ceil(h * R)).setOrigin(0, 0).setScale(1 / R).setDepth(o.depth);
+      rt.draw(o, -tx * R, -ty * R);
+      CULL.push([rt, tx, ty, tx + w, ty + h]);
+    }
+    o.destroy();
   }
 }
 let cullTimer = 0;
@@ -2174,7 +2195,7 @@ class FarmScene extends Phaser.Scene {
     if (q.get('seen')) state.nanamin.seen = true;
     if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
     if (q.get('act')) setTimeout(() => interact(q.get('act')), 600);
-    cullStatic(); updateCull(0, true);   // сразу — по уже известной позиции героини
+    bakeBigGraphics(); cullStatic(); updateCull(0, true);   // сразу — по уже известной позиции героини
 
     updateHud();
     releaseStick();
