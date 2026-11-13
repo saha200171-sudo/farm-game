@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 18;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 19;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1498,7 +1498,7 @@ function cowWander(c) {
 function setNanaminMood(sad) {
   const pos = { x: ANCHORS.nanamin.x, y: ANCHORS.nanamin.y };
   if (nanaminChar) { scene.npcs.splice(scene.npcs.indexOf(nanaminChar), 1); nanaminChar.destroy(); }
-  nanaminChar = makeChar({ skin: 0xE9BC96, dress: 0x5B7FA6, suspenders: 0x3E5A7A, hair: 'short', hairColor: 0x3B2A20, sad });
+  nanaminChar = makeChar({ skin: 0xE9BC96, dress: 0x5B7FA6, suspenders: 0x3E5A7A, hair: 'short', hairColor: 0xE8D29A, sad });
   nanaminChar.setPosition(pos.x, pos.y).setDepth(pos.y);
   nanaminChar.bodyG.scaleX = -1;          // смотрит на загон
   scene.npcs.push(nanaminChar);
