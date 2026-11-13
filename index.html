@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 22;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 23;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -210,6 +210,7 @@ const SPEAKERS = {
   klara: { name: 'Клара',          letter: 'К', color: '#D99A1E' },
   nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
   thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
+  iro:     { name: 'Дядя Айро',    letter: 'А', color: '#7A8B3A' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
 };
 
@@ -234,6 +235,7 @@ const ANCHORS = {
   door:    { x: 210, y: 280, reach: 62, mark: -100 },   // дверь дома дедушки (вечером — «Лечь спать»)
   fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
   thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
+  iro:     { x: 1048, y: 800, reach: 76, mark: -82 },   // Дядя Айро, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -250,7 +252,7 @@ const freshState = () => ({
   step: 0,
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
-  open: { ogorod: true, kuryatnik: false, sad: false, pastbishe: true, pole: true }, // пастбище и поле пока открыты сразу — для тестов
+  open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false },
@@ -266,6 +268,8 @@ function loadState() {
       const s = JSON.parse(raw), d = freshState();
       const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 } };
       // старые сохранения: коров было 4, теперь 8 — новые коровы дома, если квест уже пройден
+      st.open.kuryatnik = st.open.sad = true;   // ВРЕМЕННО для тестов: курятник и сад открыты
+      if (st.step === 4) { st.step = 5; st.items.key = false; }   // калитка уже открыта — шаг «открой калитку» пропускаем
       const nc = st.nanamin.cows;
       while (nc.length < COW_HOMES.length) nc.push(st.nanamin.stage >= 3 ? 2 : 0);
       return st;
@@ -522,6 +526,7 @@ function interact(id) {
   if (id === 'grandpa') return askGrandpa();
   if (id === 'klara') return talkKlara();
   if (id === 'nanamin') return talkNanamin();
+  if (id === 'iro') return talkIro();
   if (id === 'door') return goToSleep();
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
@@ -561,7 +566,7 @@ function talkGrandpa() {
     ['grandpa', 'Ох, какие всходы! Сразу видно, рука лёгкая.'],
     ['grandpa', 'Держи ключ от калитки. За ней курятник, там живёт Клара.'],
     ['grandpa', 'Она давно ждёт помощи. Сходи познакомься.'],
-  ], () => { s.items.key = true; s.step = 4; toast('Получено: ключ от калитки'); progress(); });
+  ], () => { if (s.open.kuryatnik) { s.step = 5; progress(); return; } s.items.key = true; s.step = 4; toast('Получено: ключ от калитки'); progress(); });
   if (s.step === 7) return showDialog([
     ['grandpa', 'Свежие яйца! Испеку пирог на всю округу.'],
     ['grandpa', 'А за курятником старый сад. Его хозяин давно не показывался…'],
@@ -597,6 +602,13 @@ function askAboutNanamin() {
 }
 
 // ===================== Пастбище: Нанамин, загон, коровы =====================
+// Дядя Айро — чайный мастер у пруда. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
+function talkIro() {
+  showDialog([
+    ['iro', 'А, гостья! Присаживайся. Чай как раз настоялся.'],
+    ['iro', 'Спешить некуда: хороший чай, как и хороший день, не торопят.'],
+  ]);
+}
 function talkNanamin() {
   const nm = state.nanamin;
   if (nm.stage < 3) return nanaminThought();
@@ -820,11 +832,12 @@ function solids() {
     [1120, 70, 220, 150],          // курятник
     [692, 0, 16, 200], [692, 300, 16, 700],      // забор огорода
     [700, 488, 300, 16], [1100, 488, 300, 16],   // забор сада
-    [1000, 488, 100, 16],          // калитка в сад (пока закрыта)
     [0, 984, 604, 20], [684, 984, 716, 20],      // забор между фермой и пастбищем (проход у дорожки)
     [0, -16, 548, 20], [628, -16, 772, 20],      // забор между фермой и полем (проход у дорожки)
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
+  if (!state.open.sad) list.push([1000, 488, 100, 16]);   // калитка в сад
+  list.push([1028, 782, 40, 22]);   // Дядя Айро
   return list;
 }
 function walkable(x, y) {
@@ -862,6 +875,7 @@ function hitTest(x, y) {
   for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 58 && Math.abs(y - BEDS[i].y) < 44) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(640, 1525, 44)) return 'nanamin';
+  if (state.open.sad && near(1048, 772, 46)) return 'iro';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
   for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 26, 44)) return 'cow' + c.idx;
@@ -934,6 +948,7 @@ function nearest() {
     if (id === 'door' && state.time.phase !== 'evening') continue;
     if (id === 'fieldGate') continue;
     if (id === 'thorfinn' && thor.mode !== 'idle') continue;
+    if (id === 'iro' && !state.open.sad) continue;
     const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
@@ -1292,7 +1307,7 @@ function drawFences() {
   registerFenceFrames();
   for (const l of Object.values(fenceObjs)) { l.length = 0; l.posts = []; }
   const L = fenceObjs.static;
-  fenceH(L, 700, 1400, 500, [[1000, 1100, 'gate']]);   // забор сада с калиткой (пока закрыта)
+  fenceH(L, 700, 1400, 500, [[1000, 1100, state.open.sad ? 'gate-open' : 'gate']]);   // забор сада с калиткой
   fenceH(L, 0, 1400, 1000, [[604, 700, 'pass']]);      // между фермой и пастбищем, проход у дорожки (правый столбик — на углу забора курятника)
   fenceH(L, 0, 1400, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   drawGate();
@@ -1345,6 +1360,13 @@ const PLANTS = [
 ];
 // Поле с пшеницей — ЗАГЛУШКА: золотые участки с рядами колосьев (позже заменим рисованными)
 const WHEAT = [[60, -960, 460, 390], [680, -960, 660, 390], [60, -390, 460, 320], [680, -390, 660, 320]];
+// Дядя Айро сидит на берегу пруда в саду
+function buildIro() {
+  const iro = scene.add.image(ANCHORS.iro.x, ANCHORS.iro.y, 'iro').setOrigin(0.5, 0.96).setScale(64 / 210).setDepth(ANCHORS.iro.y);
+  scene.add.ellipse(ANCHORS.iro.x, ANCHORS.iro.y - 1, 66, 14, 0x1d2a12, 0.2).setDepth(ANCHORS.iro.y - 1);
+  nameLabel('Дядя Айро', ANCHORS.iro.x, ANCHORS.iro.y - 78);
+  return iro;
+}
 function drawWheat() {
   const g = scene.add.graphics().setDepth(GROUND - 9.5);
   const rnd = mulberry32(13);
@@ -1767,6 +1789,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('grass', 'assets/ground/grass.jpg');
     this.load.image('cowWhite', 'assets/cows/cow-white.png');
     this.load.image('fence', 'assets/fence/fence.png');
+    this.load.image('iro', 'assets/chars/iro.png');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
@@ -1799,6 +1822,7 @@ class FarmScene extends Phaser.Scene {
     buildPasture();
     drawWheat();
     buildThorfinn();
+    buildIro();
     if (new URLSearchParams(location.search).get('evening')) { state.nanamin.stage = 4; state.time.phase = 'evening'; } // служебное: сразу вечер
     buildTimeLayer();
 
@@ -1807,7 +1831,7 @@ class FarmScene extends Phaser.Scene {
     player.setPosition(p.x, p.y);
 
     if (!state.open.kuryatnik) makeLock('kuryatnik', [708, 0, 692, 488], 'Курятник', 'Откроется по ходу игры');
-    makeLock('sad', [700, 504, 700, 496], 'Сад', 'Будет в полной версии');
+    if (!state.open.sad) makeLock('sad', [700, 504, 700, 496], 'Сад', 'Будет в полной версии');
 
     // маркер «!» над целью задания
     marker = this.add.container(0, 0).setDepth(6000);
