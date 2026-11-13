@@ -186,11 +186,11 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 32;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 34;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
-const WORLD = { w: 2800, top: -1000, h: 3000 };   // карта расширена вправо (было 1400)
+const WORLD = { w: 2800, top: -1700, h: 3700 };   // карта расширена вправо (было 1400) и вверх — море над полем
 const OZERO_X = 2000;     // локация «Озеро»: правая часть фермы (между полем и пастбищем), отделена забором
 const SAVE_KEY = 'farm-prototype-v1';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -204,8 +204,9 @@ const ZONES = {
   pastbishe: { name: 'Пастбище' },
   pole:      { name: 'Поле' },
   ozero:     { name: 'Озеро' },
+  more:      { name: 'Море' },
 };
-const zoneAt = (x, y) => y < 0 ? 'pole' : y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : x >= OZERO_X ? 'ozero' : (y < 500 ? 'kuryatnik' : 'sad');
+const zoneAt = (x, y) => y < -1000 ? 'more' : y < 0 ? 'pole' : y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : x >= OZERO_X ? 'ozero' : (y < 500 ? 'kuryatnik' : 'sad');
 
 const SPEAKERS = {
   grandpa: { name: 'Дедушка', letter: 'Д', color: '#B5563A' },
@@ -213,6 +214,7 @@ const SPEAKERS = {
   nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
   thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
   iro:     { name: 'Дядя Айро',    letter: 'А', color: '#7A8B3A' },
+  kale:    { name: 'Кейл',         letter: 'К', color: '#3E8C8C' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
   test:    { name: 'Тест грядки',   letter: '⚙', color: '#8A8A8A' },   // ВРЕМЕННО: меню для теста грядок
 };
@@ -240,7 +242,8 @@ const ANCHORS = {
   door:    { x: 210, y: 280, reach: 62, mark: -100 },   // дверь дома дедушки (вечером — «Лечь спать»)
   fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
   thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
-  iro:     { x: 1036, y: 802, reach: 80, mark: -94 },   // Дядя Айро, чайный мастер — у пруда в саду
+  iro:     { x: 1036, y: 802, reach: 80, mark: -94 },
+  kale:    { x: 688, y: -1192, reach: 84, mark: -138 },   // Кейл, капитан корабля — на пляже у пристани   // Дядя Айро, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -262,7 +265,7 @@ const freshState = () => ({
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
   bedCrop: [],   // ВРЕМЕННО для тестов: что выращено на грядке ('morkov' | 'kapusta' | 'tykva' | 'rostki' | 'pustaya')
-  open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, ozero: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
+  open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, ozero: true, more: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false },
@@ -537,6 +540,7 @@ function interact(id) {
   if (id === 'klara') return talkKlara();
   if (id === 'nanamin') return talkNanamin();
   if (id === 'iro') return talkIro();
+  if (id === 'kale') return talkKale();
   if (id === 'door') return goToSleep();
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
@@ -616,6 +620,13 @@ function talkIro() {
   showDialog([
     ['iro', 'А, гостья! Присаживайся. Чай как раз настоялся.'],
     ['iro', 'Спешить некуда: хороший чай, как и хороший день, не торопят.'],
+  ]);
+}
+// Кейл — капитан корабля: уверенный, дружелюбный, харизматичный. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
+function talkKale() {
+  showDialog([
+    ['kale', 'О, новое лицо на моём пляже! Добро пожаловать. Я Кейл — капитан вон той красавицы у пристани.'],
+    ['kale', 'Море сегодня спокойное, ветер попутный. Хочешь когда-нибудь прокатиться — только скажи, для друзей место всегда найдётся.'],
   ]);
 }
 function talkNanamin() {
@@ -842,18 +853,20 @@ function solids() {
     [692, 0, 16, 200], [692, 300, 16, 700],      // забор огорода
     [700, 488, 300, 16], [1100, 488, OZERO_X - 1100, 16],   // забор сада
     [OZERO_X - 8, 0, 16, 210], [OZERO_X - 8, 290, 16, 710],   // забор озера (проход — у дорожки)
+    [0, -1016, 548, 20], [628, -1016, WORLD.w - 628, 20],     // забор между полем и пляжем (проход — у дорожки)
     [0, 984, 604, 20], [684, 984, WORLD.w - 684, 20],      // забор между фермой и пастбищем (проход у дорожки)
     [0, -16, 548, 20], [628, -16, WORLD.w - 628, 20],      // забор между фермой и полем (проход у дорожки)
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   if (!state.open.sad) list.push([1000, 488, 100, 16]);   // калитка в сад
   list.push([1012, 782, 48, 24]);   // Дядя Айро
+  list.push([660, -1208, 58, 26]);  // Кейл
   return list;
 }
 function walkable(x, y) {
   if (x < 18 || x > WORLD.w - 18 || y < WORLD.top + 30 || y > WORLD.top + WORLD.h - 12) return false;
   if (!state.open[zoneAt(x, y)]) return false;
-  if (inLake(x, y) || inHill(x, y) || inCrag(x, y)) return false;
+  if (inLake(x, y) || inHill(x, y) || inCrag(x, y) || inSea(x, y)) return false;
   const r = 12;
   for (const [sx, sy, sw, sh] of solids()) {
     if (x > sx - r && x < sx + sw + r && y > sy - r && y < sy + sh + r) return false;
@@ -887,6 +900,7 @@ function hitTest(x, y) {
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(640, 1525, 44)) return 'nanamin';
   if (state.open.sad && near(1036, 768, 50)) return 'iro';
+  if (near(688, -1250, 62)) return 'kale';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
   for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 26, 44)) return 'cow' + c.idx;
@@ -1100,6 +1114,7 @@ const PATHS = [
   [6, 22, 11, 22],  // на запад, к загону
   [6, 22, 6, 24],   // ко входу в загон
   [10, -15, 10, 3], // от калитки курятника вверх, через проход в заборе — в поле
+  [10, -19, 10, -15], // дальше вверх через поле — к пляжу и пристани
   [2, -9, 47, -9],  // по полю поперёк, между участками пшеницы
 ];
 const PATH_TILE = 160;          // размер кусочка в атласе, px
@@ -1344,6 +1359,7 @@ function drawFences() {
   fenceH(L, 0, WORLD.w, 1000, [[604, 700, 'pass']]);      // между фермой и пастбищем, проход у дорожки (правый столбик — на углу забора курятника)
   fenceH(L, 0, WORLD.w, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   fenceV(L, OZERO_X, 0, 1000, [[210, 290, 'pass']]);   // забор озера с проходом у дорожки
+  fenceH(L, 0, WORLD.w, -1000, [[548, 628, 'pass']]);   // между полем и пляжем, проход у дорожки
   drawGate();
 }
 function drawCoop() {
@@ -1411,6 +1427,66 @@ const PLANTS = [
   ['s2-oak-2', 1601, 1279, 1], 
   ['poplar-1', 2740, 1101, 0.91], ['s1-oak-2', 2502, 1831, 0.93], 
 ];
+// ===================== Море над полем — ЗАГЛУШКА (векторно) =====================
+// Пляж (песок) от забора поля до кромки воды, дальше море до края карты; пристань уходит в море у конца дорожки, рядом — кораблик
+const seaShoreY = x => -1255 + 20 * Math.sin(x / 150) + 10 * Math.sin(x / 53 + 2);
+const SEA_PIER = { x: 588, w: 50, top: -1540 };
+function onSeaPier(x, y) { return Math.abs(x - SEA_PIER.x) < SEA_PIER.w / 2 && y > SEA_PIER.top + 6 && y < seaShoreY(x) + 40; }
+function inSea(x, y) { return y < seaShoreY(x) + 8 && !onSeaPier(x, y); }
+function drawSea() {
+  const g = scene.add.graphics().setDepth(GROUND - 8.5);
+  const X = []; for (let x = 0; x <= WORLD.w; x += 20) X.push(x);
+  // песок: от кромки воды до забора, нижний край неровный — песок переходит в траву
+  g.fillStyle(0xDCC690, 1).beginPath(); g.moveTo(0, seaShoreY(0));
+  for (const x of X) g.lineTo(x, seaShoreY(x));
+  for (let i = X.length - 1; i >= 0; i--) g.lineTo(X[i], -1022 + 10 * Math.sin(X[i] / 37) + 6 * Math.sin(X[i] / 13));
+  g.closePath().fillPath();
+  g.fillStyle(0xC9B07A, 0.6);
+  const rnd = mulberry32(17);
+  for (let i = 0; i < 70; i++) { const x = rnd() * WORLD.w; g.fillEllipse(x, seaShoreY(x) + 30 + rnd() * 190, 10 + rnd() * 16, 4); }   // рябь на песке
+  // мокрый песок у воды
+  g.fillStyle(0xBFA672, 1).beginPath(); g.moveTo(0, seaShoreY(0));
+  for (const x of X) g.lineTo(x, seaShoreY(x));
+  for (let i = X.length - 1; i >= 0; i--) g.lineTo(X[i], seaShoreY(X[i]) + 22);
+  g.closePath().fillPath();
+  // море: у берега светлее, дальше темнее
+  const band = (off, col) => {
+    g.fillStyle(col, 1).beginPath(); g.moveTo(0, WORLD.top);
+    for (const x of X) g.lineTo(x, seaShoreY(x) - off);
+    g.lineTo(WORLD.w, WORLD.top).closePath().fillPath();
+  };
+  band(0, 0x5FB0C4); band(46, 0x3F8FAE); band(180, 0x2E7398); band(340, 0x245F86);
+  // пена у кромки
+  g.lineStyle(5, 0xF2F8F6, 0.85).beginPath(); g.moveTo(0, seaShoreY(0) - 2);
+  for (const x of X) g.lineTo(x, seaShoreY(x) - 2);
+  g.strokePath();
+  g.lineStyle(3, 0xF2F8F6, 0.45).beginPath(); g.moveTo(0, seaShoreY(0) - 18);
+  for (const x of X) g.lineTo(x, seaShoreY(x) - 18 + 5 * Math.sin(x / 30));
+  g.strokePath();
+  // барашки и блики на воде
+  for (let i = 0; i < 120; i++) {
+    const x = rnd() * WORLD.w, y = WORLD.top + 20 + rnd() * (seaShoreY(x) - 60 - WORLD.top);
+    g.fillStyle(0xCFEAF0, 0.5).fillRoundedRect(x, y, 22 + rnd() * 34, 4, 2);
+  }
+  // пристань: уходит в море вверх, доски поперёк, сваи
+  const p = scene.add.graphics().setDepth(GROUND - 8);
+  const px = SEA_PIER.x - SEA_PIER.w / 2, bottom = seaShoreY(SEA_PIER.x) + 34;
+  for (let y = SEA_PIER.top + 20; y < bottom - 30; y += 60) p.fillStyle(0x3E2A1A, 1).fillRect(px - 6, y, 8, 22).fillRect(px + SEA_PIER.w - 2, y, 8, 22);
+  p.fillStyle(0x5A3D24, 1).fillRect(px - 4, SEA_PIER.top - 4, SEA_PIER.w + 8, bottom - SEA_PIER.top + 4);
+  for (let y = SEA_PIER.top, k = 0; y < bottom; y += 13, k++) p.fillStyle(k % 2 ? 0xA97B48 : 0xB98A55, 1).fillRect(px, y, SEA_PIER.w, 11);
+  p.fillStyle(0x6B4A2C, 1).fillRect(px - 4, SEA_PIER.top - 4, 6, bottom - SEA_PIER.top + 4).fillRect(px + SEA_PIER.w - 2, SEA_PIER.top - 4, 6, bottom - SEA_PIER.top + 4);
+  // кораблик у пристани (справа): корпус, палуба, мачта, парус, флажок
+  const s = scene.add.graphics().setDepth(GROUND - 7.9), bx = SEA_PIER.x + 112, by = SEA_PIER.top + 150;
+  s.fillStyle(0x1d3a52, 0.35).fillEllipse(bx + 6, by + 64, 150, 26);                                 // тень на воде
+  s.fillStyle(0x6B3E22, 1).fillRoundedRect(bx - 52, by - 70, 104, 150, 46);                          // корпус (вид сверху-спереди)
+  s.fillStyle(0x8E5A32, 1).fillRoundedRect(bx - 42, by - 60, 84, 128, 38);                           // палуба
+  for (let y = by - 48; y < by + 60; y += 12) s.fillStyle(0x7A4C2A, 1).fillRect(bx - 38, y, 76, 2);
+  s.fillStyle(0xE8E1CC, 1).fillTriangle(bx - 4, by - 92, bx - 4, by + 24, bx + 66, by + 10);         // парус
+  s.fillStyle(0xD4CBB2, 1).fillTriangle(bx - 4, by - 92, bx - 4, by + 24, bx + 24, by + 18);
+  s.fillStyle(0x3E2A1A, 1).fillRect(bx - 7, by - 100, 6, 132);                                       // мачта
+  s.fillStyle(0xE2553A, 1).fillTriangle(bx - 1, by - 100, bx + 22, by - 94, bx - 1, by - 88);        // флажок
+  s.lineStyle(2, 0x3E2A1A, 0.8).lineBetween(bx - 44, by + 30, SEA_PIER.x + SEA_PIER.w / 2, by + 40); // швартовый канат
+}
 // ===================== Озеро — ЗАГЛУШКА (векторно, позже нарисуем) =====================
 // Берег — волнистая линия; правее неё вода до края карты. Пристань уходит в воду у конца дорожки.
 // у верхнего и нижнего края берег плавно загибается вправо — озеро кончается бухтой, а не обрывается у забора
@@ -1550,6 +1626,12 @@ function drawHill() {
     for (let k = 0; k < 2; k++) { const t = rnd(); boulder(x1 + (x2 - x1) * t - 10 + rnd() * 10, y1 + (y2 - y1) * t + 10 + rnd() * 8, 14 + rnd() * 16); }
   }
   for (const [x, y, r] of [[2560, 1080, 30], [2600, 1110, 20], [2700, 1050, 36], [2760, 1210, 26], [2650, 1250, 22], [2540, 1180, 16]]) boulder(x, y, r, GROUND - 6);
+}
+// Кейл стоит на пляже у пристани
+function buildKale() {
+  scene.add.ellipse(ANCHORS.kale.x, ANCHORS.kale.y - 1, 80, 17, 0x1d2a12, 0.22).setDepth(ANCHORS.kale.y - 1);
+  scene.add.image(ANCHORS.kale.x, ANCHORS.kale.y, 'kale').setOrigin(0.5, 0.98).setScale(120 / 285).setDepth(ANCHORS.kale.y);
+  nameLabel('Кейл', ANCHORS.kale.x, ANCHORS.kale.y - 128);
 }
 // Дядя Айро сидит на берегу пруда в саду
 function buildIro() {
@@ -1984,6 +2066,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowWhite', 'assets/cows/cow-white.png');
     this.load.image('fence', 'assets/fence/fence.png');
     this.load.image('iro', 'assets/chars/iro.png');
+    this.load.image('kale', 'assets/chars/kale.png');
     this.load.image('wheatPlot', 'assets/fields/wheat-plot.webp');
     this.load.image('beds', 'assets/fields/beds.webp');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
@@ -2021,6 +2104,8 @@ class FarmScene extends Phaser.Scene {
     buildThorfinn();
     buildIro();
     drawLake();
+    drawSea();
+    buildKale();
     drawHill();
     if (new URLSearchParams(location.search).get('evening')) { state.nanamin.stage = 4; state.time.phase = 'evening'; } // служебное: сразу вечер
     buildTimeLayer();
