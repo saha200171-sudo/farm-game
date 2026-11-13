@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 25;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 27;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -212,6 +212,7 @@ const SPEAKERS = {
   thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
   iro:     { name: 'Дядя Айро',    letter: 'А', color: '#7A8B3A' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
+  test:    { name: 'Тест грядки',   letter: '⚙', color: '#8A8A8A' },   // ВРЕМЕННО: меню для теста грядок
 };
 
 // Пастбище: загон для коров (сломан в 3 местах), Нанамин рядом, 4 коровы бродят по пастбищу
@@ -220,7 +221,8 @@ const PEN_SPOTS = [{ x: 200, y: 1500 }, { x: 420, y: 1640 }, { x: 560, y: 1470 }
 const COW_HOMES = [{ x: 1080, y: 1200 }, { x: 930, y: 1720 }, { x: 330, y: 1880 }, { x: 1250, y: 1600 },
                    { x: 760, y: 1160 }, { x: 420, y: 1230 }, { x: 1150, y: 1900 }, { x: 640, y: 1870 }];
 
-const BEDS = [{ x: 290, y: 600, len: 146 }, { x: 410, y: 600, len: 146 }, { x: 530, y: 600, len: 146 }];   // len — длина грядки, можно менять
+const BEDS = [{ x: 335, y: 642, len: 230 }, { x: 410, y: 642, len: 230 }, { x: 485, y: 642, len: 230 }, { x: 560, y: 642, len: 230 }];   // центр и длина грядки (len), можно менять; первые 3 — сюжетные (полив)
+const QUEST_BEDS = 3;
 
 // Точки, к которым героиня подходит, и дистанция, с которой срабатывает действие
 const ANCHORS = {
@@ -229,6 +231,7 @@ const ANCHORS = {
   bed0:    { ...BEDS[0], reach: 84, mark: -84 },
   bed1:    { ...BEDS[1], reach: 84, mark: -84 },
   bed2:    { ...BEDS[2], reach: 84, mark: -84 },
+  bed3:    { ...BEDS[3], reach: 84, mark: -84 },
   gate:    { x: 700, y: 250, reach: 64, mark: -72 },
   klara:   { x: 940, y: 320, reach: 72, mark: -118 },
   nanamin: { x: 640, y: 1560, reach: 72, mark: -118 },
@@ -243,6 +246,10 @@ const ANCHORS = {
 // Точка цели: у коров она двигается вместе с ними
 function anchorOf(id) {
   if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 68, mark: -70 }; }
+  if (id && id.startsWith('bed')) {   // у длинной грядки точка — ближайшее к героине место вдоль неё, облачко — над грядкой
+    const b = BEDS[+id[3]], top = b.y - b.len / 2, y = Math.max(top, Math.min(b.y + b.len / 2, player ? player.y : b.y));
+    return { x: b.x, y, reach: 56, mark: top - y - 10 };
+  }
   if (id === 'thorfinn' && thorfinnChar) return { x: thorfinnChar.x, y: thorfinnChar.y, reach: 72, mark: -118 };
   return ANCHORS[id];
 }
@@ -252,6 +259,7 @@ const freshState = () => ({
   step: 0,
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
+  bedCrop: [],   // ВРЕМЕННО для тестов: что выращено на грядке ('morkov' | 'kapusta' | 'tykva' | 'rostki' | 'pustaya')
   open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
@@ -541,8 +549,7 @@ function interact(id) {
   }
   if (id.startsWith('bed')) {
     const i = +id[3];
-    if (!s.items.can) { toast('Сначала возьми лейку у колодца', 'info'); return; }
-    if (s.watered[i]) { toast('Эта грядка уже полита', 'info'); return; }
+    if (i >= QUEST_BEDS || !s.items.can || s.watered[i]) return testBed(i);   // ВРЕМЕННО: меню теста грядок
     s.watered[i] = true; drawBed(i); splash(BEDS[i].x, BEDS[i].y - 10);
     const n = s.watered.filter(Boolean).length;
     if (n === 3) { s.step = 3; toast('Все грядки политы!'); } else toast(`Полито ${n} из 3`, 'info');
@@ -872,7 +879,7 @@ function hitTest(x, y) {
   if (near(300, 295, 44)) return 'grandpa';
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(140, 545, 56)) return 'well';
-  for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 40 && Math.abs(y - BEDS[i].y) < 80) return 'bed' + i;
+  for (let i = 0; i < BEDS.length; i++) if (Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(640, 1525, 44)) return 'nanamin';
   if (state.open.sad && near(1036, 768, 50)) return 'iro';
@@ -960,7 +967,7 @@ function actionLabel(id) {
   if (id === 'door') return 'Лечь спать';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
-  if (id.startsWith('bed')) return state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Осмотреть';
+  if (id.startsWith('bed')) return +id[3] < QUEST_BEDS && state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Грядка (тест)';
   if (id === 'gate') return 'Открыть';
   return 'Поговорить';
 }
@@ -1223,14 +1230,23 @@ function makeBed(x, cy, len, state) {
   let y = -total / 2;
   for (const k of parts) { c.add(scene.add.image(0, y * BED_K, 'beds', state + '-' + k).setOrigin(0.5, 0).setScale(BED_K)); y += H(k) - BED_OV; }
   c.setScale(1, len / (total * BED_K));
-  c.setDepth(cy + len / 2);
+  c.setDepth(GROUND - 8);   // грядка плоская — лежит на земле, персонажи всегда поверх
   return c;
+}
+// ВРЕМЕННО для тестов: переключить, что растёт на грядке
+function testBed(i) {
+  const set = crop => () => { (state.bedCrop || (state.bedCrop = []))[i] = crop; drawBed(i); save(); };
+  showChoice('test', 'Что вырастить на этой грядке?', [
+    ['Отмена', () => {}],
+    ['Взрастить тыкву', set('tykva')], ['Взрастить морковь', set('morkov')], ['Взрастить капусту', set('kapusta')],
+    ['Ростки', set('rostki')], ['Очистить', set('pustaya')],
+  ]);
 }
 function drawBed(i) {
   const { x, y, len } = BEDS[i];
   if (bedG[i]) bedG[i].destroy();
   // пока по сюжету: не полита — пустая, полита — ростки (морковь, капуста, тыква — для будущих заданий)
-  bedG[i] = makeBed(x, y, len, state.watered[i] ? 'rostki' : 'pustaya');
+  bedG[i] = makeBed(x, y, len, (state.bedCrop || [])[i] || (state.watered[i] ? 'rostki' : 'pustaya'));
 }
 // ===================== Забор: рисованный, собирается из деталей (как конструктор) =====================
 // Атлас assets/fence/fence.png: [x, y, w, h]. Детали сняты с листа из Magnific, наклон выпрямлен.
@@ -1351,7 +1367,7 @@ const PLANTS = [
   ['tree-4', 60, 150, 0.9], ['poplar-1', 660, 120, 1], ['bush-1', 370, 255, 1],
   // огород: середина
   ['tree-1', 30, 410, 1], ['bush-2', 470, 505, 0.9], ['bush-4', 120, 700, 1],
-  ['s2-branchy-2', 470, 880, 0.9], ['bush-1', 500, 730, 0.85],
+  ['s2-branchy-2', 470, 880, 0.9], ['bush-1', 595, 865, 0.85],
   // огород: низ — большое дерево и группа
   ['s1-oak-1', 190, 1000, 1], ['s1-grove-1', 470, 995, 1],
   // курятник
@@ -1819,7 +1835,7 @@ class FarmScene extends Phaser.Scene {
     drawWell();
     drawCoop();
     registerBedFrames();
-    for (let i = 0; i < 3; i++) drawBed(i);
+    for (let i = 0; i < BEDS.length; i++) drawBed(i);
     PLANTS.forEach(([key, x, y, s]) => plant(key, x, y, s));
 
     for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
