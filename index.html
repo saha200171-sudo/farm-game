@@ -186,12 +186,12 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 34;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 36;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
 const WORLD = { w: 2800, top: -1700, h: 3700 };   // карта расширена вправо (было 1400) и вверх — море над полем
-const OZERO_X = 2000;     // локация «Озеро»: правая часть фермы (между полем и пастбищем), отделена забором
+const OZERO_X = 2000;     // локация «Скалы» (раньше «Озеро»): правая часть фермы между полем и пастбищем, отделена забором
 const SAVE_KEY = 'farm-prototype-v1';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
@@ -203,10 +203,10 @@ const ZONES = {
   sad:       { name: 'Сад' },
   pastbishe: { name: 'Пастбище' },
   pole:      { name: 'Поле' },
-  ozero:     { name: 'Озеро' },
+  skaly:     { name: 'Скалы' },
   more:      { name: 'Море' },
 };
-const zoneAt = (x, y) => y < -1000 ? 'more' : y < 0 ? 'pole' : y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : x >= OZERO_X ? 'ozero' : (y < 500 ? 'kuryatnik' : 'sad');
+const zoneAt = (x, y) => y < -1000 ? 'more' : y < 0 ? 'pole' : y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : x >= OZERO_X ? 'skaly' : (y < 500 ? 'kuryatnik' : 'sad');
 
 const SPEAKERS = {
   grandpa: { name: 'Дедушка', letter: 'Д', color: '#B5563A' },
@@ -265,7 +265,7 @@ const freshState = () => ({
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
   bedCrop: [],   // ВРЕМЕННО для тестов: что выращено на грядке ('morkov' | 'kapusta' | 'tykva' | 'rostki' | 'pustaya')
-  open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, ozero: true, more: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
+  open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, skaly: true, more: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false },
@@ -281,7 +281,7 @@ function loadState() {
       const s = JSON.parse(raw), d = freshState();
       const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 } };
       // старые сохранения: коров было 4, теперь 8 — новые коровы дома, если квест уже пройден
-      st.open.kuryatnik = st.open.sad = st.open.ozero = true;   // ВРЕМЕННО для тестов: курятник, сад и озеро открыты
+      st.open.kuryatnik = st.open.sad = st.open.skaly = true;   // ВРЕМЕННО для тестов: курятник, сад и скалы открыты
       if (st.step === 4) { st.step = 5; st.items.key = false; }   // калитка уже открыта — шаг «открой калитку» пропускаем
       const nc = st.nanamin.cows;
       while (nc.length < COW_HOMES.length) nc.push(st.nanamin.stage >= 3 ? 2 : 0);
@@ -854,7 +854,7 @@ function solids() {
     [700, 488, 300, 16], [1100, 488, OZERO_X - 1100, 16],   // забор сада
     [OZERO_X - 8, 0, 16, 210], [OZERO_X - 8, 290, 16, 710],   // забор озера (проход — у дорожки)
     [0, -1016, 548, 20], [628, -1016, WORLD.w - 628, 20],     // забор между полем и пляжем (проход — у дорожки)
-    [0, 984, 604, 20], [684, 984, WORLD.w - 684, 20],      // забор между фермой и пастбищем (проход у дорожки)
+    [0, 984, 604, 20], [684, 984, 1790 - 684, 20], [1880, 984, WORLD.w - 1880, 20],   // забор между фермой и пастбищем (проход у дорожки и ворота из сада)
     [0, -16, 548, 20], [628, -16, WORLD.w - 628, 20],      // забор между фермой и полем (проход у дорожки)
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
@@ -866,7 +866,7 @@ function solids() {
 function walkable(x, y) {
   if (x < 18 || x > WORLD.w - 18 || y < WORLD.top + 30 || y > WORLD.top + WORLD.h - 12) return false;
   if (!state.open[zoneAt(x, y)]) return false;
-  if (inLake(x, y) || inHill(x, y) || inCrag(x, y) || inSea(x, y)) return false;
+  if (inHill(x, y) || inCrag(x, y) || inSea(x, y)) return false;
   const r = 12;
   for (const [sx, sy, sw, sh] of solids()) {
     if (x > sx - r && x < sx + sw + r && y > sy - r && y < sy + sh + r) return false;
@@ -1106,7 +1106,7 @@ const PATHS = [
   [3, 7, 10, 7],    // вдоль огорода
   [10, 4, 10, 7],   // вверх к калитке
   [10, 4, 18, 4],   // через калитку к курятнику
-  [18, 4, 42, 4],   // от курятника на восток, через проход в заборе — к озеру (кончается у берега)
+  [18, 4, 40, 4],   // от курятника на восток, через проход в заборе — к поляне среди скал
   [18, 4, 18, 11],  // вниз, к калитке в сад
   [10, 7, 11, 7],   // от поворота у огорода — на клетку вправо
   [11, 7, 11, 22],  // вниз, через проход в заборе — на пастбище
@@ -1356,7 +1356,7 @@ function drawFences() {
   for (const l of Object.values(fenceObjs)) { l.length = 0; l.posts = []; }
   const L = fenceObjs.static;
   fenceH(L, 700, OZERO_X, 500, [[1000, 1100, state.open.sad ? 'gate-open' : 'gate']]);   // забор сада с калиткой
-  fenceH(L, 0, WORLD.w, 1000, [[604, 700, 'pass']]);      // между фермой и пастбищем, проход у дорожки (правый столбик — на углу забора курятника)
+  fenceH(L, 0, WORLD.w, 1000, [[604, 700, 'pass'], [1790, 1880, 'gate-open']]);   // + открытые ворота из сада на пастбище      // между фермой и пастбищем, проход у дорожки (правый столбик — на углу забора курятника)
   fenceH(L, 0, WORLD.w, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   fenceV(L, OZERO_X, 0, 1000, [[210, 290, 'pass']]);   // забор озера с проходом у дорожки
   fenceH(L, 0, WORLD.w, -1000, [[548, 628, 'pass']]);   // между полем и пляжем, проход у дорожки
@@ -1487,46 +1487,37 @@ function drawSea() {
   s.fillStyle(0xE2553A, 1).fillTriangle(bx - 1, by - 100, bx + 22, by - 94, bx - 1, by - 88);        // флажок
   s.lineStyle(2, 0x3E2A1A, 0.8).lineBetween(bx - 44, by + 30, SEA_PIER.x + SEA_PIER.w / 2, by + 40); // швартовый канат
 }
-// ===================== Озеро — ЗАГЛУШКА (векторно, позже нарисуем) =====================
-// Берег — волнистая линия; правее неё вода до края карты. Пристань уходит в воду у конца дорожки.
-// у верхнего и нижнего края берег плавно загибается вправо — озеро кончается бухтой, а не обрывается у забора
-const shoreX = y => 2430 + 60 * Math.sin(y / 170) + 28 * Math.sin(y / 63 + 1)
-  + (y > 690 ? 720 * Math.pow((y - 690) / 290, 2.2) : 0) + (y < 170 ? 560 * Math.pow((170 - y) / 170, 2) : 0);
-const PIER = { y1: 232, y2: 276, len: 250 };   // пристань: полоса по y, длина от берега
-function onPier(x, y) { const s = shoreX((PIER.y1 + PIER.y2) / 2); return y > PIER.y1 && y < PIER.y2 + 4 && x > s - 30 && x < s + PIER.len; }
-function inLake(x, y) { return y > 0 && y < 1000 && x > shoreX(y) - 6 && !onPier(x, y); }
-function drawLake() {
+// ===================== Скалы — ЗАГЛУШКА (векторно, позже нарисуем) =====================
+// Правая часть фермы: группы высоких скал, каменистые проплешины, валуны; дорожка кончается на поляне
+const ROCK_CRAGS = [
+  [2280, 172, 160, 100], [2360, 196, 120, 80], [2224, 204, 90, 60],          // у дорожки, слева сверху
+  [2585, 132, 210, 130], [2690, 165, 150, 90], [2515, 176, 100, 70],         // верхний край
+  [2705, 430, 230, 140], [2785, 470, 170, 90], [2620, 472, 110, 70],         // справа в центре
+  [2450, 612, 180, 110], [2532, 642, 120, 80],                                // середина
+  [2232, 772, 140, 90], [2312, 802, 90, 60],                                  // слева снизу
+  [2645, 812, 200, 120], [2735, 846, 130, 80],                                // справа снизу
+];
+function drawRocks() {
   const g = scene.add.graphics().setDepth(GROUND - 8.5);
-  const pts = []; for (let y = 4; y <= 996; y += 12) pts.push([shoreX(y), y]);
-  // песок вдоль берега
-  g.fillStyle(0xD8C08A, 1).beginPath(); g.moveTo(pts[0][0] - 74, pts[0][1]);
-  for (const [x, y] of pts) g.lineTo(x - 74 + 14 * Math.sin(y / 41), y);
-  for (let i = pts.length - 1; i >= 0; i--) g.lineTo(pts[i][0] + 10, pts[i][1]);
-  g.closePath().fillPath();
-  // вода
-  g.fillStyle(0x3F7F9C, 1).beginPath(); g.moveTo(pts[0][0], pts[0][1]);
-  for (const [x, y] of pts) g.lineTo(x, y);
-  g.lineTo(WORLD.w, 996).lineTo(WORLD.w, 4).closePath().fillPath();
-  g.fillStyle(0x5C9DB6, 1).beginPath(); g.moveTo(pts[0][0] + 36, pts[0][1]);
-  for (const [x, y] of pts) g.lineTo(x + 36, y);
-  g.lineTo(WORLD.w, 996).lineTo(WORLD.w, 4).closePath().fillPath();
-  // пена у кромки и блики-рябь
-  g.lineStyle(4, 0xE9F3F2, 0.7).beginPath(); g.moveTo(pts[0][0] + 2, pts[0][1]);
-  for (const [x, y] of pts) g.lineTo(x + 2, y);
-  g.strokePath();
-  const rnd = mulberry32(5);
-  for (let i = 0; i < 60; i++) {
-    const y = 20 + rnd() * 960; if (shoreX(y) + 100 > WORLD.w) continue;
-    const x = shoreX(y) + 60 + rnd() * (WORLD.w - shoreX(y) - 100);
-    g.fillStyle(0xBFE0EA, 0.55).fillRoundedRect(x, y, 26 + rnd() * 30, 4, 2);
+  const rnd = mulberry32(31);
+  // каменистые проплешины на траве (под группами скал)
+  for (const [cx, cy, rx, ry] of [[2300, 190, 170, 80], [2620, 160, 230, 90], [2710, 460, 200, 100], [2480, 630, 170, 80], [2270, 790, 140, 70], [2680, 830, 190, 80], [2450, 380, 120, 60]]) {
+    g.fillStyle(0x8C8673, 0.55).beginPath();
+    for (let k = 0; k <= 24; k++) {
+      const a = k / 24 * Math.PI * 2, rr = 1 + 0.18 * Math.sin(a * 3 + cx) + 0.1 * Math.sin(a * 7 + cy);
+      const x = cx + Math.cos(a) * rx * rr, y = cy + Math.sin(a) * ry * rr;
+      k ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath().fillPath();
+    for (let i = 0; i < 26; i++) {   // мелкие камешки
+      const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()), x = cx + Math.cos(a) * rx * d, y = cy + Math.sin(a) * ry * d;
+      g.fillStyle(rnd() < 0.5 ? 0x6F6B5E : 0xA3A08F, 1).fillEllipse(x, y, 5 + rnd() * 7, 3 + rnd() * 4);
+    }
   }
-  // пристань: доски поперёк, по краям балки, сваи в воде
-  const p = scene.add.graphics().setDepth(GROUND - 8);
-  const sx = shoreX((PIER.y1 + PIER.y2) / 2) - 30, ex = sx + PIER.len + 30;
-  for (let x = sx + 40; x < ex; x += 56) p.fillStyle(0x4A3220, 1).fillRect(x - 4, PIER.y1 - 2, 8, PIER.y2 - PIER.y1 + 16);
-  p.fillStyle(0x6B4A2C, 1).fillRect(sx, PIER.y1 - 4, ex - sx, PIER.y2 - PIER.y1 + 8);
-  for (let x = sx, k = 0; x < ex; x += 13, k++) p.fillStyle(k % 2 ? 0xA97B48 : 0xB98A55, 1).fillRect(x, PIER.y1, 11, PIER.y2 - PIER.y1);
-  p.fillStyle(0x5A3D24, 1).fillRect(sx, PIER.y2 - 2, ex - sx, 6);
+  for (const c of ROCK_CRAGS) crag(...c);
+  // валуны между скалами
+  for (const [x, y, r] of [[2170, 330, 18], [2420, 300, 14], [2560, 330, 22], [2380, 470, 16], [2860, 300, 0], [2200, 560, 20], [2350, 640, 14],
+    [2590, 560, 18], [2420, 900, 22], [2520, 860, 16], [2780, 650, 20], [2140, 920, 14], [2600, 260, 12], [2290, 400, 12]]) if (r) boulder(x, y, r);
 }
 // ===================== Холм с камнями на краю пастбища — ЗАГЛУШКА (векторно) =====================
 // Плато с травой поднимается над пастбищем: спереди земляной откос, вдоль него и наверху — валуны
@@ -1555,7 +1546,7 @@ function boulder(x, y, r, depth) {
 const CRAGS = [[2730, 935, 150, 92], [2785, 1012, 175, 78], [2575, 1012, 128, 96], [2640, 1030, 88, 70], [2440, 1018, 84, 66], [2505, 1004, 62, 48],
   // за забором — крупнее (забор проходит перед ними)
   [2530, 982, 200, 128], [2650, 960, 250, 150], [2452, 986, 128, 86], [2775, 880, 230, 120], [2700, 905, 120, 74]];
-function inCrag(x, y) { return CRAGS.some(([cx, cy, h, w]) => Math.abs(x - cx) < w * 0.55 && y > cy - 26 && y < cy + 12); }
+function inCrag(x, y) { return [...CRAGS, ...ROCK_CRAGS].some(([cx, cy, h, w]) => Math.abs(x - cx) < w * 0.55 && y > cy - 26 && y < cy + 12); }
 function crag(x, y, h, w) {
   const g = scene.add.graphics().setDepth(y + 12);
   const P = (fx, fy) => [x + w * fx, y - h * fy];
@@ -2103,7 +2094,7 @@ class FarmScene extends Phaser.Scene {
     drawWheat();
     buildThorfinn();
     buildIro();
-    drawLake();
+    drawRocks();
     drawSea();
     buildKale();
     drawHill();
@@ -2115,7 +2106,7 @@ class FarmScene extends Phaser.Scene {
     player.setPosition(p.x, p.y);
 
     if (!state.open.kuryatnik) makeLock('kuryatnik', [708, 0, OZERO_X - 708, 488], 'Курятник', 'Откроется по ходу игры');
-    if (!state.open.ozero) makeLock('ozero', [OZERO_X + 8, 0, WORLD.w - OZERO_X - 8, 984], 'Озеро', 'Откроется по ходу игры');
+    if (!state.open.skaly) makeLock('skaly', [OZERO_X + 8, 0, WORLD.w - OZERO_X - 8, 984], 'Скалы', 'Откроется по ходу игры');
     if (!state.open.sad) makeLock('sad', [700, 504, OZERO_X - 700, 496], 'Сад', 'Будет в полной версии');
 
     // маркер «!» над целью задания
