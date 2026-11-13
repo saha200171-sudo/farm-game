@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 23;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 24;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -235,7 +235,7 @@ const ANCHORS = {
   door:    { x: 210, y: 280, reach: 62, mark: -100 },   // дверь дома дедушки (вечером — «Лечь спать»)
   fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
   thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
-  iro:     { x: 1048, y: 800, reach: 76, mark: -82 },   // Дядя Айро, чайный мастер — у пруда в саду
+  iro:     { x: 1036, y: 802, reach: 80, mark: -94 },   // Дядя Айро, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -837,7 +837,7 @@ function solids() {
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   if (!state.open.sad) list.push([1000, 488, 100, 16]);   // калитка в сад
-  list.push([1028, 782, 40, 22]);   // Дядя Айро
+  list.push([1012, 782, 48, 24]);   // Дядя Айро
   return list;
 }
 function walkable(x, y) {
@@ -875,7 +875,7 @@ function hitTest(x, y) {
   for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 58 && Math.abs(y - BEDS[i].y) < 44) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(640, 1525, 44)) return 'nanamin';
-  if (state.open.sad && near(1048, 772, 46)) return 'iro';
+  if (state.open.sad && near(1036, 768, 50)) return 'iro';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
   for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 26, 44)) return 'cow' + c.idx;
@@ -1362,9 +1362,9 @@ const PLANTS = [
 const WHEAT = [[60, -960, 460, 390], [680, -960, 660, 390], [60, -390, 460, 320], [680, -390, 660, 320]];
 // Дядя Айро сидит на берегу пруда в саду
 function buildIro() {
-  const iro = scene.add.image(ANCHORS.iro.x, ANCHORS.iro.y, 'iro').setOrigin(0.5, 0.96).setScale(64 / 210).setDepth(ANCHORS.iro.y);
-  scene.add.ellipse(ANCHORS.iro.x, ANCHORS.iro.y - 1, 66, 14, 0x1d2a12, 0.2).setDepth(ANCHORS.iro.y - 1);
-  nameLabel('Дядя Айро', ANCHORS.iro.x, ANCHORS.iro.y - 78);
+  const iro = scene.add.image(ANCHORS.iro.x, ANCHORS.iro.y, 'iro').setOrigin(0.5, 0.96).setScale(76 / 240).setDepth(ANCHORS.iro.y);
+  scene.add.ellipse(ANCHORS.iro.x, ANCHORS.iro.y - 1, 78, 16, 0x1d2a12, 0.2).setDepth(ANCHORS.iro.y - 1);
+  nameLabel('Дядя Айро', ANCHORS.iro.x, ANCHORS.iro.y - 90);
   return iro;
 }
 function drawWheat() {
