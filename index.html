@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 52;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 54;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -210,13 +210,14 @@ const ZONES = {
 const zoneAt = (x, y) => y < -1000 ? 'more' : y < 0 ? 'pole' : y >= 1000 ? 'pastbishe' : x < 700 ? 'ogorod' : x >= OZERO_X ? 'skaly' : (y < 500 ? 'kuryatnik' : 'sad');
 
 const SPEAKERS = {
-  grandpa: { name: 'Дедушка', letter: 'Д', color: '#B5563A' },
+  grandpa: { name: 'Сверкель', letter: 'С', color: '#5E6675' },
   klara: { name: 'Клара',          letter: 'К', color: '#D99A1E' },
   nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
   thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
   iro:     { name: 'Дядя Айро',    letter: 'А', color: '#7A8B3A' },
   kale:    { name: 'Кейл',         letter: 'К', color: '#3E8C8C' },
   zmey:    { name: 'Змей',         letter: 'З', color: '#6E4D66' },
+  torgel:  { name: 'Торгель',      letter: 'Т', color: '#8A3430' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
   test:    { name: 'Тест грядки',   letter: '⚙', color: '#8A8A8A' },   // ВРЕМЕННО: меню для теста грядок
 };
@@ -234,7 +235,8 @@ const QUEST_BEDS = 3;
 const ANCHORS = {
   grandpa: { x: 312, y: 378, reach: 72, mark: -118 },
   well:    { x: 140, y: 560, reach: 92, mark: -92 },
-  zmey:    { x: 228, y: 588, reach: 72, mark: -118 },   // Змей — главный помощник на ферме; пока стоит у колодца
+  zmey:    { x: 228, y: 588, reach: 72, mark: -118 },
+  torgel:  { x: -290, y: 440, reach: 76, mark: -140 },   // Торгель, сын Кетиля — пока стоит на площадке перед домиком   // Змей — главный помощник на ферме; пока стоит у колодца
   bed0:    { ...BEDS[0], reach: 84, mark: -84 },
   bed1:    { ...BEDS[1], reach: 84, mark: -84 },
   bed2:    { ...BEDS[2], reach: 84, mark: -84 },
@@ -319,21 +321,21 @@ function questTarget() {
 function questText() {
   const n = state.watered.filter(Boolean).length;
   return [
-    'Поговори с дедушкой',
+    'Поговори со Сверкелем',
     'Возьми лейку у колодца',
     `Полей грядки: ${n} из 3`,
-    'Вернись к дедушке',
+    'Вернись к Сверкелю',
     'Открой калитку в курятник',
     'Познакомься с Кларой',
     'Собери яйца для Клары',
-    'Отнеси корзину яиц дедушке',
+    'Отнеси корзину яиц Сверкелю',
     'Прототип пройден. Можно гулять по ферме',
   ][state.step] || '';
 }
 function updateHud() {
   const d2 = state.day2.stage;
   $('questLabel').textContent = d2 ? 'Задание · день 2' : state.step >= 8 ? 'Готово' : 'Задание';
-  $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом дедушки и помоги людям'
+  $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
@@ -545,6 +547,7 @@ function interact(id) {
   if (id === 'iro') return talkIro();
   if (id === 'kale') return talkKale();
   if (id === 'zmey') return talkZmey();
+  if (id === 'torgel') return talkTorgel();
   if (id === 'door') return goToSleep();
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
@@ -567,7 +570,7 @@ function interact(id) {
   }
   if (id === 'gate') {
     if (s.open.kuryatnik) return;
-    if (!s.items.key) { toast('Калитка заперта. Ключ у дедушки', 'info'); return; }
+    if (!s.items.key) { toast('Калитка заперта. Ключ у Сверкеля', 'info'); return; }
     openKuryatnik();
   }
 }
@@ -642,6 +645,11 @@ function talkZmey() {
     ['zmey', 'Если что-то стрясётся — сразу зови меня.'],
   ]);
 }
+// Торгель — сын хозяина фермы Кетиля: очень сильный и суровый, но без повода никого не трогает.
+// Реплика — ЗАГЛУШКА, позже заменим текстом от автора
+function talkTorgel() {
+  showDialog([['torgel', 'Чего встала? Работы на ферме на всех хватит — иди займись делом.']]);
+}
 function talkNanamin() {
   const nm = state.nanamin;
   if (nm.stage < 3) return nanaminThought();
@@ -659,7 +667,7 @@ function nanaminThought() {
   showThought(nm.stage === 0
     ? 'Он даже не взглянул на меня… Похоже, не настроен разговаривать. Видимо, чем-то сильно расстроен.'
     : 'Пока я не починю загон и не верну коров, он вряд ли захочет со мной говорить.',
-    first ? () => toast('Может, дедушка знает, кто это?', 'info') : null);
+    first ? () => toast('Может, Сверкель знает, кто это?', 'info') : null);
 }
 function penThought() {
   showThought('Похоже, загон сломан… Кажется, он пустует уже очень давно.');
@@ -833,18 +841,18 @@ function talkKlara() {
     ['klara', 'Нужно восемь яиц. Только быстро: куры прячут их обратно!'],
   ], () => { s.step = 6; progress(); eggGame(winEggs); });
   if (s.step === 6) return showDialog([['klara', 'Ну что, ещё попытка?']], () => eggGame(winEggs));
-  showDialog([['klara', s.step === 7 ? 'Отнеси корзинку дедушке, он давно хотел испечь пирог.' : 'Заходи ещё, куры к тебе уже привыкли.']]);
+  showDialog([['klara', s.step === 7 ? 'Отнеси корзинку Сверкелю, он давно хотел испечь пирог.' : 'Заходи ещё, куры к тебе уже привыкли.']]);
 }
 function winEggs(n) {
   showDialog([
     ['klara', 'Восемь штук! Вот это ловкость.'],
-    ['klara', 'Отнеси корзинку дедушке, он давно хотел испечь пирог.'],
+    ['klara', 'Отнеси корзинку Сверкелю, он давно хотел испечь пирог.'],
   ], () => { state.step = 7; state.items.eggs = n; progress(); });
 }
 
 function showFinal() {
   openModal(`<div class="card"><div class="badge">Конец прототипа</div><h2>Ферма оживает</h2>
-    <p>Огород полит, курятник открыт, дедушка печёт пирог. В полной игре дальше откроется Сад и его хозяин.</p>
+    <p>Огород полит, курятник открыт, Сверкель печёт пирог. В полной игре дальше откроется Сад и его хозяин.</p>
     <div class="row"><button class="btn secondary" id="fStay" type="button">Погулять</button>
     <button class="btn" id="fAgain" type="button">Пройти заново</button></div></div>`);
   $('fStay').onclick = closeModal;
@@ -877,6 +885,7 @@ function solids() {
   if (!state.open.sad) list.push([1000, 488, 100, 16]);   // калитка в сад
   list.push([1012, 782, 48, 24]);   // Дядя Айро
   list.push([210, 578, 36, 14]);    // Змей
+  list.push([-312, 430, 44, 16]);   // Торгель
   list.push([660, -1208, 58, 26]);  // Кейл
   return list;
 }
@@ -913,6 +922,7 @@ function hitTest(x, y) {
   if (near(312, 343, 44)) return 'grandpa';
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(228, 553, 40)) return 'zmey';
+  if (near(-290, 396, 48)) return 'torgel';
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < BEDS.length; i++) if (Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
@@ -1034,8 +1044,10 @@ function makeChar(look) {
   const b = scene.add.graphics();
   b.fillStyle(look.legs || 0x4a3424, 1).fillRoundedRect(-8, -14, 6, 14, 2).fillRoundedRect(2, -14, 6, 14, 2);
   if (look.boots) b.fillStyle(look.boots, 1).fillRoundedRect(-9, -8, 8, 9, 2).fillRoundedRect(1, -8, 8, 9, 2);
-  b.fillStyle(look.skin, 1).fillCircle(-15, -25, 4.5).fillCircle(15, -25, 4.5);
-  if (look.tunic) b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 2, br: 2 }).fillTriangle(-13, -22, -16, -10, 0, -10).fillTriangle(13, -22, 16, -10, 0, -10).fillRect(-14, -14, 28, 4);   // длинная туника, расширяется книзу
+  if (look.scale) c.setScale(look.scale);   // крупнее остальных (Торгель)
+  if (!look.handsBehind) b.fillStyle(look.skin, 1).fillCircle(-15, -25, 4.5).fillCircle(15, -25, 4.5);
+  if (look.belly) b.fillStyle(look.dress, 1).fillRoundedRect(-15, -40, 30, 31, { tl: 11, tr: 11, bl: 6, br: 6 }).fillEllipse(0, -21, 33, 24);   // круглый живот
+  else if (look.tunic) b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 2, br: 2 }).fillTriangle(-13, -22, -16, -10, 0, -10).fillTriangle(13, -22, 16, -10, 0, -10).fillRect(-14, -14, 28, 4);   // длинная туника, расширяется книзу
   else b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 5, br: 5 });
   if (look.apron) b.fillStyle(look.apron, 1).fillRoundedRect(-8, -30, 16, 18, 4);
   if (look.suspenders) b.fillStyle(look.suspenders, 1).fillRect(-8, -39, 4, 28).fillRect(4, -39, 4, 28);
@@ -1045,10 +1057,29 @@ function makeChar(look) {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 32, 26).fillRoundedRect(-17, -54, 7, 18, 3).fillRoundedRect(10, -54, 7, 18, 3);
     b.fillTriangle(-17, -38, -11, -37, -19, -32).fillTriangle(17, -38, 11, -37, 19, -32);   // кончики прядей слегка завиваются наружу
   }
+  if (look.hair === 'bald') {   // лысый: седые пряди сзади свисают до плеч
+    b.fillStyle(look.hairColor, 1).fillTriangle(-17.5, -56, -11, -56, -15, -35).fillTriangle(17.5, -56, 11, -56, 15, -35);
+  }
+  if (look.hair === 'swept') {   // длинные волосы, зачёсанные назад: сзади до плеч
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 34, 28).fillRoundedRect(-18, -54, 8, 22, 4).fillRoundedRect(10, -54, 8, 22, 4);
+  }
   if (look.hair === 'long') {   // длинные волосы сзади: до плеч, слегка расходятся
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30).fillTriangle(-17, -52, -9, -52, -15, -27).fillTriangle(17, -52, 9, -52, 15, -27);
   }
   if (look.belt) b.fillStyle(look.belt, 1).fillRect(-13, -24, 26, 4).fillStyle(look.buckle || 0xD9B45A, 1).fillRect(-2, -25, 4, 6);
+  if (look.scarf) {   // полотенце на шее: концы свисают на грудь поверх ремня
+    b.fillStyle(look.scarf, 1).fillRoundedRect(-10, -42, 20, 5, 2).fillRoundedRect(-10, -41, 5, 24, 2).fillRoundedRect(5, -41, 5, 24, 2);
+    b.fillStyle(0x8F8B78, 0.5).fillRect(-8, -36, 1.5, 18).fillRect(7, -36, 1.5, 18);
+  }
+  if (look.trim) {   // горчичная отделка: ворот и манжеты
+    b.fillStyle(look.trim, 1).fillRoundedRect(-7, -41, 14, 5, 2).fillRoundedRect(-19, -31, 8, 4, 1.5).fillRoundedRect(11, -31, 8, 4, 1.5);
+  }
+  if (look.longsword) {   // прямой меч в тёмно-синих ножнах на поясе (левый бок), рукоять над поясом
+    b.lineStyle(4.5, 0x2F3A5C, 1).lineBetween(-12, -22, -15, -1);
+    b.fillStyle(0xC9A040, 1).fillRect(-17.5, -4, 5, 4);                       // золотой наконечник ножен
+    b.lineStyle(2.5, 0x4A3020, 1).lineBetween(-11.5, -25, -10.5, -33);        // рукоять
+    b.lineStyle(2.5, 0xBFC3C6, 1).lineBetween(-15, -25, -8, -25);             // гарда
+  }
   if (look.sword) {   // изогнутый меч в ножнах на поясе (левый бок): ножны вниз-назад, рукоять над поясом
     const P = [[-11, -22], [-14, -16], [-16, -10], [-17, -4]];
     b.lineStyle(4, 0x2A221E, 1).beginPath().moveTo(P[0][0], P[0][1]); for (const [x, y] of P.slice(1)) b.lineTo(x, y); b.strokePath();
@@ -1069,6 +1100,15 @@ function makeChar(look) {
     // макушка, пряди по бокам лица и пара прядей, упавших на лоб
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 31, 13).fillRoundedRect(-16, -60, 6, 20, 3).fillRoundedRect(10, -60, 6, 20, 3);
     b.fillTriangle(-7, -60, -2, -60, -8, -49).fillTriangle(3, -60, 8, -60, 9, -50);
+  } else if (look.hair === 'bald') {
+    // лысина с пятнышками, морщины на лбу, седые пряди по бокам лица
+    b.fillStyle(look.hairColor, 1).fillTriangle(-15.5, -57, -12, -57, -14.5, -42).fillTriangle(15.5, -57, 12, -57, 14.5, -42);
+    b.fillStyle(0xC2875E, 0.75).fillCircle(-4, -62, 2.2).fillCircle(5, -64, 1.6).fillCircle(8, -59, 1.3);
+    b.lineStyle(1, 0xA06C4C, 0.7).lineBetween(-6, -58, 6, -58).lineBetween(-4, -60.5, 3, -60.5);
+  } else if (look.hair === 'swept') {
+    // зачёсаны назад: лоб открыт, по бокам лица — тонкие пряди
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -64, 30, 11).fillRoundedRect(-16, -61, 5, 15, 2).fillRoundedRect(11, -61, 5, 15, 2);
+    b.fillStyle(0xC9A94F, 0.7).fillRect(-6, -68, 2, 6).fillRect(1, -69, 2, 6).fillRect(7, -67, 2, 5);   // бороздки от зачёса
   } else if (look.hair === 'grandpa') {
     // седые волосы по бокам и кепка
     b.fillStyle(look.hairColor, 1).fillEllipse(-12, -53, 8, 12).fillEllipse(12, -53, 8, 12);
@@ -1079,6 +1119,17 @@ function makeChar(look) {
   b.fillStyle(0x2e2418, 1).fillCircle(-5, -51, 2).fillCircle(5, -51, 2);
   if (!look.noBlush) b.fillStyle(0xF28B82, 0.6).fillCircle(-8, -46, 2.8).fillCircle(8, -46, 2.8);
   if (look.stubble) b.fillStyle(look.hairColor, 0.16).fillEllipse(0, -40, 15, 6).fillStyle(look.hairColor, 0.3).fillEllipse(0, -39.5, 4, 3);   // щетина и бородка
+  if (look.heavyLids) b.fillStyle(0xC9926A, 1).fillRect(-8, -54.5, 6, 2.6).fillRect(2, -54.5, 6, 2.6);   // тяжёлые веки — взгляд строгий, усталый
+  if (look.goatee) {   // седые усы и бородка клинышком
+    b.lineStyle(2.2, look.hairColor, 1).lineBetween(-6, -45.5, -1, -46.5).lineBetween(1, -46.5, 6, -45.5);
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -38.5, 10, 9).fillTriangle(-4, -37, 4, -37, 0, -32);
+  }
+  if (look.jawBeard) {   // короткая борода по линии челюсти
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -39.5, 20, 11).fillRect(-13, -50, 3.5, 10).fillRect(9.5, -50, 3.5, 10);
+    b.fillTriangle(-13, -41, -9, -44, -6, -36).fillTriangle(13, -41, 9, -44, 6, -36);
+  }
+  if (look.scar) b.lineStyle(1.4, 0x9A5F48, 0.9).lineBetween(8, -56, 10, -47);   // шрам на щеке
+  if (look.stern) b.lineStyle(2.2, 0x2e2418, 1).lineBetween(-10, -58, -2, -55).lineBetween(10, -58, 2, -55);   // сведённые брови
   if (look.brows) b.lineStyle(2, 0x2e2418, 1).lineBetween(-9, -56, -2, -55.5).lineBetween(9, -56, 2, -55.5);   // прямые густые брови
   if (look.beard) {
     // седая борода и усы вместо рта
@@ -1087,11 +1138,14 @@ function makeChar(look) {
     // злое лицо: брови к переносице, рот скобкой вниз
     b.lineStyle(2, 0x2e2418, 1).lineBetween(-9, -57, -3, -54).lineBetween(9, -57, 3, -54);
     b.lineStyle(1.8, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.15 * Math.PI, 1.85 * Math.PI).strokePath();
+  } else if (look.stern) {
+    b.lineStyle(1.8, 0x2e2418, 1).lineBetween(-4, -44, 4, -44).lineBetween(-4, -44, -5, -43).lineBetween(4, -44, 5, -43);   // плотно сжатый рот
   } else if (look.smirk) {
     // ухмылка: уголок рта приподнят с одной стороны
     b.lineStyle(1.7, 0x2e2418, 1).lineBetween(-3.5, -44.5, 2, -44.5).lineBetween(2, -44.5, 4.5, -46.5);
   } else if (look.calm) {
-    b.lineStyle(1.6, 0x2e2418, 1).lineBetween(-3, -45, 3, -45);
+    const my = look.goatee ? -43 : -45;   // под усами рот чуть ниже
+    b.lineStyle(look.goatee ? 1.3 : 1.6, 0x2e2418, 1).lineBetween(-2.5, my, 2.5, my);
   } else if (look.sad) {
     // грустное лицо: опущенные уголки рта и «домиком» брови
     b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.2 * Math.PI, 1.8 * Math.PI).strokePath();
@@ -2174,9 +2228,12 @@ class FarmScene extends Phaser.Scene {
 
     for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
 
-    const grandpa = makeChar({ skin: 0xF0C29E, dress: 0xB5563A, suspenders: 0x3E5A7A, hair: 'grandpa', hairColor: 0xE4E0D8, cap: 0x6B4A2E, beard: true, glasses: true });
+    // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
+    // серо-синяя рубаха на круглом животе, полотенце на шее, руки за спиной
+    const grandpa = makeChar({ skin: 0xE6B38C, dress: 0x667083, belly: true, belt: 0x2E2A28, buckle: 0x55504A, legs: 0x4E5560, scarf: 0xBDB8A2,
+      hair: 'bald', hairColor: 0xC4C0B6, goatee: true, heavyLids: true, handsBehind: true, noBlush: true, calm: true });
     grandpa.setPosition(312, 378).setDepth(378);
-    nameLabel('Дедушка', 312, 300);
+    nameLabel('Сверкель', 312, 300);
 
     klara = makeChar({ skin: 0xE8B48F, dress: 0x5E9E57, apron: 0xF7E3B5, hair: 'scarf', hairColor: 0xF2C94C });
     klara.setPosition(940, 320).setDepth(320).setVisible(state.open.kuryatnik);
@@ -2188,7 +2245,12 @@ class FarmScene extends Phaser.Scene {
     zmey.setPosition(228, 588).setDepth(588);
     zmey.bodyG.scaleX = -1;   // смотрит на колодец
     nameLabel('Змей', 228, 510);
-    this.npcs = [grandpa, klara, zmey];
+    // Торгель: сын Кетиля, крупнее остальных; светлые волосы зачёсаны назад, борода, шрам, тёмно-красная туника с горчичной отделкой, прямой меч
+    const torgel = makeChar({ skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
+      hair: 'swept', hairColor: 0xE8D27E, jawBeard: true, scar: true, stern: true, noBlush: true, longsword: true, scale: 1.18 });
+    torgel.setPosition(-290, 440).setDepth(440);
+    nameLabel('Торгель', -290, 346);
+    this.npcs = [grandpa, klara, zmey, torgel];
     nanaminChar = null;
     buildPasture();
     drawWheat();
