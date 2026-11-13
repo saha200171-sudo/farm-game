@@ -671,21 +671,35 @@ function applyTime(instant) {
   if (ph === 'evening') spawnFireflies(); else clearFireflies();
 }
 // Светлячки: мерцают и медленно летают над травой
+// Появляются плавно, маленькими группками по 4–6 штук, одна группа за другой
 function spawnFireflies() {
   if (fireflies.length) return;
   const rnd = mulberry32(99);
-  for (let i = 0; i < 70; i++) {
-    const f = scene.add.image(rnd() * WORLD.w, 40 + rnd() * (WORLD.h - 80), 'firefly')
-      .setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale(0.65 + rnd() * 0.6).setAlpha(rnd() * 0.9);
-    fireflies.push(f);
-    const drift = () => {
-      if (!f.active) return;
-      scene.tweens.add({ targets: f, x: f.x + (Math.random() - 0.5) * 120, y: f.y + (Math.random() - 0.5) * 90,
-        duration: 2500 + Math.random() * 3000, ease: 'Sine.easeInOut', onComplete: drift });
-    };
-    drift();
-    scene.tweens.add({ targets: f, alpha: { from: 0.1, to: 0.95 }, duration: 700 + Math.random() * 900,
-      yoyo: true, repeat: -1, delay: Math.random() * 1500, hold: 300 + Math.random() * 800, repeatDelay: Math.random() * 1200 });
+  const GROUPS = 15;
+  for (let g = 0; g < GROUPS; g++) {
+    const gx = 60 + rnd() * (WORLD.w - 120), gy = 80 + rnd() * (WORLD.h - 160);
+    const groupDelay = 1200 + g * 650 + rnd() * 500;        // группы зажигаются по очереди
+    const n = 4 + Math.floor(rnd() * 3);
+    for (let i = 0; i < n; i++) {
+      const f = scene.add.image(gx + (rnd() - 0.5) * 140, gy + (rnd() - 0.5) * 100, 'firefly')
+        .setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale(0.28 + rnd() * 0.22).setAlpha(0);
+      fireflies.push(f);
+      const drift = () => {
+        if (!f.active) return;
+        scene.tweens.add({ targets: f, x: f.x + (Math.random() - 0.5) * 100, y: f.y + (Math.random() - 0.5) * 70,
+          duration: 2800 + Math.random() * 3200, ease: 'Sine.easeInOut', onComplete: drift });
+      };
+      drift();
+      // плавно загорается, потом мягко мерцает
+      scene.tweens.add({
+        targets: f, alpha: 0.75, duration: 1800, delay: groupDelay + i * 220, ease: 'Sine.easeInOut',
+        onComplete: () => {
+          if (!f.active) return;
+          scene.tweens.add({ targets: f, alpha: { from: 0.75, to: 0.2 }, duration: 900 + Math.random() * 900,
+            yoyo: true, repeat: -1, hold: 300 + Math.random() * 700, repeatDelay: Math.random() * 1200, ease: 'Sine.easeInOut' });
+        },
+      });
+    }
   }
 }
 function clearFireflies() {
