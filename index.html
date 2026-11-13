@@ -105,13 +105,13 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .info{display:flex;flex-direction:column;gap:12px}
 
 /* Джойстик и кнопка действия */
-.stick-zone{position:absolute;left:0;bottom:0;width:50%;height:70%;touch-action:none}
+.stick-zone{position:absolute;right:0;bottom:0;width:60%;height:55%;touch-action:none}
 .stick{position:absolute;left:0;top:0;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;
   background:rgba(255,253,244,.22);border:3px solid rgba(255,253,244,.75);pointer-events:none;transition:opacity .2s}
 .stick.idle{opacity:.55}
 .knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
   background:var(--paper);border:3px solid var(--wood);box-shadow:0 3px 0 rgba(46,36,24,.35)}
-.act{position:absolute;right:max(22px,calc(env(safe-area-inset-right,0px) + 12px));bottom:22px;min-width:96px;height:96px;
+.act{position:absolute;left:max(22px,calc(env(safe-area-inset-left,0px) + 12px));bottom:22px;min-width:96px;height:96px;
   border-radius:999px;padding:0 18px;font-family:var(--display);font-weight:600;font-size:18px;color:#fff;background:var(--tomato);
   border:3px solid var(--wood);box-shadow:0 4px 0 var(--wood);cursor:pointer;transition:opacity .15s,transform .15s}
 .act:disabled{opacity:.4;background:var(--muted);transform:scale(.88);cursor:default}
@@ -123,8 +123,8 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .rotate{position:absolute;inset:0;z-index:10;display:none;place-items:center;align-content:center;gap:16px;text-align:center;
   background:var(--grass-deep);color:#fff;padding:24px;font-family:var(--display);font-weight:600;font-size:22px}
 .rotate .phone{width:52px;height:88px;border:4px solid #fff;border-radius:12px;animation:turn 2.4s ease-in-out infinite}
-@keyframes turn{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
-@media (orientation:portrait) and (pointer:coarse){.rotate{display:grid}}
+@keyframes turn{0%,30%{transform:rotate(-90deg)}60%,100%{transform:rotate(0)}}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:600px){.rotate{display:grid}}
 
 /* Горизонтальный телефон: невысокий экран */
 @media (max-height:500px){
@@ -162,7 +162,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
     </div>
   </div>
   <div class="modal" id="modal" hidden></div>
-  <div class="rotate"><div class="phone"></div><div>Поверни телефон горизонтально</div></div>
+  <div class="rotate"><div class="phone"></div><div>Поверни телефон вертикально</div></div>
   <div class="loading" id="loading">Загружаем ферму…</div>
 </div>
 
@@ -523,14 +523,14 @@ const keys = new Set();
 
 function placeStick(x, y) { stickEl.style.transform = `translate(${x}px, ${y}px)`; }
 function idleStick() {
-  placeStick(110, Math.max(80, zone.clientHeight - 100));
+  placeStick(Math.max(80, zone.clientWidth - 110), Math.max(80, zone.clientHeight - 110));
   knob.style.transform = '';
   stickEl.classList.add('idle');
 }
 function releaseStick() { stick.id = null; move.x = move.y = 0; idleStick(); }
 function stopWalking() { releaseStick(); keys.clear(); }
 
-// джойстик появляется там, где палец коснулся левой половины экрана
+// джойстик появляется там, где палец коснулся правой нижней части экрана
 zone.addEventListener('pointerdown', e => {
   if (ui.open || stick.id !== null) return;
   e.preventDefault();
@@ -833,7 +833,8 @@ function fitCamera() {
   const cam = scene.cameras.main;
   const W = app.clientWidth, H = app.clientHeight;
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
-  const base = Math.min(W, H) < 500 ? 1 : 1.15;
+  // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
+  const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WORLD.w, H / WORLD.h);
   cam.setZoom(DPR * Math.max(base, cover));
 }
@@ -853,8 +854,9 @@ function updateGuide() {
   if (!id || ui.open) { el.hidden = true; return; }
   const a = ANCHORS[id], cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
   const sx = (a.x - wv.x) * z, sy = (a.y - 40 - wv.y) * z;
-  const W = app.clientWidth, H = app.clientHeight, m = 34, top = 100;
-  if (sx > m && sx < W - m && sy > top && sy < H - m) { el.hidden = true; return; }
+  // стрелка нужна, только если цель за краем экрана; держим её ниже карточки задания
+  const W = app.clientWidth, H = app.clientHeight, m = 34, top = 140;
+  if (sx > m && sx < W - m && sy > m && sy < H - m) { el.hidden = true; return; }
   const cx = W / 2, cy = H / 2, dx = sx - cx, dy = sy - cy;
   const kx = dx ? ((dx > 0 ? W - m : m) - cx) / dx : Infinity;
   const ky = dy ? ((dy > 0 ? H - m : top) - cy) / dy : Infinity;
@@ -916,7 +918,7 @@ class FarmScene extends Phaser.Scene {
     updateHud();
     releaseStick();
     $('loading').hidden = true;
-    if (state.step === 0) this.time.delayedCall(700, () => toast('Джойстик слева, кнопка действия справа', 'info'));
+    if (state.step === 0) this.time.delayedCall(700, () => toast('Джойстик справа, кнопка действия слева', 'info'));
   }
 
   update(time, dt) {
