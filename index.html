@@ -105,18 +105,18 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .info{display:flex;flex-direction:column;gap:12px}
 
 /* Джойстик и кнопка действия */
-.stick-zone{position:absolute;right:0;bottom:0;width:60%;height:55%;touch-action:none}
+.stick-zone{position:absolute;inset:0;touch-action:none}
 .stick{position:absolute;left:0;top:0;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;
   background:rgba(255,253,244,.22);border:3px solid rgba(255,253,244,.75);pointer-events:none;transition:opacity .2s}
-.stick.idle{opacity:.55}
+.stick.idle{opacity:.4}
 .knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
   background:var(--paper);border:3px solid var(--wood);box-shadow:0 3px 0 rgba(46,36,24,.35)}
-.act{position:absolute;left:max(22px,calc(env(safe-area-inset-left,0px) + 12px));bottom:22px;min-width:96px;height:96px;
-  border-radius:999px;padding:0 18px;font-family:var(--display);font-weight:600;font-size:18px;color:#fff;background:var(--tomato);
-  border:3px solid var(--wood);box-shadow:0 4px 0 var(--wood);cursor:pointer;transition:opacity .15s,transform .15s}
-.act:disabled{opacity:.4;background:var(--muted);transform:scale(.88);cursor:default}
-.act:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--wood)}
-.act:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+/* Облачко действия над персонажем или предметом */
+.bubble{position:absolute;left:0;top:0;white-space:nowrap;font-family:var(--display);font-weight:600;font-size:18px;color:#fff;
+  background:var(--tomato);border:3px solid var(--wood);border-radius:14px;padding:8px 16px;box-shadow:0 3px 0 var(--wood);cursor:pointer}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-12px;margin-left:-9px;border:9px solid transparent;border-top-color:var(--wood);border-bottom:0}
+.bubble:active{box-shadow:0 1px 0 var(--wood);background:#C9472F}
+.bubble:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .off{visibility:hidden}
 
 /* Просьба повернуть телефон */
@@ -150,7 +150,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
     <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div></div>
     <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><div class="bag" id="bag"></div></div>
   </div>
-  <button class="act" id="actBtn" type="button" disabled>Действие</button>
+  <button class="bubble" id="bubble" type="button" hidden></button>
   <div class="guide" id="guide" hidden><span></span></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="sheet" id="sheet" hidden>
@@ -515,7 +515,7 @@ function walkable(x, y) {
   return true;
 }
 // ===================== Управление: джойстик, кнопка действия, клавиатура =====================
-const zone = $('stickZone'), stickEl = $('stick'), knob = $('knob'), actBtn = $('actBtn');
+const zone = $('stickZone'), stickEl = $('stick'), knob = $('knob'), bubble = $('bubble');
 const STICK_R = 52;
 const move = { x: 0, y: 0 };
 const stick = { id: null, bx: 0, by: 0 };
@@ -523,21 +523,41 @@ const keys = new Set();
 
 function placeStick(x, y) { stickEl.style.transform = `translate(${x}px, ${y}px)`; }
 function idleStick() {
-  placeStick(Math.max(80, zone.clientWidth - 110), Math.max(80, zone.clientHeight - 110));
+  placeStick(zone.clientWidth / 2, Math.max(80, zone.clientHeight - 120));
   knob.style.transform = '';
   stickEl.classList.add('idle');
 }
 function releaseStick() { stick.id = null; move.x = move.y = 0; idleStick(); }
 function stopWalking() { releaseStick(); keys.clear(); }
 
-// джойстик появляется там, где палец коснулся правой нижней части экрана
+// Касание экрана: если нажали на персонажа или предмет рядом — действие,
+// иначе под пальцем появляется джойстик (в любом месте экрана)
+function hitTest(x, y) {
+  const near = (ax, ay, r) => (x - ax) ** 2 + (y - ay) ** 2 <= r * r;
+  if (near(300, 295, 44)) return 'grandma';
+  if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
+  if (near(140, 545, 56)) return 'well';
+  for (let i = 0; i < 3; i++) if (Math.abs(x - BEDS[i].x) < 58 && Math.abs(y - BEDS[i].y) < 44) return 'bed' + i;
+  if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
+  return null;
+}
+function withinReach(id) {
+  const a = ANCHORS[id];
+  return Math.hypot(player.x - a.x, player.y - a.y) <= a.reach;
+}
 zone.addEventListener('pointerdown', e => {
   if (ui.open || stick.id !== null) return;
   e.preventDefault();
+  const r = zone.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (scene && player) {
+    const cam = scene.cameras.main, z = cam.zoom / DPR;
+    const hit = hitTest(cam.worldView.x + px / z, cam.worldView.y + py / z);
+    if (hit && withinReach(hit)) { nearId = hit; doAction(); return; }
+  }
   stick.id = e.pointerId;
   try { zone.setPointerCapture(e.pointerId); } catch (_) {}
-  const r = zone.getBoundingClientRect();
-  stick.bx = e.clientX - r.left; stick.by = e.clientY - r.top;
+  stick.bx = px; stick.by = py;
   placeStick(stick.bx, stick.by);
   stickEl.classList.remove('idle');
   knob.style.transform = '';
@@ -576,7 +596,7 @@ function inputVector() {
   return { x: move.x, y: move.y };
 }
 
-// кнопка действия: активна, когда героиня рядом с кем-то или чем-то
+// облачко действия: появляется над ближайшим персонажем или предметом
 function nearest() {
   let best = null, bd = Infinity;
   for (const id of Object.keys(ANCHORS)) {
@@ -596,11 +616,14 @@ function actionLabel(id) {
 }
 function updateControls() {
   nearId = ui.open ? null : nearest();
-  const label = actionLabel(nearId);
-  if (actBtn.textContent !== label) actBtn.textContent = label;
-  actBtn.disabled = !nearId;
   zone.classList.toggle('off', ui.open);
-  actBtn.classList.toggle('off', ui.open);
+  if (!nearId) { bubble.hidden = true; return; }
+  const label = actionLabel(nearId);
+  if (bubble.textContent !== label) bubble.textContent = label;
+  const a = ANCHORS[nearId], cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
+  const sx = (a.x - wv.x) * z, sy = (a.y + a.mark - 6 - wv.y) * z;
+  bubble.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -100%)`;
+  bubble.hidden = false;
 }
 function doAction() {
   if (ui.open || !nearId) return;
@@ -608,7 +631,7 @@ function doAction() {
   if (Math.abs(a.x - player.x) > 4) facing = a.x < player.x ? -1 : 1;
   interact(nearId);
 }
-actBtn.addEventListener('click', doAction);
+bubble.addEventListener('click', doAction);
 
 // --- Персонажи ---
 function makeChar(look) {
@@ -918,7 +941,7 @@ class FarmScene extends Phaser.Scene {
     updateHud();
     releaseStick();
     $('loading').hidden = true;
-    if (state.step === 0) this.time.delayedCall(700, () => toast('Джойстик справа, кнопка действия слева', 'info'));
+    if (state.step === 0) this.time.delayedCall(700, () => toast('Коснись экрана и веди пальцем, чтобы идти', 'info'));
   }
 
   update(time, dt) {
@@ -943,7 +966,7 @@ class FarmScene extends Phaser.Scene {
     chickens.forEach(c => c.setDepth(c.y));
 
     const id = questTarget();
-    if (id) {
+    if (id && id !== nearId) { // когда над целью облачко, «!» прячем
       const a = ANCHORS[id];
       marker.setVisible(true).setPosition(a.x, a.y + a.mark + (REDUCED ? 0 : Math.sin(time / 220) * 5));
     } else marker.setVisible(false);
