@@ -186,6 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
+const GAME_VERSION = 18;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -410,6 +411,7 @@ function closeModal() { $('modal').hidden = true; $('modal').innerHTML = ''; ui.
 $('resetBtn').addEventListener('click', () => {
   if (ui.open) return;
   openModal(`<div class="card"><h2>Начать заново?</h2><p>Весь прогресс прототипа сотрётся.</p>
+    <p style="font-size:15px;color:var(--muted)">Версия игры: ${GAME_VERSION}</p>
     <div class="row"><button class="btn secondary" id="mCancel" type="button">Отмена</button>
     <button class="btn" id="mReset" type="button">Начать заново</button></div></div>`);
   $('mCancel').onclick = closeModal;

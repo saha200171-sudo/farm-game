@@ -1,7 +1,7 @@
 // Service worker: позволяет игре работать без интернета.
-// Стратегия: сразу отдаём сохранённую копию, а в фоне скачиваем свежую версию.
-// Поэтому обновление игры у игрока появляется со второго запуска.
-const CACHE = 'farm-v17';
+// Стратегия: если есть интернет — всегда берём свежую версию (в обход кэша браузера)
+// и заодно обновляем сохранённую копию; без интернета — играем из сохранённой копии.
+const CACHE = 'farm-v18';
 const CORE = [
   './',
   './index.html',
@@ -21,7 +21,10 @@ const CORE = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  // cache: 'reload' — скачиваем файлы заново, а не из кэша браузера
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -34,16 +37,19 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const sameSite = new URL(e.request.url).origin === location.origin;
   e.respondWith(
     caches.open(CACHE).then(async cache => {
-      const cached = await cache.match(e.request, { ignoreSearch: true });
-      const fresh = fetch(e.request)
-        .then(res => {
-          if (res && (res.ok || res.type === 'opaque')) cache.put(e.request, res.clone());
-          return res;
-        })
-        .catch(() => cached);
-      return cached || fresh;
+      try {
+        // сначала сеть (для своих файлов — в обход кэша браузера), сохранённая копия — запасной вариант
+        const res = await fetch(sameSite ? e.request.url : e.request, sameSite ? { cache: 'no-cache' } : undefined);
+        if (res && (res.ok || res.type === 'opaque')) cache.put(e.request, res.clone());
+        return res;
+      } catch (err) {
+        const cached = await cache.match(e.request, { ignoreSearch: true });
+        if (cached) return cached;
+        throw err;
+      }
     })
   );
 });
