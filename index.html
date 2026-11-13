@@ -1089,43 +1089,53 @@ function drawPaths() {
   // область, которую занимают кусочки (они сдвинуты на полклетки)
   const X0 = (c0 - 0.5) * CELL, Y0 = (r0 - 0.5) * CELL;
   const W = (c1 - c0 + 2) * CELL, H = (r1 - r0 + 2) * CELL;
-  const cw = Math.round(W * PATH_RES), ch = Math.round(H * PATH_RES);
   const has = (c, r) => cells.has(c + ',' + r) ? 1 : 0;
   const maskImg = scene.textures.get('pathMask').getSourceImage();
   const rimImg = scene.textures.get('pathRim').getSourceImage();
   const dirtImg = scene.textures.get('dirt').getSourceImage();
-  const tileSize = CELL * PATH_RES;
 
-  // 1) маска: где земля
-  const mask = document.createElement('canvas'); mask.width = cw; mask.height = ch;
-  const m = mask.getContext('2d');
+  // все кусочки дорожек: [x в атласе, y в атласе, x на карте, y на карте]
   const tiles = [];
   for (let j = r0; j <= r1 + 1; j++) {
     for (let i = c0; i <= c1 + 1; i++) {
       const idx = has(i - 1, j - 1) | has(i, j - 1) << 1 | has(i - 1, j) << 2 | has(i, j) << 3;
       if (!idx) continue;
-      const dx = ((i - 0.5) * CELL - X0) * PATH_RES, dy = ((j - 0.5) * CELL - Y0) * PATH_RES;
-      const sx = (idx % 4) * PATH_TILE, sy = Math.floor(idx / 4) * PATH_TILE;
-      tiles.push([sx, sy, dx, dy]);
-      m.drawImage(maskImg, sx, sy, PATH_TILE, PATH_TILE, dx, dy, tileSize, tileSize);
+      tiles.push([(idx % 4) * PATH_TILE, Math.floor(idx / 4) * PATH_TILE, (i - 0.5) * CELL, (j - 0.5) * CELL]);
     }
   }
-  // 2) земля, привязанная к координатам карты, обрезанная по маске
-  if (scene.textures.exists('pathLayer')) scene.textures.remove('pathLayer'); // при «Начать заново»
-  const tex = scene.textures.createCanvas('pathLayer', cw, ch);
-  const ctx = tex.getContext();
-  const step = DIRT_WORLD * PATH_RES;
-  const startX = -((X0 % DIRT_WORLD) + DIRT_WORLD) % DIRT_WORLD * PATH_RES;
-  const startY = -((Y0 % DIRT_WORLD) + DIRT_WORLD) % DIRT_WORLD * PATH_RES;
-  for (let y = startY; y < ch; y += step)
-    for (let x = startX; x < cw; x += step) ctx.drawImage(dirtImg, x, y, step, step);
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.drawImage(mask, 0, 0);
-  // 3) тонкая тёмная кромка по краю
-  ctx.globalCompositeOperation = 'source-over';
-  for (const [sx, sy, dx, dy] of tiles) ctx.drawImage(rimImg, sx, sy, PATH_TILE, PATH_TILE, dx, dy, tileSize, tileSize);
-  tex.refresh();
-  scene.add.image(X0, Y0, 'pathLayer').setOrigin(0, 0).setScale(1 / PATH_RES).setDepth(GROUND - 9);
+  // старые слои дорожек (при «Начать заново»)
+  scene.textures.getTextureKeys().filter(k => k.startsWith('pathLayer')).forEach(k => scene.textures.remove(k));
+
+  // Рисуем дорожки кусками не больше ~1800 px: телефоны не умеют картинки больше 4096 px
+  const CHUNK = 16 * CELL, tileSize = CELL * PATH_RES, step = DIRT_WORLD * PATH_RES;
+  let n = 0;
+  for (let cy = Y0; cy < Y0 + H; cy += CHUNK) {
+    for (let cx = X0; cx < X0 + W; cx += CHUNK) {
+      const ww = Math.min(CHUNK, X0 + W - cx), hh = Math.min(CHUNK, Y0 + H - cy);
+      const mine = tiles.filter(([, , tx, ty]) => tx < cx + ww && tx + CELL > cx && ty < cy + hh && ty + CELL > cy);
+      if (!mine.length) continue;
+      const cw = Math.round(ww * PATH_RES), ch = Math.round(hh * PATH_RES);
+      // 1) маска: где земля
+      const mask = document.createElement('canvas'); mask.width = cw; mask.height = ch;
+      const m = mask.getContext('2d');
+      for (const [sx, sy, tx, ty] of mine) m.drawImage(maskImg, sx, sy, PATH_TILE, PATH_TILE, (tx - cx) * PATH_RES, (ty - cy) * PATH_RES, tileSize, tileSize);
+      // 2) земля, привязанная к координатам карты, обрезанная по маске
+      const key = 'pathLayer' + (n++);
+      const tex = scene.textures.createCanvas(key, cw, ch);
+      const ctx = tex.getContext();
+      const startX = -((cx % DIRT_WORLD) + DIRT_WORLD) % DIRT_WORLD * PATH_RES;
+      const startY = -((cy % DIRT_WORLD) + DIRT_WORLD) % DIRT_WORLD * PATH_RES;
+      for (let y = startY; y < ch; y += step)
+        for (let x = startX; x < cw; x += step) ctx.drawImage(dirtImg, x, y, step, step);
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.drawImage(mask, 0, 0);
+      // 3) тонкая тёмная кромка по краю
+      ctx.globalCompositeOperation = 'source-over';
+      for (const [sx, sy, tx, ty] of mine) ctx.drawImage(rimImg, sx, sy, PATH_TILE, PATH_TILE, (tx - cx) * PATH_RES, (ty - cy) * PATH_RES, tileSize, tileSize);
+      tex.refresh();
+      scene.add.image(cx, cy, key).setOrigin(0, 0).setScale(1 / PATH_RES).setDepth(GROUND - 9);
+    }
+  }
 }
 
 function drawGround() {
