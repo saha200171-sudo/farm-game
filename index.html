@@ -118,6 +118,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .bubble:active{box-shadow:0 1px 0 var(--wood);background:#C9472F}
 .bubble:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .off{visibility:hidden}
+body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overview .toast, body.overview .bubble, body.overview .rotate{display:none!important}
 
 /* Просьба повернуть телефон */
 .rotate{position:absolute;inset:0;z-index:10;display:none;place-items:center;align-content:center;gap:16px;text-align:center;
@@ -863,13 +864,45 @@ function drawCoop() {
   g.fillStyle(0xFFE9A8, 1).fillCircle(1160, 150, 13).fillCircle(1300, 150, 13);
   g.lineStyle(3, 0x7A4B2A, 1).strokeCircle(1160, 150, 13).strokeCircle(1300, 150, 13);
 }
-function drawTree(x, y, s, apples) {
-  const g = scene.add.graphics().setDepth(y);
-  g.fillStyle(0x1d2a12, 0.22).fillEllipse(x, y, 70 * s, 20 * s);
-  g.fillStyle(0x7A4E2D, 1).fillRect(x - 7 * s, y - 40 * s, 14 * s, 40 * s);
-  g.fillStyle(0x3F7F35, 1).fillCircle(x - 22 * s, y - 60 * s, 26 * s).fillCircle(x + 22 * s, y - 60 * s, 26 * s).fillCircle(x, y - 82 * s, 30 * s);
-  g.fillStyle(0x57A048, 1).fillCircle(x - 8 * s, y - 86 * s, 18 * s).fillCircle(x + 14 * s, y - 70 * s, 14 * s);
-  if (apples) { g.fillStyle(0xE2553A, 1); [[-20, -62], [16, -78], [4, -54], [-6, -92], [26, -56]].forEach(([dx, dy]) => g.fillCircle(x + dx * s, y + dy * s, 4.5 * s)); }
+// ===================== Деревья и кусты (рисованные, из Magnific) =====================
+// Картинки нарисованы с запасом чёткости: 3 пикселя на точку карты.
+const TREE_PX = 3;
+// Первый набор (PNG): круглые деревья, тополя, кусты.
+// Второй набор (WebP): s2-… — большие старые деревья (oak), группы (grove), ветвистые (branchy);
+// s1-… — большие деревья и группы из первого варианта второго набора.
+const TREE_FILES = [
+  ...['tree-1', 'tree-2', 'tree-3', 'tree-4', 'poplar-1', 'poplar-2', 'bush-1', 'bush-2', 'bush-3', 'bush-4'].map(k => [k, k + '.png']),
+  ...['s2-oak-1', 's2-oak-2', 's2-grove-1', 's2-grove-2', 's2-branchy-2', 's2-branchy-3',
+      's1-oak-1', 's1-oak-2', 's1-grove-1', 's1-grove-2'].map(k => [k, k + '.webp']),
+];
+// [картинка, x, y основания ствола, масштаб]
+const PLANTS = [
+  // огород: верх
+  ['tree-4', 60, 150, 0.9], ['poplar-1', 660, 120, 1], ['bush-1', 370, 255, 1],
+  // огород: середина
+  ['tree-1', 30, 410, 1], ['bush-2', 470, 505, 0.9], ['bush-3', 645, 560, 1], ['bush-4', 120, 700, 1],
+  ['s2-branchy-2', 640, 860, 0.9], ['bush-1', 560, 720, 0.85],
+  // огород: низ — большое дерево и группа
+  ['s1-oak-1', 190, 1000, 1], ['s1-grove-1', 470, 995, 1],
+  // курятник
+  ['s2-grove-1', 800, 150, 0.95], ['bush-2', 1010, 120, 1], ['poplar-2', 1385, 330, 0.9],
+  ['s2-branchy-3', 1210, 480, 0.85], ['bush-4', 760, 475, 0.9],
+  // сад
+  ['s2-oak-1', 830, 700, 1], ['s2-grove-2', 760, 995, 1], ['s1-grove-2', 990, 995, 1],
+  ['tree-3', 1230, 640, 0.9], ['s2-oak-2', 1200, 995, 0.95], ['s1-oak-2', 1420, 780, 1],
+];
+function plant(key, x, y, s) {
+  if (!scene.textures.exists('plantShadow')) {
+    const t = scene.textures.createCanvas('plantShadow', 128, 48);
+    const ctx = t.getContext();
+    const grd = ctx.createRadialGradient(64, 24, 0, 64, 24, 64);
+    grd.addColorStop(0, 'rgba(20,30,10,0.38)'); grd.addColorStop(1, 'rgba(20,30,10,0)');
+    ctx.setTransform(1, 0, 0, 0.375, 0, 15); ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(64, 24, 64, 0, Math.PI * 2); ctx.fill();
+    t.refresh();
+  }
+  const img = scene.add.image(x, y, key).setOrigin(0.5, 0.97).setScale(s / TREE_PX).setDepth(y);
+  const w = img.displayWidth;
+  scene.add.image(x, y, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(-8);
 }
 function makeChicken(x, y) {
   const c = scene.add.container(x, y);
@@ -928,10 +961,12 @@ function splash(x, y) {
 
 
 // --- Камера и размеры ---
+const OVERVIEW = /[?&]overview/.test(location.search);
 function fitCamera() {
   const cam = scene.cameras.main;
   const W = app.clientWidth, H = app.clientHeight;
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
+  if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WORLD.w, H / WORLD.h)); cam.centerOn(WORLD.w / 2, WORLD.h / 2); return; }
   // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WORLD.w, H / WORLD.h);
@@ -972,6 +1007,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
+    TREE_FILES.forEach(([k, f]) => this.load.image(k, 'assets/trees/' + f));
   }
   create() {
     scene = this;
@@ -983,9 +1019,7 @@ class FarmScene extends Phaser.Scene {
     drawWell();
     drawCoop();
     for (let i = 0; i < 3; i++) { bedG[i] = this.add.graphics().setDepth(1); drawBed(i); }
-    [[44, 340, 1], [640, 110, 0.9], [40, 960, 1.1], [650, 960, 1], [380, 990, 0.9], [60, 140, 0.85]].forEach(([x, y, s]) => drawTree(x, y, s, false));
-    [[820, 640, 1], [960, 780, 1.1], [1300, 640, 0.95], [1340, 950, 1], [840, 940, 1]].forEach(([x, y, s]) => drawTree(x, y, s, true));
-    [[1360, 420, 0.8], [760, 70, 0.8]].forEach(([x, y, s]) => drawTree(x, y, s, false));
+    PLANTS.forEach(([key, x, y, s]) => plant(key, x, y, s));
 
     for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
 
@@ -1019,6 +1053,14 @@ class FarmScene extends Phaser.Scene {
     fitCamera();
     cam.startFollow(player, false, 0.12, 0.12);
     cam.centerOn(player.x, player.y);
+    // Служебный режим ?overview — вся карта целиком, без интерфейса (для скриншотов в Figma)
+    if (OVERVIEW) {
+      cam.stopFollow();
+      fitCamera();
+      cam.centerOn(WORLD.w / 2, WORLD.h / 2);
+      document.body.classList.add('overview');
+      Object.values(lockLayers).forEach(l => l.setAlpha(0.35));
+    }
 
     updateHud();
     releaseStick();
