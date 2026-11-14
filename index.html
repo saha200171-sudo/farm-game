@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 68;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 69;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1481,14 +1481,17 @@ function afterChopping(misses) {
 // Раунд 1 — всегда проигрыш по сценарию (скрипит доска у ящика). Потом Змей предлагает помощь:
 // со Змеем — Торгель болтает с ним и лишь изредка оглядывается (Змей перед этим кашляет); сама — Торгель обходит амбар.
 // Взгляд Торгеля — светлый конус на полу; за сеном, бочками, телегой он не видит. Заметил — погоня; поймал — выставляет.
-const BX = 3600, BY = 200, BW = 960, BH = 560;
-const BARN_DOOR = { x: BX + 480, w: 110 };
+// Амбар вертикальный: по ширине помещается на экран телефона, в высоту — примерно полтора экрана (камера едет за героиней)
+const BX = 3600, BY = 200, BW = 460, BH = 1500;
+const BARN_DOOR = { x: BX + 230, w: 100 };
 const BARN_EXIT = { x: -345, y: 305 };                     // где героиня оказывается снаружи
-const BARN_BOX = { x: BX + 128, y: BY + 128 };              // ящик с инструментами у дальней стены
-const BARN_OBST = [                                         // препятствия: [x, y, w, h, вид] — и стены для взгляда
-  [BX + 250, BY + 205, 140, 62, 'hay'], [BX + 590, BY + 330, 150, 62, 'hay'], [BX + 165, BY + 385, 86, 54, 'barrels'],
-  [BX + 715, BY + 165, 160, 72, 'cart'], [BX + 55, BY + 190, 74, 50, 'crates'], [BX + 790, BY + 88, 140, 40, 'bench'],
-  [BX + 380, BY + 455, 70, 46, 'crates'],
+const BARN_BOX = { x: BX + 80, y: BY + 132 };               // ящик с инструментами у дальней стены (наверху слева)
+const BARN_OBST = [                                         // препятствия-укрытия: [x, y, w, h, вид] — и стены для взгляда
+  [BX + 300, BY + 90, 130, 40, 'bench'],
+  [BX + 40, BY + 260, 150, 58, 'hay'], [BX + 300, BY + 330, 110, 46, 'crates'],
+  [BX + 60, BY + 520, 150, 70, 'cart'], [BX + 300, BY + 640, 90, 54, 'barrels'],
+  [BX + 150, BY + 820, 160, 58, 'hay'], [BX + 40, BY + 1000, 76, 46, 'crates'],
+  [BX + 320, BY + 1060, 90, 54, 'barrels'], [BX + 120, BY + 1240, 140, 58, 'hay'],
 ];
 const TORGEL_LOOK = { skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
   hair: 'swept', hairColor: 0xE8D27E, jawBeard: true, scar: true, stern: true, noBlush: true, longsword: true, scale: 1.18 };
@@ -1532,7 +1535,7 @@ function buildBarnRoom() {
   g.fillStyle(0x4A2E17, 1).fillRect(BX - 24, BY, 24, BH + 20).fillRect(BX + BW, BY, 24, BH + 20);   // боковые стены
   g.fillStyle(0x4A2E17, 1).fillRect(BX, BY + BH, BARN_DOOR.x - BARN_DOOR.w / 2 - BX, 20).fillRect(BARN_DOOR.x + BARN_DOOR.w / 2, BY + BH, BX + BW - BARN_DOOR.x - BARN_DOOR.w / 2, 20);
   g.fillStyle(0xFFE9A8, 0.35).fillRect(BARN_DOOR.x - BARN_DOOR.w / 2, BY + BH - 40, BARN_DOOR.w, 60);   // свет из двери
-  g.fillStyle(0xFFF4CC, 0.7).fillRect(BX + 300, BY + 22, 46, 30).fillRect(BX + 620, BY + 22, 46, 30);     // окошки
+  g.fillStyle(0xFFF4CC, 0.7).fillRect(BX + 110, BY + 22, 46, 30).fillRect(BX + 300, BY + 22, 46, 30);     // окошки
   for (const [x, y, w, h, kind] of BARN_OBST) {
     const o = scene.add.graphics().setDepth(y + h);
     o.fillStyle(0x1d2a12, 0.25).fillEllipse(x + w / 2, y + h, w * 1.05, 16);
@@ -1578,20 +1581,21 @@ function barnChoice() {
     ['Попробую сама', () => { state.nanamin.barn.helped = 'solo'; save(); showDialog([['zmey', 'Смелая! Он ходит по кругу и оглядывается. Прячься за сеном и бочками.']], () => startBarn('solo')); }],
   ]);
 }
-const BARN_PATROL = [[480, 150], [600, 260], [800, 300], [560, 470], [300, 480], [150, 300], [330, 150]];
+const BARN_PATROL = [[230, 190], [400, 460], [240, 750], [400, 960], [250, 1170], [180, 1380]];   // туда и обратно
 function startBarn(mode) {
   if (!barn.built) buildBarnRoom();
-  Object.assign(barn, { active: true, mode, carry: false, state: 'idle', wp: 0, wait: 0.6, lost: 0, timer: 0, glance: 0, cough: 0, chat: 3, squeak: false });
+  Object.assign(barn, { active: true, mode, carry: false, state: 'idle', wp: 0, wpDir: 1, wait: 0.6, lost: 0, timer: 0, glance: 0, cough: 0, chat: 3, squeak: false, lookDir: Math.PI });
   const t = barn.torgel, z = barn.zmey;
-  if (mode === 'round1') { t.setPosition(BX + 860, BY + 150); barn.ang = -Math.PI / 2; barn.state = 'work'; }
-  else if (mode === 'zmey') { t.setPosition(BX + 760, BY + 440); barn.ang = 0; barn.state = 'chat'; barn.glance = 6 + Math.random() * 3; }
-  else { t.setPosition(BX + 330, BY + 150); barn.ang = 0; barn.state = 'patrol'; }
-  z.setVisible(mode === 'zmey'); z.setPosition(BX + 870, BY + 450); z.bodyG.scaleX = -1;
+  if (mode === 'round1') { t.setPosition(BX + 360, BY + 165); barn.ang = -Math.PI / 2; barn.state = 'work'; }
+  else if (mode === 'zmey') { t.setPosition(BX + 345, BY + 760); barn.ang = 0; barn.state = 'chat'; barn.glance = 6 + Math.random() * 3; }
+  else { t.setPosition(BX + 230, BY + 190); barn.ang = Math.PI / 2; barn.state = 'patrol'; }
+  z.setVisible(mode === 'zmey'); z.setPosition(BX + 415, BY + 775); z.bodyG.scaleX = -1;
   barn.boxG.setVisible(true).setPosition(BARN_BOX.x, BARN_BOX.y).setDepth(BARN_BOX.y);
   barn.alert.setVisible(false);
   player.setPosition(BARN_DOOR.x, BY + BH - 30); facing = 1;
-  const cam = scene.cameras.main; cam.stopFollow(); cam.removeBounds(); document.body.classList.add('in-barn'); fitCamera();
-  toast(mode === 'round1' ? 'Амбар: ящик у дальней стены слева' : mode === 'zmey' ? 'Змей отвлекает Торгеля. Кашель — замри!' : 'Торгель обходит амбар. Не попадайся на глаза', 'info');
+  const cam = scene.cameras.main; document.body.classList.add('in-barn'); cam.setBounds(BX - 20, BY - 70, BW + 40, BH + 110); fitCamera();
+  cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y);
+  toast(mode === 'round1' ? 'Амбар: ящик у дальней стены — наверху слева' : mode === 'zmey' ? 'Змей отвлекает Торгеля. Кашель — замри!' : 'Торгель обходит амбар. Не попадайся на глаза', 'info');
   updateHud();
 }
 function leaveBarn() {
@@ -1676,7 +1680,7 @@ function updateBarn(dt, time) {
       leaveBarn(); return;
     }
     // поведение Торгеля
-    const R = barn.mode === 'zmey' ? 340 : 190, HALF = 0.55;   // со Змеем Торгель оборачивается редко, зато видит весь амбар
+    const R = BH + BW, HALF = 0.5;   // Торгель — воин: видит до самой стены, остановить взгляд может только укрытие
     if (barn.state === 'work') {                               // раунд 1: возится у верстака, потом скрип доски
       turnTo(-Math.PI / 2 + Math.sin(time / 900) * 0.25, 2, s);
       if (!barn.squeak && Math.hypot(px - BARN_BOX.x, py - BARN_BOX.y) < 110) {
@@ -1687,9 +1691,9 @@ function updateBarn(dt, time) {
     } else if (barn.state === 'chat') {                        // со Змеем: болтают, изредка оглядывается
       barn.glance -= s; barn.chat -= s;
       if (barn.chat < 0) { barn.chat = 5 + Math.random() * 3; toast(['Змей: «…и тут коза как прыгнет!»', 'Торгель: «Хм.»', 'Змей: «…а дед ей и говорит…»', 'Торгель: «Ну и?»'][Math.floor(time / 1000) % 4], 'info'); }
-      if (barn.glance < 1.1 && !barn.cough) { barn.cough = 1; toast('Змей: «Кхе-кхе!» — замри!'); }
+      if (barn.glance < 1.1 && !barn.cough) { barn.cough = 1; barn.lookDir = [-Math.PI / 2, Math.PI, Math.PI / 2, -2.4, 2.4][Math.floor(Math.random() * 5)]; toast('Змей: «Кхе-кхе!» — замри!'); }
       const look = barn.glance < 0 && barn.glance > -1.8;
-      turnTo(look ? Math.PI : 0, 5, s);
+      turnTo(look ? barn.lookDir : 0, 5, s);
       if (barn.glance < -1.8) { barn.glance = 6 + Math.random() * 3; barn.cough = 0; }
       if (look && barnSees(t, px, py, R, HALF)) barnSpotted();
     } else if (barn.state === 'patrol') {                      // сама: обход по кругу с остановками
@@ -1697,7 +1701,10 @@ function updateBarn(dt, time) {
         barn.wait -= s; turnTo(barn.ang + Math.sin(time / 300) * 0.9, 1.6, s);
       } else {
         const [wx, wy] = BARN_PATROL[barn.wp];
-        if (moveTorgel(BX + wx, BY + wy, 82, s) < 4) { barn.wp = (barn.wp + 1) % BARN_PATROL.length; barn.wait = 0.6 + Math.random() * 0.9; }
+        if (moveTorgel(BX + wx, BY + wy, 82, s) < 4) {
+          if (barn.wp + barn.wpDir < 0 || barn.wp + barn.wpDir >= BARN_PATROL.length) barn.wpDir *= -1;
+          barn.wp += barn.wpDir; barn.wait = 0.6 + Math.random() * 0.9;
+        }
       }
       if (barnSees(t, px, py, R, HALF)) barnSpotted();
     } else if (barn.state === 'chase') {
@@ -1712,17 +1719,17 @@ function updateBarn(dt, time) {
         toast('Торгель: «Показалось, что ли…»', 'info');
       }
     } else if (barn.state === 'back') {
-      if (moveTorgel(BX + 760, BY + 440, 120, s) < 4) { barn.state = 'chat'; barn.ang = 0; barn.glance = 6; }
+      if (moveTorgel(BX + 345, BY + 760, 120, s) < 4) { barn.state = 'chat'; barn.ang = 0; barn.glance = 6; }
     }
   }
   // взгляд Торгеля на полу
-  const c = barn.cone, R2 = barn.mode === 'zmey' ? 340 : 190, HALF2 = 0.55;
+  const c = barn.cone, R2 = BH + BW, HALF2 = 0.5;
   c.clear();
   const alertCol = barn.state === 'chase' ? 0xE2553A : 0xFFF2B0;
   c.fillStyle(alertCol, barn.state === 'chase' ? 0.28 : 0.22).beginPath().moveTo(t.x, t.y - 6);
   for (let k = 0; k <= 16; k++) {
     const a = barn.ang - HALF2 + 2 * HALF2 * k / 16;
-    let rr = R2; for (let q = 8; q < R2; q += 8) if (barnBlocked(t.x + Math.cos(a) * q, t.y - 6 + Math.sin(a) * q)) { rr = q; break; }
+    let rr = R2; for (let q = 8; q < R2; q += 10) if (barnBlocked(t.x + Math.cos(a) * q, t.y - 6 + Math.sin(a) * q)) { rr = q; break; }
     c.lineTo(t.x + Math.cos(a) * rr, t.y - 6 + Math.sin(a) * rr);
   }
   c.closePath().fillPath();
@@ -2340,7 +2347,7 @@ function updateThorfinn(dt) {
 
 // Первый приход в поле
 function updateField() {
-  if (ui.open || player.y > -20) return;
+  if (ui.open || barn.active || player.y > -20) return;
   const d2 = state.day2;
   if (!d2.visitedField) { d2.visitedField = true; save(); toast('Новая локация: Поле'); }
   if (d2.stage === 1) {
@@ -2574,7 +2581,7 @@ function updatePasture(dt) {
   }
   animateCows(dt);
   cows.forEach(c => c.setDepth(c.y));
-  if (ui.open) return;
+  if (ui.open || barn.active) return;   // в амбаре (он нарисован за картой) пастбищные события не срабатывают
   // первый раз на пастбище
   if (!nm.visited && player.y > 1010) { nm.visited = true; save(); toast('Новая локация: Пастбище'); }
   // загон: мысли, пока о нём ничего не знаем
@@ -2630,7 +2637,7 @@ function fitCamera() {
   const W = app.clientWidth, H = app.clientHeight;
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
   if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WW, H / WORLD.h)); cam.centerOn(WORLD.x + WW / 2, WORLD.top + WORLD.h / 2); return; }
-  if (barn.active) { cam.setZoom(DPR * Math.min(1.15, W / (BW + 60), H / (BH + 90))); cam.centerOn(BX + BW / 2, BY + BH / 2 + 10); return; }   // в амбаре виден весь амбар — для пряток
+  if (barn.active) { cam.setZoom(DPR * Math.min(1.15, W / (BW + 40))); return; }   // в амбаре: по ширине — весь амбар, по высоте камера едет за героиней
   // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WW, H / WORLD.h);
