@@ -69,7 +69,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .toast.info{background:var(--paper);color:var(--ink)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
-.sheet{position:absolute;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:10px;
+.sheet{position:absolute;z-index:5;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:10px;
   margin-inline:auto;max-width:640px;background:var(--paper);border:3px solid var(--wood);border-radius:18px;padding:14px 16px;
   display:flex;gap:14px;align-items:flex-start;box-shadow:0 5px 0 rgba(46,36,24,.4);cursor:pointer;animation:rise .25s ease-out}
 .portrait{flex:none;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:600;
@@ -126,7 +126,19 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .bubble:active{box-shadow:0 1px 0 var(--wood);background:#C9472F}
 .bubble:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .off{visibility:hidden}
-body.in-barn .quest{display:none}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
+body.in-barn .quest{display:none}
+/* Дом Сверкеля: сверху шаги рецепта, снизу полка с продуктами (только в доме) */
+body.in-house .side .ghost-btn{display:none}
+.recipe{position:absolute;left:6px;right:6px;display:flex;flex-wrap:nowrap;gap:4px;justify-content:center;z-index:1;pointer-events:none}
+.recipe span{font-family:var(--body,Nunito,sans-serif);font-weight:800;font-size:12px;padding:4px 6px;white-space:nowrap;border-radius:14px;background:rgba(255,253,244,.82);color:#3a2c1c;border:2px solid rgba(46,36,24,.25)}
+.recipe span.done{background:#5E9E57;color:#fff;border-color:#3f6e3a}
+.recipe span.cur{background:#F9B862;border-color:#a8742a}
+.shelf{position:absolute;left:10px;right:10px;height:96px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:1;pointer-events:none;
+  background:linear-gradient(#7a5132,#5c3b22);border:4px solid #3e2715;border-radius:14px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.shelf div{width:60px;height:68px;border-radius:10px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+.shelf img{width:54px;height:54px;object-fit:contain;filter:grayscale(1) brightness(.45);opacity:.35;transition:all .3s}
+.shelf img.have{filter:none;opacity:1}
+.house-exit{position:absolute;right:12px;top:12px;z-index:4}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
 body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overview .toast, body.overview .bubble, body.overview .rotate{display:none!important}
 
 /* Просьба повернуть телефон */
@@ -197,6 +209,9 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
     <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
     <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><div class="bag" id="bag"></div></div>
   </div>
+  <div class="recipe" id="recipe" hidden></div>
+  <div class="shelf" id="shelf" hidden></div>
+  <button class="ghost-btn house-exit" id="houseExit" type="button" hidden>Выйти из дома</button>
   <button class="bubble" id="bubble" type="button" hidden></button>
   <div class="guide" id="guide" hidden><span></span></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -218,7 +233,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 135;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 136;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -291,6 +306,7 @@ const ANCHORS = {
 };
 // Точка цели: у коров она двигается вместе с ними
 function anchorOf(id) {
+  if (id && id.startsWith('h:')) { const st = HOUSE_STATIONS[id.slice(2)]; return { x: st.x, y: player.y, reach: 80, mark: st.top - player.y - 8 }; }
   if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 72, mark: -82 }; }
   if (id && id.startsWith('bed')) {   // у длинной грядки точка — ближайшее к героине место вдоль неё, облачко — над грядкой
     const b = BEDS[+id.slice(3)], top = b.y - b.len / 2, y = Math.max(top, Math.min(b.y + b.len / 2, player ? player.y : b.y));
@@ -344,7 +360,7 @@ function save() {
 const ui = { open: false };
 
 function questTarget() {
-  if (barn.active) return null;
+  if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
   switch (state.step) {
@@ -352,6 +368,7 @@ function questTarget() {
     case 1: return 'well';
     case 2: { const i = state.watered.findIndex(w => !w); return i < 0 ? null : 'bed' + i; }
     case 31: return 'zmey';
+    case 71: return 'door';
     case 4: return 'gate';
     case 5: return 'klara';
     default: return null;
@@ -368,12 +385,12 @@ function questText() {
     'Познакомься с Ольмаром',
     `Загони кур в курятник: ${chickens.filter(c => c.mode === 'asleep').length} из 6`,
     'Отнеси яйца Сверкелю',
-    'Прототип пройден. Можно гулять по ферме',
-  ][state.step] || ({ 31: 'Найди Змея и представься ему', 61: `Собери яйца в соломе: ${state.items.eggs || 0} из 8` })[state.step] || '';
+    'Осмотри ферму',
+  ][state.step] || ({ 31: 'Найди Змея и представься ему', 71: 'Свари похлёбку к ужину', 61: `Собери яйца в соломе: ${state.items.eggs || 0} из 8` })[state.step] || '';
 }
 function updateHud() {
   const d2 = state.day2.stage;
-  $('questLabel').textContent = d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61].includes(state.step)) ? 'Готово' : 'Задание';
+  $('questLabel').textContent = d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
   $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
   const chips = [];
@@ -502,6 +519,7 @@ $('barnBtn').addEventListener('click', () => {
   enterBarn();
 });
 // ВРЕМЕННО: переключить вечер ↔ день прямо на месте (без сна и смены дня) — чтобы посмотреть на курочек
+$('houseExit').addEventListener('click', () => { if (!ui.open && house.active) leaveHouse(); });
 $('timeBtn').addEventListener('click', () => {
   if (ui.open || barn.active) return;
   state.time.phase = state.time.phase === 'evening' ? 'day' : 'evening';
@@ -536,7 +554,8 @@ function interact(id) {
   if (id === 'chop') return startChopping();
   if (id === 'barn') return enterBarn();
   if (id === 'torgel') return talkTorgel();
-  if (id === 'door') return goToSleep();
+  if (id === 'door') return state.time.phase === 'evening' ? goToSleep() : enterHouse();
+  if (id.startsWith('h:')) return cookAction(id);
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
     ['thorfinn', 'Я Торфинн, слежу за полем. Ходи только по дорожкам — и мы поладим.'],
@@ -582,7 +601,7 @@ function talkGrandpa() {
     ['grandpa', 'Свежие яйца! Вот и славно — будет из чего ужин сварить.'],
     ['grandpa', 'Похлёбку с капустой и пореем — по-нашему, сытную. Котёл у очага, овощи на грядках слева.'],
     ['grandpa', 'А за курятником старый сад. Его хозяин давно не показывался… Но это уже совсем другая история.'],
-  ], () => { s.step = 8; s.items.eggs = 0; progress(); showFinal(); });
+  ], () => { s.step = 71; s.cookQuest = true; s.cook = { stage: 0 }; toast('Новое задание: свари ужин'); progress(); });
   const idle = {
     1: 'Лейка висит у колодца, слева от грядок.',
     2: 'Полей все три грядки, они совсем пересохли.',
@@ -1038,6 +1057,155 @@ function showFinal() {
   $('fAgain').onclick = resetGame;
 }
 
+
+// ===================== Дом Сверкеля: комната-сцена (вид прямо) и готовка похлёбки =====================
+// Расстановка — по макету пользователя (Figma «Дом Сверкеля», раздел 6). Координаты — в точках комнаты 1283×456.
+// Слой: 0 — на полу (глубина по низу), 1 — передний план (размыт, движется чуть быстрее камеры — объём).
+const HX = 6000, HY = 200, HW = 1283, HH = 456;
+const GRANDPA_LOOK = { skin: 0xE6B38C, dress: 0x667083, belly: true, belt: 0x2E2A28, buckle: 0x55504A, legs: 0x4E5560, scarf: 0xBDB8A2,
+  hair: 'bald', hairColor: 0xC4C0B6, goatee: true, heavyLids: true, handsBehind: true, noBlush: true, calm: true };
+const HOUSE_FRAMES = {"h31":[0,0,108,912],"h33":[110,0,108,912],"hcold":[220,0,356,305],"h8":[578,0,356,305],"h1":[936,0,364,266],"h29":[1302,0,120,262],"h30":[1424,0,124,260],"h17":[1550,0,106,238],"h6":[1658,0,208,234],"h26":[0,914,208,224],"h28":[210,914,146,224],"h35":[358,914,382,220],"h24":[742,914,338,214],"h25":[1082,914,100,194],"h20":[1184,914,308,188],"h12":[1494,914,328,183],"h32":[0,1140,256,182],"h4":[258,1140,144,180],"h23":[404,1140,216,170],"h27":[622,1140,166,156],"h2":[790,1140,260,152],"h21":[1052,1140,308,144],"h22":[1362,1140,100,144],"h34":[1464,1140,188,144],"h14":[1654,1140,160,112],"h36":[1816,1140,104,104],"h18":[0,1324,276,76],"h7":[278,1324,339,49],"h19":[619,1324,172,44],"h15":[793,1324,335,41],"h5":[1130,1324,198,38],"h11":[1330,1324,312,34],"h9":[1644,1324,312,30],"h10":[0,1402,312,30],"h3":[314,1402,137,29],"h16":[453,1402,95,28],"h0":[550,1402,266,25],"h13":[818,1402,149,18]};
+const HOUSE_ITEMS = [["h0","тень лавка",647,364,133,12.3,0],["h1","лежанка",1051,265,182,133,0],["h2","furniture-1",775,313,130,76,0],["h3","тень бочка",35.8,377.2,68.4,14.3,0],["h4","бочка с водой",34,294.7,72,89.6,0],["h5","тень полка",118.6,371,98.8,18.7,0],["h6","полка",116,263.5,104,116.8,0],["h7","тень очаг",237.5,374.1,169.1,24.4,0],["h8","очаг",233,234.1,178,152.2,0],["h9","тень стол",412.1,381,155.8,14.6,0],["h10","тень",775,372,155.8,14.6,0],["h11","тень",642,362,156,17,0],["h12","стол с доской",408,297,164,91.3,0],["h13","тень дрова",563,380,74.1,8.6,0],["h14","дрова",563,340,80,56,0],["h15","тень лежанка",1041.4,374.1,167.2,20.4,0],["h16","тень метла",1226.3,381.5,47.5,13.7,0],["h17","метла с ведром",1230,271,53,119,0],["h18","тень стол ужин",826,384,138,38,0],["h19","тень",973,371,86,22,0],["h20","травы",91,0,154,94,1],["h21","травы",478,0,154,72,1],["h22","травы",826,0,50,72,1],["h23","травы",276,0,108,85,1],["h24","травы",973,0,169,107,1],["h25","лук",433,0,50,97,1],["h26","горшок",0,344,104,112,1],["h27","корзина",1200,378,83,78,1],["h28","лук2",1134,0,73,112,1],["h29","лампа",1196,0,60,131,1],["h30","рыба",910,0,62,130,1],["h31","столб",228,0,54,456,1],["h32","лавка",647,286,128,91,0],["h33","резной столб",713,0,54,456,1],["h34","лаванда",13,0,94,72,1],["h35","стол для ужина",798,303,191,110,0],["h36","табурет",987,338,52,52,0]];
+const HOUSE_FLOOR = [HY + 392, HY + 448];                       // где можно ходить (по высоте)
+const HOUSE_STATIONS = {                                         // станции готовки: центр и верх (для облачка)
+  barrel: { x: HX + 70, top: HY + 295 }, shelf: { x: HX + 168, top: HY + 264 },
+  hearth: { x: HX + 322, top: HY + 234 }, table: { x: HX + 490, top: HY + 297 },
+};
+const COOK_STEPS = ['Вода', 'Огонь', 'Ячмень', 'Овощи', 'Травы', 'Яйца', 'Помешать'];
+const house = { active: false, built: false, fg: [], hearth: null, hearthCold: null, guests: [] };
+function houseWalkable(x, y) { return x > HX + 40 && x < HX + HW - 40 && y > HOUSE_FLOOR[0] && y < HOUSE_FLOOR[1]; }
+function buildHouse() {
+  house.built = true;
+  const t = scene.textures.get('house');
+  for (const [k, f] of Object.entries(HOUSE_FRAMES)) if (!t.has(k)) t.add(k, 0, ...f);
+  scene.add.rectangle(HX - 1500, HY - 1200, HW + 3000, HH + 2400, 0x1A120B).setOrigin(0, 0).setDepth(GROUND - 8);   // темнота вокруг
+  const bg = scene.add.image(HX, HY, 'house-room').setOrigin(0, 0).setDepth(GROUND - 7); bg.setScale(HW / bg.width, HH / bg.height);
+  house.fg = [];
+  for (const [k, , x, y, w, h, layer] of HOUSE_ITEMS) {
+    const im = scene.add.image(HX + x, HY + y, 'house', k).setOrigin(0, 0).setDisplaySize(w, h);
+    if (k.startsWith('h') && /тень/.test(HOUSE_ITEMS.find(i => i[0] === k)[1])) im.setDepth(GROUND - 6);
+    else if (layer === 1) { im.setDepth(HY + HH + 600); im.baseX = HX + x; house.fg.push(im); }
+    else im.setDepth(HY + y + h);
+    if (k === 'h8') house.hearth = im;
+  }
+  const H8 = HOUSE_ITEMS.find(i => i[0] === 'h8');   // холодный очаг на месте горящего
+  house.hearthCold = scene.add.image(HX + H8[2], HY + H8[3], 'house', 'hcold').setOrigin(0, 0).setDisplaySize(H8[4], H8[5]).setDepth(HY + H8[3] + H8[5]);
+}
+function houseLit(lit) { house.hearth.setVisible(lit); house.hearthCold.setVisible(!lit); }
+function enterHouse() {
+  if (!house.built) buildHouse();
+  house.active = true; stopWalking();
+  houseLit((state.cook || {}).stage >= 2);
+  house.prevScale = player.scaleX; player.setScale(1.35);
+  player.setPosition(HX + 640, HY + 425); facing = -1;
+  const cam = scene.cameras.main; cam.stopFollow(); cam.removeBounds(); document.body.classList.add('in-house');
+  ['recipe', 'shelf', 'houseExit'].forEach(id => $(id).hidden = false);
+  fitCamera(); updateHouse(0, true); updateHud(); renderCook();
+}
+function leaveHouse() {
+  house.active = false; house.guests.forEach(g => g.destroy()); house.guests = [];
+  player.setScale(house.prevScale || 1);
+  player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 34); facing = 1;
+  ['recipe', 'shelf', 'houseExit'].forEach(id => $(id).hidden = true);
+  const cam = scene.cameras.main; document.body.classList.remove('in-house'); cam.setBounds(WORLD.x, WORLD.top, WW, WORLD.h); fitCamera();
+  cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y); updateHud();
+}
+// камера: комната крупно, сверху место под задание и рецепт, снизу — полка
+function houseZoom() { const H = app.clientHeight, W = app.clientWidth; return Math.min(H * 0.6 / HH, W / 330); }
+function updateHouse(dt, force) {
+  if (!house.active) return;
+  const cam = scene.cameras.main, z = houseZoom(), W = app.clientWidth, H = app.clientHeight;
+  const viewW = W / z, viewH = H / z, topPx = 150;
+  const cx = Phaser.Math.Clamp(player.x, HX + viewW / 2, HX + HW - viewW / 2);
+  const cy = HY - topPx / z + viewH / 2;
+  cam.centerOn(cx, cy);
+  for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.12;   // передний план — чуть быстрее
+  if (force) {
+    $('recipe').style.top = (topPx - 44) + 'px';
+    $('shelf').style.top = Math.round(topPx + HH * z + 14) + 'px';
+  }
+}
+function houseNearest() {
+  let best = null, bd = 80;
+  for (const [id, st] of Object.entries(HOUSE_STATIONS)) {
+    const d = Math.abs(player.x - st.x);
+    if (d < bd) { bd = d; best = 'h:' + id; }
+  }
+  return best;
+}
+// ---------- готовка ----------
+const cookS = () => state.cook || (state.cook = { stage: 0 });
+function renderCook() {
+  const c = cookS();
+  $('recipe').innerHTML = COOK_STEPS.map((t, i) => `<span class="${i < c.stage ? 'done' : i === c.stage ? 'cur' : ''}">${t}</span>`).join('');
+  const I = state.items, have = { water: c.water, barley: c.barley, cabbage: (I.kapusta || 0) > 0 || c.chopped, leek: (I.luk || 0) > 0 || c.chopped, herbs: c.herbs, eggs: (I.eggs || 0) > 0, stew: c.stage >= 7 };
+  $('shelf').innerHTML = ['water', 'barley', 'cabbage', 'leek', 'herbs', 'eggs', 'stew']
+    .map(k => `<div><img src="assets/house/icons/${k}.webp?v=${GAME_VERSION}" class="${have[k] ? 'have' : ''}" alt=""></div>`).join('');
+}
+function cookLabel(id) {
+  const c = cookS(), I = state.items, st = id.slice(2);
+  if (st === 'barrel') return !c.water && c.stage === 0 ? 'Набрать воды' : 'Осмотреть';
+  if (st === 'shelf') return c.stage <= 2 && !c.barley ? 'Взять ячмень' : c.stage <= 4 && !c.herbs ? 'Взять травы' : 'Осмотреть';
+  if (st === 'table') return c.stage <= 3 && !c.chopped && (I.kapusta || 0) > 0 && (I.luk || 0) > 0 ? 'Нарезать овощи' : 'Осмотреть';
+  return ['Налить воду', 'Разжечь огонь', 'Засыпать ячмень', 'Положить овощи', 'Добавить травы', 'Разбить яйца', 'Помешать', 'Осмотреть'][c.stage] || 'Осмотреть';
+}
+function cookAction(id) {
+  const c = cookS(), I = state.items, st = id.slice(2), done = () => { save(); renderCook(); updateHud(); };
+  if (st === 'barrel') { if (c.stage === 0 && !c.water) { c.water = true; toast('Ведро воды'); return done(); } return showThought('Вода в бочке ледяная и чистая.'); }
+  if (st === 'shelf') {
+    if (c.stage <= 2 && !c.barley) { c.barley = true; toast('Взят ячмень'); return done(); }
+    if (c.stage <= 4 && !c.herbs) { c.herbs = true; toast('Взяты травы'); return done(); }
+    return showThought('Горшки, мешочки, сушёные травы… Всё, что нужно, я уже взяла.');
+  }
+  if (st === 'table') {
+    if (c.stage <= 3 && !c.chopped && (I.kapusta || 0) > 0 && (I.luk || 0) > 0) { I.kapusta--; I.luk--; c.chopped = true; toast('Капуста и порей нарезаны'); chopFx(); return done(); }
+    return showThought(c.chopped ? 'Овощи уже нарезаны.' : 'Здесь удобно резать овощи. Только резать пока нечего…');
+  }
+  // очаг и котёл
+  const step = (cond, msg, fx) => { if (!cond) return showThought(msg); c.stage++; if (fx) fx(); done(); if (c.stage >= 7) cookDone(); };
+  switch (c.stage) {
+    case 0: return step(c.water, 'Котёл пустой. Для похлёбки первым делом нужна вода…', () => { c.water = false; splashFx(); });
+    case 1: return step(true, '', () => { sparkFx(); scene.time.delayedCall(600, () => houseLit(true)); });
+    case 2: return step(c.barley, 'Вода закипает… Чем бы сделать похлёбку сытной?', () => { c.barley = false; splashFx(); });
+    case 3: return step(c.chopped, 'Не хватает овощей. И порезать бы их сначала…', () => { c.chopped = false; splashFx(); });
+    case 4: return step(c.herbs, 'Пахнет пока пресно… Чего-то не хватает.', () => { c.herbs = false; splashFx(); });
+    case 5: return step((I.eggs || 0) > 0, 'Яиц бы сюда…', () => { I.eggs = Math.max(0, (I.eggs || 0) - 3); splashFx(); });
+    case 6: return step(true, '', () => stirFx());
+    default: return showThought('Похлёбка готова и пахнет на весь дом!');
+  }
+}
+function fxBurst(x, y, color, n, spread) {
+  for (let i = 0; i < n; i++) {
+    const d = scene.add.circle(x, y, 2 + Math.random() * 2, color).setDepth(HY + HH + 300);
+    scene.tweens.add({ targets: d, x: x + (Math.random() - 0.5) * spread, y: y - 10 - Math.random() * spread * 0.7, alpha: 0, duration: 500 + Math.random() * 400, onComplete: () => d.destroy() });
+  }
+}
+const hearthTop = () => ({ x: HOUSE_STATIONS.hearth.x, y: HY + 300 });
+function splashFx() { const h = hearthTop(); fxBurst(h.x, h.y, 0xCFE6F2, 10, 40); }
+function sparkFx() { const h = hearthTop(); for (let k = 0; k < 3; k++) scene.time.delayedCall(k * 180, () => fxBurst(h.x, h.y + 50, 0xFFC94A, 12, 50)); }
+function stirFx() { const h = hearthTop(); for (let k = 0; k < 5; k++) scene.time.delayedCall(k * 140, () => fxBurst(h.x, h.y - 6, 0xF3EDE0, 6, 30)); }
+function chopFx() { fxBurst(HOUSE_STATIONS.table.x, HY + 300, 0x8DBF5A, 14, 60); }
+// похлёбка готова → ужин втроём → героиню отпускают осмотреть ферму (реплики — черновик)
+function cookDone() {
+  scene.time.delayedCall(700, () => {
+    showThought('Готово! Пахнет так, что даже живот заурчал.', () => {
+      const g = makeChar(GRANDPA_LOOK), z = makeChar(ZMEY_LOOK);
+      [[g, HX + 860, HY + 430], [z, HX + 1000, HY + 432]].forEach(([c, x, y]) => { c.setPosition(x, y).setScale(1.35).setDepth(y).setAlpha(0); scene.tweens.add({ targets: c, alpha: 1, duration: 500 }); house.guests.push(c); });
+      z.bodyG.scaleX = -1;
+      scene.time.delayedCall(700, () => showDialog([
+        ['grandpa', 'Ох, какой дух! Я с порога почуял.'],
+        ['zmey', 'Я тоже. Пришлось бросить очень важное дело. Спал.'],
+        ['grandpa', 'Садитесь, садитесь. Ну-ка… Ох, хороша похлёбка! Сытная, как у моей матери.'],
+        ['zmey', 'Добавка есть? Спрашиваю для охраны фермы. Охрана должна быть сытой.'],
+        ['grandpa', 'Спасибо тебе, дочка. А теперь иди, осмотрись на ферме — тут много чего есть. Дел на всех хватит.'],
+      ], () => {
+        const s = state; s.step = 8; s.cookQuest = false; save();
+        leaveHouse(); progress(); toast('Теперь можно осмотреть ферму', 'info');
+      }));
+    });
+  });
+}
+
 // ===================== Игровой мир (Phaser) =====================
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
 // День 1: пока героиня не представилась, Змей дремлет под ветвистым деревом в левом нижнем углу огорода
@@ -1075,6 +1243,7 @@ function solids() {
 }
 function walkable(x, y) {
   if (barn.active) return barnWalkable(x, y);
+  if (house.active) return houseWalkable(x, y);
   if (x < WORLD.x + 18 || x > WORLD.w - 18 || y < WORLD.top + 30 || y > WORLD.top + WORLD.h - 12) return false;
   if (!state.open[zoneAt(x, y)]) return false;
   if (inHill(x, y) || inCrag(x, y) || inSea(x, y) || inPond(x, y)) return false;
@@ -1103,6 +1272,7 @@ function stopWalking() { releaseStick(); keys.clear(); }
 // Касание экрана: если нажали на персонажа или предмет рядом — действие,
 // иначе под пальцем появляется джойстик (в любом месте экрана)
 function hitTest(x, y) {
+  if (house.active) { for (const [id, st] of Object.entries(HOUSE_STATIONS)) if (Math.abs(x - st.x) < 60 && y > st.top - 10 && y < HY + 420) return 'h:' + id; return null; }
   const near = (ax, ay, r) => (x - ax) ** 2 + (y - ay) ** 2 <= r * r;
   if (near(312, 343, 44)) return 'grandpa';
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
@@ -1178,6 +1348,7 @@ function inputVector() {
 
 // облачко действия: появляется над ближайшим персонажем или предметом
 function nearest() {
+  if (house.active) return houseNearest();
   let best = null, bd = Infinity;
   const nm = state.nanamin;
   const ids = Object.keys(ANCHORS).concat(cows.filter(c => !c.following && nm.cows[c.idx] !== 2).map(c => 'cow' + c.idx))
@@ -1186,7 +1357,7 @@ function nearest() {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
     if (id.startsWith('pen') && (nm.stage !== 1 || nm.fixed[+id[3]])) continue;
-    if (id === 'door' && state.time.phase !== 'evening') continue;
+    if (id === 'door' && state.time.phase !== 'evening' && state.step !== 71) continue;
     if (id === 'fieldGate') continue;
     if (id === 'thorfinn' && thor.mode !== 'idle') continue;
     if (id === 'iro' && !state.open.sad) continue;
@@ -1200,7 +1371,8 @@ function nearest() {
 function actionLabel(id) {
   if (!id) return 'Действие';
   if (id.startsWith('pen')) return 'Починить';
-  if (id === 'door') return 'Лечь спать';
+  if (id === 'door') return state.time.phase === 'evening' ? 'Лечь спать' : 'Войти в дом';
+  if (id.startsWith('h:')) return cookLabel(id);
   if (id === 'chop') return 'Колоть дрова';
   if (id === 'barn') return 'Войти в амбар';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
@@ -2986,7 +3158,8 @@ function fitCamera() {
   const W = app.clientWidth, H = app.clientHeight;
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
   if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WW, H / WORLD.h)); cam.centerOn(WORLD.x + WW / 2, WORLD.top + WORLD.h / 2); return; }
-  if (barn.active) { cam.setZoom(DPR * Math.min(1.15, W / (BW + 40))); return; }   // в амбаре: по ширине — весь амбар, по высоте камера едет за героиней
+  if (barn.active) { cam.setZoom(DPR * Math.min(1.15, W / (BW + 40))); return; }
+  if (house.active) { cam.setZoom(DPR * houseZoom()); updateHouse(0, true); return; }   // в амбаре: по ширине — весь амбар, по высоте камера едет за героиней
   // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WW, H / WORLD.h);
@@ -3047,6 +3220,8 @@ class FarmScene extends Phaser.Scene {
     this.load.image('barn', 'assets/barn/barn.webp');
     this.load.image('barn-wall', 'assets/barn/barn-wall.webp');
     this.load.image('barn-floor', 'assets/barn/barn-floor.webp');
+    this.load.image('house', 'assets/house/house.webp');
+    this.load.image('house-room', 'assets/house/room.webp');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
@@ -3056,6 +3231,7 @@ class FarmScene extends Phaser.Scene {
     scene = this;
     // после «Заново» и пропуска квеста сцена создаётся заново — комнату амбара тоже нужно нарисовать заново
     Object.assign(barn, { active: false, built: false, carry: false, grid: null, path: null }); document.body.classList.remove('in-barn');
+    Object.assign(house, { active: false, built: false, fg: [], guests: [] }); document.body.classList.remove('in-house'); ['recipe', 'shelf', 'houseExit'].forEach(id => $(id).hidden = true);
     lockLayers = {}; bedG = []; chickens.length = 0; nearId = null;
 
     drawGround();
@@ -3079,8 +3255,7 @@ class FarmScene extends Phaser.Scene {
 
     // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
     // серо-синяя рубаха на круглом животе, полотенце на шее, руки за спиной
-    const grandpa = makeChar({ skin: 0xE6B38C, dress: 0x667083, belly: true, belt: 0x2E2A28, buckle: 0x55504A, legs: 0x4E5560, scarf: 0xBDB8A2,
-      hair: 'bald', hairColor: 0xC4C0B6, goatee: true, heavyLids: true, handsBehind: true, noBlush: true, calm: true });
+    const grandpa = makeChar(GRANDPA_LOOK);
     grandpa.setPosition(312, 378).setDepth(378);
     nameLabel('Сверкель', 312, 300);
 
@@ -3199,6 +3374,7 @@ class FarmScene extends Phaser.Scene {
     updateField();
     updateThorfinn(dt);
     if (barn.active) updateBarn(dt, time);
+    if (house.active) updateHouse(dt);
 
     const id = questTarget();
     if (id && id !== nearId) { // когда над целью облачко, «!» прячем
