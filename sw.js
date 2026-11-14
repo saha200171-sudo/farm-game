@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    обновляет все файлы — неизменённые браузер не скачивает заново (сверяет и получает «не изменился»).
-const CACHE = 'farm-v114';
+const CACHE = 'farm-v115';
 const CORE = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const CORE = [
   './assets/paths/path-mask.png',
   './assets/paths/path-rim.png',
   './assets/cows/cow-white.png',
+  './assets/animals/hens.webp',
   './assets/cows/cow-pyatna.png',
   './assets/cows/cow-brown.png',
   './assets/cows/cow-ryzhaya.png',

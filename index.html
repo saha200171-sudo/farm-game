@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 114;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 115;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2443,25 +2443,67 @@ function plant(key, x, y, s) {
   const w = img.displayWidth;
   scene.add.image(x, y, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(GROUND - 8);
 }
-function makeChicken(x, y) {
+// Курочки — рисованные (Magnific), собраны из деталей атласа assets/animals/hens.webp:
+// тело стоя + 2 ножки (качаются от «бедра» при шаге) и поза «клюёт» целиком. o — левый верх детали
+// относительно точки между лапками (px атласа), p — точка вращения ножки внутри детали.
+const HEN_FRAMES = {"white-body":{"f":[0,0,121,124],"o":[-68.2,-140.8]},"white-legB":{"f":[123,0,22,19],"o":[-22.9,-19.4],"p":[10.4,2.5]},"white-legF":{"f":[147,0,18,15],"o":[-0.2,-19.4],"p":[6.7,2.5]},"white-peck":{"f":[167,0,127,133],"o":[-70.0,-132.5]},"ginger-body":{"f":[296,0,121,124],"o":[-68.2,-140.8]},"ginger-legB":{"f":[419,0,22,19],"o":[-22.9,-19.1],"p":[10.3,2.5]},"ginger-legF":{"f":[443,0,18,15],"o":[-0.2,-19.1],"p":[6.7,2.5]},"ginger-peck":{"f":[463,0,128,132],"o":[-70.0,-132.5]}};
+const HEN_PX = 4;   // пикселей атласа на точку карты (курочка ≈ 30 точек в ширину)
+const HEN_YARD = { x1: 760, x2: 1320, y1: 270, y2: 460 };   // где гуляют
+function registerHenFrames() {
+  const t = scene.textures.get('hens');
+  for (const [k, f] of Object.entries(HEN_FRAMES)) if (!t.has(k)) t.add(k, 0, ...f.f);
+}
+function makeChicken(x, y, color) {
   const c = scene.add.container(x, y);
-  const g = scene.add.graphics();
-  g.fillStyle(0x1d2a12, 0.2).fillEllipse(0, 0, 22, 7);
-  g.fillStyle(0xE8A33D, 1).fillRect(-3, -6, 2, 6).fillRect(2, -6, 2, 6);
-  g.fillStyle(0xFFFFFF, 1).fillEllipse(-2, -12, 22, 15).fillCircle(7, -20, 6.5);
-  g.fillStyle(0xE2553A, 1).fillCircle(7, -27, 3).fillCircle(10, -17, 2);
-  g.fillStyle(0xF2B233, 1).fillTriangle(12, -21, 17, -19, 12, -17);
-  g.fillStyle(0x2e2418, 1).fillCircle(8.5, -21, 1.3);
-  c.add(g); c.g = g;
+  const part = (k, pivot) => {
+    const f = HEN_FRAMES[color + '-' + k], im = scene.add.image(0, 0, 'hens', color + '-' + k).setScale(1 / HEN_PX);
+    if (pivot) im.setOrigin(f.p[0] / f.f[2], f.p[1] / f.f[3]).setPosition((f.o[0] + f.p[0]) / HEN_PX, (f.o[1] + f.p[1]) / HEN_PX);
+    else im.setOrigin(0, 0).setPosition(f.o[0] / HEN_PX, f.o[1] / HEN_PX);
+    return im;
+  };
+  const shadow = scene.add.ellipse(1, -1, 24, 6, 0x1d2a12, 0.22);
+  const g = scene.add.container(0, 0);   // всё, что разворачивается влево-вправо
+  const legB = part('legB', true), legF = part('legF', true), body = part('body'), peck = part('peck').setVisible(false);
+  g.add([legB, legF, body, peck]);
+  c.add([shadow, g]);
+  Object.assign(c, { g, legB, legF, body, peck, bodyY0: body.y, peckY0: peck.y, mode: 'idle', t: 300 + Math.random() * 1500, phase: 0 });
   return c;
 }
-function wander(ch) {
-  const nx = 760 + Math.random() * 560, ny = 270 + Math.random() * 190;
-  ch.g.scaleX = nx < ch.x ? -1 : 1;
-  scene.tweens.add({
-    targets: ch, x: nx, y: ny, duration: 1400 + Math.random() * 2200, ease: 'Sine.easeInOut',
-    onComplete: () => scene.time.delayedCall(400 + Math.random() * 2000, () => wander(ch)),
-  });
+function henPose(c, pecking) { c.body.setVisible(!pecking); c.legB.setVisible(!pecking); c.legF.setVisible(!pecking); c.peck.setVisible(pecking); }
+function henWalk(c) {
+  const Y = HEN_YARD;
+  const tx = Phaser.Math.Clamp(c.x + (Math.random() - 0.5) * 260, Y.x1, Y.x2), ty = Phaser.Math.Clamp(c.y + (Math.random() - 0.5) * 140, Y.y1, Y.y2);
+  const d = Math.hypot(tx - c.x, ty - c.y);
+  if (d < 12) { c.mode = 'idle'; c.t = 500; return; }
+  Object.assign(c, { mode: 'walk', sx: c.x, sy: c.y, tx, ty, t: 0, dur: d / (26 + Math.random() * 12) * 1000 });
+  c.g.scaleX = tx < c.x ? -1 : 1;
+  henPose(c, false);
+}
+// поведение: идёт → останавливается → клюёт 1–3 раза → стоит → снова идёт
+function updateHen(c, dt) {
+  if (c.mode === 'walk') {
+    c.t += dt; const k = Math.min(1, c.t / c.dur);
+    c.x = c.sx + (c.tx - c.sx) * k; c.y = c.sy + (c.ty - c.sy) * k;
+    c.phase += dt * 0.019;                       // шаг ≈ каждые 165 мс
+    const sw = REDUCED ? 0 : Math.sin(c.phase);
+    c.legB.angle = -sw * 24; c.legF.angle = sw * 24;
+    c.body.y = c.bodyY0 - (REDUCED ? 0 : Math.abs(sw) * 1.3);   // тело подпрыгивает на каждый шаг
+    c.g.angle = REDUCED ? 0 : Math.sin(c.phase) * 3;            // и чуть покачивается
+    if (k >= 1) {
+      c.legB.angle = c.legF.angle = c.g.angle = 0; c.body.y = c.bodyY0;
+      if (Math.random() < 0.75) Object.assign(c, { mode: 'peck', n: 1 + Math.floor(Math.random() * 3), t: 0, down: false });
+      else Object.assign(c, { mode: 'idle', t: 600 + Math.random() * 1800 });
+    }
+  } else if (c.mode === 'peck') {
+    c.t -= dt;
+    if (c.t <= 0) {
+      if (!c.down) { henPose(c, true); c.peck.y = c.peckY0 + 0.8; c.down = true; c.t = 200 + Math.random() * 80; }   // клюнула
+      else {
+        henPose(c, false); c.peck.y = c.peckY0; c.down = false; c.n--;                                             // подняла голову
+        if (c.n > 0) c.t = 160 + Math.random() * 200; else Object.assign(c, { mode: 'idle', t: 500 + Math.random() * 2200 });
+      }
+    }
+  } else if ((c.t -= dt) <= 0) henWalk(c);
 }
 
 // --- Пастбище ---
@@ -2765,6 +2807,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('prop-chop', 'assets/props/chop-block.webp');
     this.load.image('beds', 'assets/fields/beds.webp');
     this.load.image('h-kuryatnik', 'assets/houses/kuryatnik.webp');
+    this.load.image('hens', 'assets/animals/hens.webp');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
@@ -2788,7 +2831,8 @@ class FarmScene extends Phaser.Scene {
     drawGarden();
     drawChopBlock();
 
-    for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
+    registerHenFrames();
+    for (let i = 0; i < 6; i++) chickens.push(makeChicken(800 + i * 95, 300 + (i % 2) * 120, i % 3 === 1 ? 'ginger' : 'white'));
 
     // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
     // серо-синяя рубаха на круглом животе, полотенце на шее, руки за спиной
@@ -2905,7 +2949,7 @@ class FarmScene extends Phaser.Scene {
     player.bodyG.scaleX = facing;
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
-    chickens.forEach(c => c.setDepth(c.y));
+    chickens.forEach(c => { updateHen(c, dt); c.setDepth(c.y); });
     updateCull(dt);
     updatePasture(dt);
     updateField();
