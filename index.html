@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 79;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 80;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2471,7 +2471,7 @@ const COW_SCALE = 0.3;               // коровка на поле ≈ 86×63
 const COW_LAYERS = ['tail', 'leg-back-far', 'leg-front-far', 'leg-back-near', 'leg-front-near', 'body', 'neck', 'head'];   // снизу вверх; ушко — внутри головы
 const cowPiv = k => [COW_PARTS[k][6], COW_PARTS[k][7]];
 // Расцветки: у всех одна раскладка деталей (COW_PARTS), разные только картинки. Коровка i берёт расцветку COW_SKINS[i % длина]
-const COW_SKINS = ['cowWhite', 'cowPyatna', 'cowBrown', 'cowRyzhaya'];   // белая, пятнистая, коричневая, рыжая (перекрашены вручную)
+const COW_SKINS = ['cowWhite', 'cowPyatna', 'cowBrown', 'cowRyzhaya', 'cowShokolad'];   // белая, пятнистая, коричневая, рыжая, шоколадная (перекрашены вручную)
 function registerCowFrames() {
   for (const key of COW_SKINS) {
     const t = scene.textures.get(key);
@@ -2732,6 +2732,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowPyatna', 'assets/cows/cow-pyatna.png');
     this.load.image('cowBrown', 'assets/cows/cow-brown.png');
     this.load.image('cowRyzhaya', 'assets/cows/cow-ryzhaya.png');
+    this.load.image('cowShokolad', 'assets/cows/cow-shokolad.png');
     this.load.image('fence', 'assets/fence/fence.png');
     for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', 'g-iro'])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
     this.load.image('kale', 'assets/chars/kale.png');
