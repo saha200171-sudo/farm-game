@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 124;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 125;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1412,7 +1412,8 @@ const BUILDINGS = [
 function playerDepth(x, y) {
   let d = y;
   for (const [, bx, by, , , [x1, y1, x2, y2]] of BUILDINGS) {
-    if (y > by + y1 && y < by + y2 + 12 && (x < bx + x1 || x > bx + x2) && x > bx + x1 - 90 && x < bx + x2 + 90)
+    // сбоку от дома героиня поверх него только у самого фасада; глубже (за свесом крыши) — как обычно, за домом
+    if (y > by + y2 - 28 && y < by + y2 + 12 && (x < bx + x1 || x > bx + x2) && x > bx + x1 - 90 && x < bx + x2 + 90)
       d = Math.max(d, by + y2 + 11.5);
   }
   return d;
