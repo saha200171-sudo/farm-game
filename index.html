@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 70;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 77;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1591,10 +1591,10 @@ function barnChoice() {
     ['Попробую сама', () => { state.nanamin.barn.helped = 'solo'; save(); showDialog([['zmey', 'Смелая! Он ходит по кругу и оглядывается. Прячься за сеном и бочками.']], () => startBarn('solo')); }],
   ]);
 }
-const BARN_PATROL = [[230, 190], [400, 460], [240, 750], [400, 960], [250, 1170], [180, 1380]];   // туда и обратно
+const BARN_PATROL = [[230, 190], [130, 420], [390, 470], [240, 750], [400, 920], [90, 900], [250, 1170], [390, 1360], [80, 1400], [230, 1080], [70, 700], [380, 250]];   // по кругу через весь амбар
 function startBarn(mode) {
   if (!barn.built) buildBarnRoom();
-  Object.assign(barn, { active: true, mode, carry: false, state: 'idle', wp: 0, wpDir: 1, wait: 0.6, lost: 0, timer: 0, glance: 0, cough: 0, chat: 3, squeak: false, lookDir: Math.PI });
+  Object.assign(barn, { active: true, mode, carry: false, state: 'idle', wp: 0, wpDir: 1, path: null, stuckT: 0, repath: 0, wait: 0.6, lost: 0, timer: 0, glance: 0, cough: 0, chat: 3, squeak: false, lookDir: Math.PI });
   const t = barn.torgel, z = barn.zmey;
   if (mode === 'round1') { t.setPosition(BX + 360, BY + 165); barn.ang = -Math.PI / 2; barn.state = 'work'; }
   else if (mode === 'zmey') { t.setPosition(BX + 345, BY + 760); barn.ang = 0; barn.state = 'chat'; barn.glance = 6 + Math.random() * 3; }
@@ -1671,6 +1671,44 @@ function moveTorgel(tx, ty, speed, dt) {
   if (Math.abs(dx) > 2) t.bodyG.scaleX = dx < 0 ? -1 : 1;
   return d;
 }
+// Поиск пути по сетке 20×20 (сено, бочки, ящики — обходятся), 8 направлений
+function barnPath(sx, sy, tx, ty) {
+  const G = 20, C = Math.floor(BW / G), R = Math.floor(BH / G);
+  if (!barn.grid) { barn.grid = new Uint8Array(C * R); for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) barn.grid[r * C + c] = barnWalkable(BX + c * G + G / 2, BY + r * G + G / 2) ? 1 : 0; }
+  const cell = (x, y) => [Math.max(0, Math.min(C - 1, Math.floor((x - BX) / G))), Math.max(0, Math.min(R - 1, Math.floor((y - BY) / G)))];
+  const near = ([c0, r0]) => {   // ближайшая проходимая клетка
+    for (let d = 0; d < 6; d++) for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) {
+      const c = c0 + dc, r = r0 + dr; if (c >= 0 && r >= 0 && c < C && r < R && barn.grid[r * C + c]) return [c, r];
+    }
+    return [c0, r0];
+  };
+  const [sc, sr] = near(cell(sx, sy)), [tc, tr] = near(cell(tx, ty));
+  const prev = new Int32Array(C * R).fill(-1), start = sr * C + sc, goal = tr * C + tc;
+  const q = [start]; prev[start] = start;
+  for (let qi = 0; qi < q.length && prev[goal] < 0; qi++) {
+    const i = q[qi], c = i % C, r = (i - c) / C;
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nc = c + dc, nr = r + dr, j = nr * C + nc;
+      if (nc < 0 || nr < 0 || nc >= C || nr >= R || prev[j] >= 0 || !barn.grid[j]) continue;
+      if (dc && dr && (!barn.grid[r * C + nc] || !barn.grid[nr * C + c])) continue;   // не срезать углы препятствий
+      prev[j] = i; q.push(j);
+    }
+  }
+  if (prev[goal] < 0) return [[tx, ty]];
+  const pts = [];
+  for (let i = goal; i !== start; i = prev[i]) pts.push([BX + (i % C) * G + G / 2, BY + Math.floor(i / C) * G + G / 2]);
+  pts.reverse();
+  if (barnWalkable(tx, ty)) pts.push([tx, ty]);
+  return pts;
+}
+// Идти к точке по найденному пути; возвращает оставшееся расстояние до цели
+function goTo(tx, ty, speed, s, repath) {
+  const t = barn.torgel, key = Math.round(tx / 20) + ',' + Math.round(ty / 20);
+  if (!barn.path || barn.pathKey !== key || repath) { barn.path = barnPath(t.x, t.y, tx, ty); barn.pathKey = key; }
+  while (barn.path.length && Math.hypot(barn.path[0][0] - t.x, barn.path[0][1] - t.y) < 6) barn.path.shift();
+  if (barn.path.length) moveTorgel(barn.path[0][0], barn.path[0][1], speed, s);
+  return Math.hypot(tx - t.x, ty - t.y);
+}
 function turnTo(target, rate, dt) {
   let da = target - barn.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
   barn.ang += Math.sign(da) * Math.min(Math.abs(da), rate * dt);
@@ -1708,12 +1746,15 @@ function updateBarn(dt, time) {
       if (look && barnSees(t, px, py, R, HALF)) barnSpotted();
     } else if (barn.state === 'patrol') {                      // сама: обход по кругу с остановками
       if (barn.wait > 0) {
-        barn.wait -= s; turnTo(barn.ang + Math.sin(time / 300) * 0.9, 1.6, s);
+        barn.wait -= s; turnTo(barn.ang + Math.sin(time / 260) * 1.2, 2.4, s);   // на остановке оглядывается
       } else {
         const [wx, wy] = BARN_PATROL[barn.wp];
-        if (moveTorgel(BX + wx, BY + wy, 82, s) < 4) {
-          if (barn.wp + barn.wpDir < 0 || barn.wp + barn.wpDir >= BARN_PATROL.length) barn.wpDir *= -1;
-          barn.wp += barn.wpDir; barn.wait = 0.6 + Math.random() * 0.9;
+        const ox = t.x, oy = t.y;
+        const d = goTo(BX + wx, BY + wy, 108, s);
+        barn.stuckT = Math.hypot(t.x - ox, t.y - oy) < 0.3 ? (barn.stuckT || 0) + s : 0;
+        if (d < 8 || barn.stuckT > 1) {                     // дошёл (или застрял) — короткая остановка и дальше
+          barn.wp = (barn.wp + 1) % BARN_PATROL.length; barn.path = null; barn.stuckT = 0;
+          barn.wait = 0.25 + Math.random() * 0.5;
         }
       }
       if (barnSees(t, px, py, R, HALF)) barnSpotted();
@@ -1722,14 +1763,16 @@ function updateBarn(dt, time) {
       if (sees) { barn.lost = 0; barn.last = [px, py]; } else barn.lost += s;
       const [lx, ly] = barn.last || [px, py];
       const sp = barn.mode === 'round1' ? 262 : barn.carry ? 210 : 195;
-      const d = moveTorgel(lx, ly, sp, s);
+      barn.repath = (barn.repath || 0) - s;
+      const d = goTo(lx, ly, sp, s, barn.repath < 0);
+      if (barn.repath < 0) barn.repath = 0.3;
       if (Math.hypot(px - t.x, py - t.y) < 28) return barnCaught();
       if (barn.mode !== 'round1' && barn.lost > 1.6 && d < 10) {       // потерял из виду
-        barn.state = barn.mode === 'zmey' ? 'back' : 'patrol'; barn.alert.setVisible(false);
+        barn.state = barn.mode === 'zmey' ? 'back' : 'patrol'; barn.alert.setVisible(false); barn.path = null;
         toast('Торгель: «Показалось, что ли…»', 'info');
       }
     } else if (barn.state === 'back') {
-      if (moveTorgel(BX + 345, BY + 760, 120, s) < 4) { barn.state = 'chat'; barn.ang = 0; barn.glance = 6; }
+      if (goTo(BX + 345, BY + 760, 120, s) < 8) { barn.state = 'chat'; barn.ang = 0; barn.glance = 6; barn.path = null; }
     }
   }
   // взгляд Торгеля на полу
@@ -2197,13 +2240,13 @@ const GARDEN = [
   ['g-rock-leaning-a', 1852, 637, 160, 189, 820.37, 0],
   ['g-rock-poppies-a', 931, 520, 75, 55, 573.89, 0],
   ['s2-oak-1', 644, 430, 321, 281, 702.07, 1],
-  ['tree-2', 1048, 556, 176, 186, 735.79, 1],
-  ['g-s2-branchy-3', 1102, 587, 199, 193, 773.95, 1],
+  ['tree-2', 1108, 551, 176, 186, 730.79, 1],   // за прудом — правее и ниже, ближе к камышам
+  ['g-s2-branchy-3', 1150, 592, 199, 193, 762.00, 1],   // ствол у камышей (чуть левее, ближе к пруду); картинка доработана
   ['g-bush-poppy', 697, 633, 86, 70, 702.12, 0],
   ['g-rock-moss-flowers', 727, 648, 112, 82, 727.45, 0],
   ['tree-4', 674, 697, 141, 148, 840.12, 1],
   ['bush-2', 784, 703, 72, 62, 774.05, 1],
-  ['g-s2-branchy-2', 834, 566, 195, 194, 774.05, 1],
+  ['g-s2-branchy-2', 786, 555, 195, 194, 760.00, 1],   // ствол левее Айро, за кустами (по эскизу)
   ['bush-4', 825, 727, 50, 43, 774.10, 1],
   ['tree-3', 1598, 727, 195, 206, 927.01, 1],
   ['g-bush-poppy', 777, 736, 86, 70, 803.66, 0],
@@ -2218,7 +2261,7 @@ const GARDEN = [
   ['s2-oak-1', 1371, 387, 395, 345, 721.32, 1],
   ['bush-4', 1444, 647, 72, 62, 721.37, 1],
   ['g-rock-leaning-b', 1230, 827, 78, 95, 919.04, 0],
-  ['s2-oak-2', 1192, 768, 363, 265, 1025.35, 1],
+  ['s2-oak-2', 1192, 818, 363, 265, 1075.35, 1],   // опущен: корни ниже забора, на пастбище
   ['g-rock-poppies-a', 1554, 656, 97, 71, 724.69, 0],
   ['g-tuft-poppy', 1215, 884, 42, 41, 924.62, 0],
   ['g-tuft-poppy', 1739, 616, 39, 38, 666.88, 0],
@@ -2227,9 +2270,9 @@ const GARDEN = [
   ['g-tuft-cornflower', 1358, 592, 48, 44, 638.06, 0],
   ['g-rock-long', 1462, 671, 84, 52, 721.42, 0],
   ['g-tuft-poppy', 852, 745, 42, 41, 785.10, 0],
-  ['g-tuft-clover', 1271, 739, 45, 43, 781.08, 0],
+  ['g-tuft-clover', 1321, 739, 45, 43, 781.08, 0],   // правее, подальше от камышей
   ['g-pebbles-a', 1512, 704, 46, 36, 738.97, 0],
-  ['g-pebbles-a', 1268, 768, 33, 25, 792.65, 0],
+  ['g-pebbles-a', 1318, 768, 33, 25, 792.65, 0],
   ['g-pebbles-b', 1211, 914, 36, 23, 936.63, 0],
   ['g-rock-twin', 1807, 524, 144, 163, 681.78, 0],
   ['bush-4', 1865, 624, 85, 73, 695.51, 1],
@@ -2703,7 +2746,7 @@ class FarmScene extends Phaser.Scene {
   create() {
     scene = this;
     // после «Заново» и пропуска квеста сцена создаётся заново — комнату амбара тоже нужно нарисовать заново
-    Object.assign(barn, { active: false, built: false, carry: false }); document.body.classList.remove('in-barn');
+    Object.assign(barn, { active: false, built: false, carry: false, grid: null, path: null }); document.body.classList.remove('in-barn');
     lockLayers = {}; bedG = []; chickens.length = 0; nearId = null;
 
     drawGround();
