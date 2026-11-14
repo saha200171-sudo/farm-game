@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 102;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 103;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -304,7 +304,7 @@ const freshState = () => ({
   step: 0,
   items: { can: false, key: false, eggs: 0 },
   watered: [false, false, false],
-  bedCrop: [],   // ВРЕМЕННО для тестов: что выращено на грядке ('morkov' | 'kapusta' | 'tykva' | 'rostki' | 'pustaya')
+  bedCrop: [],   // ВРЕМЕННО для тестов: что выращено на грядке ('kapusta' | 'tykva' | 'rostki' | 'pustaya')
   open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, skaly: true, more: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
@@ -1805,10 +1805,10 @@ function drawWell() {   // каменный колодец с крышей и в
 }
 // Грядки — рисованные (Magnific), собираются любой длины: верх + N средних кусков (по ряду растений) + низ.
 // Атлас assets/fields/beds.webp: для каждого состояния три куска [x, y, w, h]. Куски кладутся с нахлёстом BED_OV.
-const BED_FRAMES = {"pustaya-top":[0,0,210,100],"pustaya-mid":[0,102,210,70],"pustaya-bot":[0,174,210,78],"rostki-top":[212,0,210,84],"rostki-mid":[212,86,210,82],"rostki-bot":[212,170,210,53],"morkov-top":[424,0,210,67],"morkov-mid":[424,69,210,89],"morkov-bot":[424,160,210,67],"kapusta-top":[636,0,210,102],"kapusta-mid":[636,104,210,66],"kapusta-bot":[636,172,210,101],"tykva-top":[848,0,210,118],"tykva-mid":[848,120,210,128],"tykva-bot":[848,250,210,52]};
-// состояния: pustaya — пустая, rostki — ростки, morkov — морковь, kapusta — капуста, tykva — тыква
-const BED_K = 60 / 156;   // единиц карты на пиксель атласа (ширина грядки на карте ≈ 60)
-const BED_OV = 10.5;      // нахлёст кусков, px атласа
+const BED_FRAMES = {"pustaya-top":[0,0,208,50],"pustaya-mid":[0,52,208,155],"pustaya-bot":[0,209,208,34],"rostki-top":[210,0,208,50],"rostki-mid":[210,52,208,156],"rostki-bot":[210,210,208,34],"kapusta-top":[420,0,208,35],"kapusta-mid":[420,37,208,182],"kapusta-bot":[420,221,208,19],"tykva-top":[630,0,241,55],"tykva-mid":[630,57,241,178],"tykva-bot":[630,237,241,34]};
+// состояния: pustaya — пустая, rostki — ростки, kapusta — капуста, tykva — тыква (v2: квадратные клетки без подставки, моркови нет)
+const BED_K = 60 / 208;   // единиц карты на пиксель атласа (ширина грядки на карте ≈ 60)
+const BED_OV = 15;        // нахлёст кусков, px атласа
 function registerBedFrames() {
   const t = scene.textures.get('beds');
   for (const [k, f] of Object.entries(BED_FRAMES)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
@@ -1832,15 +1832,17 @@ function testBed(i) {
   const set = crop => () => { (state.bedCrop || (state.bedCrop = []))[i] = crop; drawBed(i); save(); };
   showChoice('test', 'Что вырастить на этой грядке?', [
     ['Отмена', () => {}],
-    ['Взрастить тыкву', set('tykva')], ['Взрастить морковь', set('morkov')], ['Взрастить капусту', set('kapusta')],
+    ['Взрастить тыкву', set('tykva')], ['Взрастить капусту', set('kapusta')],
     ['Ростки', set('rostki')], ['Очистить', set('pustaya')],
   ]);
 }
 function drawBed(i) {
   const { x, y, len } = BEDS[i];
   if (bedG[i]) bedG[i].destroy();
-  // пока по сюжету: не полита — пустая, полита — ростки (морковь, капуста, тыква — для будущих заданий)
-  bedG[i] = makeBed(x, y, len, (state.bedCrop || [])[i] || (state.watered[i] ? 'rostki' : 'pustaya'));
+  // пока по сюжету: не полита — пустая, полита — ростки (капуста, тыква — для будущих заданий)
+  let crop = (state.bedCrop || [])[i] || (state.watered[i] ? 'rostki' : 'pustaya');
+  if (!BED_FRAMES[crop + '-top']) crop = 'pustaya';   // старые сохранения (морковь убрана)
+  bedG[i] = makeBed(x, y, len, crop);
 }
 // ===================== Забор: рисованный, собирается из деталей (как конструктор) =====================
 // Атлас assets/fence/fence.png: [x, y, w, h]. Детали сняты с листа из Magnific, наклон выпрямлен.
