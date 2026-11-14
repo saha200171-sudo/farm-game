@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 96;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 98;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1385,9 +1385,9 @@ function drawGround() {
 // [картинка, x, y — точка «основания» (середина низа), масштаб; ox — где по ширине картинки эта точка (0..1); solid — [dx1, dy1, dx2, dy2] от основания]
 const BUILDINGS = [
   // группа деда (как на схеме): амбар сзади, дровник слева от него, домик впереди, дом деда справа. Масштаб 0.75, домик 0.95
-  ['ambar', -259, 185, 0.75, 0.5, [-185, -100, 180, -9]],   // отодвинут назад; твёрдость — по стенам вместе с боковыми: проход перед воротами и за амбаром
-  ['drovnik', -406, 215, 0.75, 0.5, [-100, -62, 105, -9]],   // опущен (стоит на земле); твёрдость — весь навес с поленницей
-  ['domik', -170, 390, 0.95, 0.5, [-112, -161, 97, -12]],   // твёрдость по стенам — между домиком и домом Сверкеля проход   // домик заметно крупнее (просьба: ближе по размеру к дому деда)
+  ['ambar', -259, 185, 0.75, 0.5, [-185, -100, 160, -9]],   // отодвинут назад; твёрдость — по стенам: проход перед воротами, справа у угла и за амбаром
+  ['drovnik', -406, 215, 0.75, 0.5, [-100, -62, 80, -9]],   // опущен (стоит на земле); твёрдость — навес с поленницей до правого столба (справа — проход)
+  ['domik', -170, 390, 0.95, 0.5, [-100, -161, 97, -12]],   // твёрдость по стенам — между домиком и домом Сверкеля проход   // домик заметно крупнее (просьба: ближе по размеру к дому деда)
   ['dom-deda', 210, 318, 0.75, 385 / 554, [-230, -225, 126, -21]],   // основание — у крыльца, там же дверь
   // (край карты проходит по дровнику; длинный дом и второй дровник убраны)
 ];
@@ -1401,7 +1401,7 @@ function drawHouse() {
 // ===================== Рубка дров: колода у дровника и мини-игра «попади в момент» =====================
 const CHOP_SPOT = { x: -395, y: 336 };
 function drawChopBlock() {   // пень с топором и поленницей (Magnific, мягкий стиль)
-  const { x, y } = CHOP_SPOT, w = 96, h = w * 391 / 358;
+  const { x, y } = CHOP_SPOT, w = 96, h = w * 393 / 358;
   // низ картинки — щепки; основание пня на 12% выше, поэтому картинку опускаем, а тень кладём под пень и поленья
   scene.add.ellipse(x + w * 0.1, y + 4, w * 0.82, 15, 0x1d2a12, 0.22).setDepth(GROUND - 8);
   scene.add.image(x - w * 0.4, y + h * 0.12, 'prop-chop').setOrigin(0, 1).setDisplaySize(w, h).setDepth(y + 8);
@@ -2829,6 +2829,7 @@ class FarmScene extends Phaser.Scene {
     if (q.get('pos')) { const [px, py] = q.get('pos').split(',').map(Number); player.setPosition(px, py); cam.centerOn(px, py); }
     if (q.get('seen')) state.nanamin.seen = true;
     if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
+    if (q.get('walk')) document.title = 'WALK:' + q.get('walk').split(';').map(p => walkable(...p.split(',').map(Number)) ? 1 : 0).join('');   // служебное: проверка проходимости
     if (q.get('tools')) { state.nanamin.tools = +q.get('tools'); }   // служебное: этап с инструментами
     if (q.get('barn')) { state.nanamin.barn = { round1: true, helped: q.get('barn') }; }   // служебное: второй заход в амбар (zmey | solo)
     if (q.get('act')) setTimeout(() => interact(q.get('act')), 600);
@@ -2853,6 +2854,13 @@ class FarmScene extends Phaser.Scene {
       if (walkable(nx, ny)) { player.setPosition(nx, ny); moving = true; }
       else if (Math.abs(ux) > 0.1 && walkable(nx, player.y)) { player.x = nx; moving = true; }
       else if (Math.abs(uy) > 0.1 && walkable(player.x, ny)) { player.y = ny; moving = true; }
+      else {   // упёрлись в угол: ищем щель рядом и соскальзываем в неё (поперёк движения)
+        const px = -uy, py = ux;
+        for (const k of [1, -1, 2, -2]) {
+          const tx = player.x + px * sp * k + ux * sp * 0.3, ty = player.y + py * sp * k + uy * sp * 0.3;
+          if (walkable(tx, ty)) { player.setPosition(tx, ty); moving = true; break; }
+        }
+      }
     }
 
     player.setDepth(player.y);
