@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 119;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 120;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2490,8 +2490,8 @@ function henWalk(c) {
   henPose(c, false);
 }
 // Вечер: курочки по очереди идут к лесенке курятника, поднимаются к дверце и исчезают внутри; утром выходят обратно
-const henRamp = () => ({ x: COOP.x - COOP.w * 0.38, y: COOP.y + 8 });                     // низ лесенки
-const henDoor = () => ({ x: COOP.x - COOP.w * 0.28, y: COOP.y - COOP.w * 0.2 });          // дверца
+const henRamp = () => ({ x: COOP.x - COOP.w * 0.474, y: COOP.y - 5 });                    // нижний край лесенки (по картинке курятника)
+const henDoor = () => ({ x: COOP.x - COOP.w * 0.265, y: COOP.y - COOP.w * 0.195 });       // порожек дверцы — курочка идёт ровно по лесенке
 function henTime(night, instant) {
   if (!night) henVisitT = 15000 + Math.random() * 10000;   // после пробуждения не сразу снова в курятник
   chickens.forEach((c, i) => {
