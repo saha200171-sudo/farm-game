@@ -142,6 +142,13 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   .card.mg .nests{width:min(280px,62vh)}
   .card.mg .row{justify-content:flex-start}
   .toast{top:96px}
+  /* рубка дров на невысоком экране: всё в одну колонку, чурбак меньше, без пояснения */
+  .card.mg.chop{display:flex;flex-direction:column;align-items:stretch;width:min(520px,100%);gap:6px;padding:10px 16px;text-align:center}
+  .card.mg.chop p{display:none}
+  .card.mg.chop .badge{align-self:center}
+  .card.mg.chop h2{font-size:22px}
+  .chop-scene{height:96px;transform:scale(.62);transform-origin:50% 100%;margin-top:-10px}
+  .card.mg.chop .row{justify-content:center}
 }
 
 /* Затемнение экрана при смене дня */
@@ -152,6 +159,30 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 
 .loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--grass-deep);color:#fff;font-family:var(--display);font-size:22px}
 
+/* Мини-игра «Рубка дров» */
+.chop-scene{position:relative;height:170px;width:240px;margin:0 auto}
+.stump{position:absolute;left:50%;bottom:4px;width:160px;height:58px;margin-left:-80px;border-radius:50%;border:3px solid var(--wood);
+  background:radial-gradient(ellipse at 50% 40%,#D2A574 0 22%,#B9875A 23% 30%,#D2A574 31% 46%,#B9875A 47% 54%,#8A5A33 55%)}
+.log{position:absolute;left:50%;bottom:36px;width:96px;height:104px;margin-left:-48px}
+.log .h{position:absolute;top:14px;bottom:0;width:50%;background:linear-gradient(90deg,#9C6B3E,#C18D57 45%,#A8754A);border:3px solid var(--wood);
+  transition:transform .4s cubic-bezier(.2,.8,.3,1)}
+.log .h.l{left:0;border-right:none;border-radius:10px 0 0 10px}
+.log .h.r{right:0;border-left:none;border-radius:0 10px 10px 0}
+.log .top{position:absolute;left:-1px;right:-1px;top:0;height:30px;border-radius:50%;border:3px solid var(--wood);
+  background:radial-gradient(ellipse,#F0CC95 0 18%,#D8AE76 19% 30%,#F0CC95 31% 52%,#D8AE76 53% 64%,#E9C189 65%);transition:opacity .2s}
+.log.knot .h.l::after{content:"";position:absolute;left:12px;top:34px;width:16px;height:12px;border-radius:50%;background:#6B4424;border:2px solid #4A2E17}
+.log.crack .top::after{content:"";position:absolute;left:50%;top:2px;bottom:2px;width:3px;margin-left:-1px;background:#4A2E17}
+.log.split .top{opacity:0}
+.log.split .h.l{transform:translate(-62px,18px) rotate(-24deg)}
+.log.split .h.r{transform:translate(62px,18px) rotate(24deg)}
+.log.stuck{animation:wobble .35s ease-in-out}
+.axe{position:absolute;left:50%;top:-30px;font-size:40px;margin-left:-6px;transform:rotate(-20deg);opacity:0;transition:opacity .15s}
+.log.stuck .axe{opacity:1}
+@keyframes wobble{0%,100%{transform:none}25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+.chop-bar{position:relative;height:30px;border:3px solid var(--wood);border-radius:999px;background:#EADFC8;overflow:hidden}
+.chop-bar .zone{position:absolute;top:0;bottom:0;background:#86C46F;border-left:2px solid #4F8A3A;border-right:2px solid #4F8A3A}
+.chop-bar .mark{position:absolute;top:0;bottom:0;width:6px;margin-left:-3px;background:var(--ink);border-radius:3px}
+.chop-msg{min-height:1.45em;font-family:var(--display);font-weight:600;font-size:19px}
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes rise{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -186,7 +217,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 65;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 66;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -219,6 +250,7 @@ const SPEAKERS = {
   zmey:    { name: 'Змей',         letter: 'З', color: '#6E4D66' },
   torgel:  { name: 'Торгель',      letter: 'Т', color: '#8A3430' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
+  hero:    { name: 'Героиня',      letter: 'Я', color: '#4DA3D9' },
   test:    { name: 'Тест грядки',   letter: '⚙', color: '#8A8A8A' },   // ВРЕМЕННО: меню для теста грядок
 };
 
@@ -236,6 +268,8 @@ const ANCHORS = {
   grandpa: { x: 312, y: 378, reach: 72, mark: -118 },
   well:    { x: 140, y: 560, reach: 92, mark: -92 },
   zmey:    { x: 228, y: 588, reach: 72, mark: -118 },
+  chop:    { x: -395, y: 336, reach: 70, mark: -70 },    // колода для рубки дров у дровника
+  barn:    { x: -190, y: 262, reach: 72, mark: -150 },   // ворота амбара
   torgel:  { x: -290, y: 440, reach: 76, mark: -140 },   // Торгель, сын Кетиля — пока стоит на площадке перед домиком   // Змей — главный помощник на ферме; пока стоит у колодца
   bed0:    { ...BEDS[0], reach: 84, mark: -84 },
   bed1:    { ...BEDS[1], reach: 84, mark: -84 },
@@ -273,7 +307,8 @@ const freshState = () => ({
   open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, skaly: true, more: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
-  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false },
+  // tools: 0 — ещё не пробовали чинить, 1 — нужны инструменты, 2 — Сверкель попросил наколоть дров, 3 — дрова готовы, 4 — идти в амбар, 5 — ящик у нас
+  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false, tools: 0 },
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
@@ -339,6 +374,7 @@ function updateHud() {
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
+  if (state.nanamin.tools === 5 && state.nanamin.stage === 1) chips.push(['Ящик с инструментами', '#9C6B3E']);
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7) chips.push([`Яйца × ${state.items.eggs}`, '#FFF6E3']);
   if (state.time.day > 1 || state.time.phase !== 'day') {
@@ -349,7 +385,8 @@ function updateHud() {
   // второе задание — квест Нанамина
   const nm = state.nanamin, side = $('sideQuest');
   const sideText = {
-    1: `Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`,
+    1: [`Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`, 'Спроси у Сверкеля инструменты', 'Наколи дров у дровника',
+        'Вернись к Сверкелю', 'Забери ящик с инструментами из амбара'][nm.tools === 5 || !nm.tools ? 0 : nm.tools],
     2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из ${COW_HOMES.length}`,
     3: 'Поговори с Нанамином',
   }[nm.stage] || (state.time.phase === 'evening' ? 'Вечереет: вернись домой и ложись спать' : null);
@@ -547,6 +584,8 @@ function interact(id) {
   if (id === 'iro') return talkIro();
   if (id === 'kale') return talkKale();
   if (id === 'zmey') return talkZmey();
+  if (id === 'chop') return startChopping();
+  if (id === 'barn') return enterBarn();
   if (id === 'torgel') return talkTorgel();
   if (id === 'door') return goToSleep();
   if (id === 'thorfinn') return showDialog([
@@ -599,19 +638,38 @@ function talkGrandpa() {
     5: 'Клара только с виду строгая, не бойся.',
     6: 'Клара просила помочь с яйцами? Она без этого не отпустит.',
     8: 'Пирог уже в печи!',
-  }[s.step] || 'Как дела, внучка?';
+  }[s.step] || 'Как дела? Ферма тебе ещё не надоела?';
   showDialog([['grandpa', idle]]);
 }
 
 // Если героиня уже видела грустного Нанамина, у дедушки можно спросить о нём
 function askGrandpa() {
+  const nm = state.nanamin;
+  if (nm.stage === 1 && (nm.tools === 1 || nm.tools === 3)) return toolsTalk();
+  if (nm.stage === 1 && (nm.tools === 2 || nm.tools === 4) && ![0, 3, 7].includes(state.step)) return toolsTalk();
   if (state.nanamin.seen && state.nanamin.stage === 0) {
-    return showChoice('grandpa', 'Что-то хотела спросить, внучка?', [
+    return showChoice('grandpa', 'Что-то хотела спросить?', [
       ['Как дела на ферме?', talkGrandpa],
       ['Кто этот грустный человек у загона?', askAboutNanamin],
     ]);
   }
   talkGrandpa();
+}
+// Инструменты для загона: Сверкель даст ящик, но сперва — дрова (реплики — черновик, можно поправить)
+function toolsTalk() {
+  const nm = state.nanamin;
+  if (nm.tools === 1) return showDialog([
+    ['grandpa', 'Инструменты? Есть, как не быть: молоток, гвозди, клещи — всё в старом ящике.'],
+    ['grandpa', 'Только сперва уважь старика. Дров на зиму совсем не осталось, а спина у меня уже не та.'],
+    ['grandpa', 'Наколи-ка поленьев у дровника — колода и топор там же. А потом и о ящике поговорим.'],
+  ], () => { nm.tools = 2; toast('Новое задание: наколи дров'); progress(); });
+  if (nm.tools === 2) return showDialog([['grandpa', 'Колода и топор — у дровника, за маленьким домиком. Бей по центру, не торопись.']]);
+  if (nm.tools === 3) return showDialog([
+    ['grandpa', 'Вот это я понимаю — работа! Поленница так и растёт.'],
+    ['grandpa', 'Уговор есть уговор. Ящик с инструментами стоит в амбаре, у дальней стены. Бери смело, я разрешаю.'],
+    ['thought', 'В амбаре… Там ведь сейчас Торгель хозяйничает. Встречаться с ним снова совсем не хочется.'],
+  ], () => { nm.tools = 4; toast('Новое задание: забери ящик из амбара'); progress(); });
+  if (nm.tools === 4) return showDialog([['grandpa', 'Ящик в амбаре, у дальней стены. Тяжёлый, но ты справишься.']]);
 }
 function askAboutNanamin() {
   showDialog([
@@ -676,6 +734,12 @@ function repairPen(i) {
   const nm = state.nanamin;
   if (nm.stage === 0) return penThought();
   if (nm.stage !== 1 || nm.fixed[i]) return;
+  if (nm.tools !== 5) {   // без инструментов загон не починить
+    if (!nm.tools) { nm.tools = 1; progress(); }
+    return showThought(nm.tools === 1
+      ? 'Голыми руками тут не справиться… Нужны молоток и гвозди. Может, у Сверкеля найдутся?'
+      : 'Без инструментов загон не починить. Сначала нужно добыть ящик.');
+  }
   nm.fixed[i] = true;
   drawPen(); dust(PEN_SPOTS[i].x, PEN_SPOTS[i].y - 10);
   const n = nm.fixed.filter(Boolean).length;
@@ -885,6 +949,7 @@ function solids() {
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
   list.push([917, 741, 52, 22]);    // Дядя Айро
   list.push([210, 578, 36, 14]);    // Змей
+  list.push([-421, 322, 52, 18]);   // колода для рубки дров
   list.push([-312, 430, 44, 16]);   // Торгель
   list.push([660, -1208, 58, 26]);  // Кейл
   return list;
@@ -922,6 +987,8 @@ function hitTest(x, y) {
   if (near(312, 343, 44)) return 'grandpa';
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(228, 553, 40)) return 'zmey';
+  if (state.nanamin.tools === 2 && near(CHOP_SPOT.x, CHOP_SPOT.y - 14, 42)) return 'chop';
+  if (state.nanamin.tools === 4 && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 52)) return 'barn';
   if (near(-290, 396, 48)) return 'torgel';
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < BEDS.length; i++) if (Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
@@ -1002,6 +1069,8 @@ function nearest() {
     if (id === 'fieldGate') continue;
     if (id === 'thorfinn' && thor.mode !== 'idle') continue;
     if (id === 'iro' && !state.open.sad) continue;
+    if (id === 'chop' && !(state.nanamin.stage === 1 && state.nanamin.tools === 2)) continue;
+    if (id === 'barn' && !(state.nanamin.stage === 1 && state.nanamin.tools === 4)) continue;
     const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
@@ -1011,6 +1080,8 @@ function actionLabel(id) {
   if (!id) return 'Действие';
   if (id.startsWith('pen')) return 'Починить';
   if (id === 'door') return 'Лечь спать';
+  if (id === 'chop') return 'Колоть дрова';
+  if (id === 'barn') return 'Войти в амбар';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
   if (id.startsWith('bed')) return +id[3] < QUEST_BEDS && state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Грядка (тест)';
@@ -1311,6 +1382,100 @@ function drawHouse() {
     // иначе в узкой полоске у фасада она оказывалась «за» домом
     scene.add.image(x, y, 'h-' + k).setOrigin(ox, 1).setScale(sc).setDepth(y + sol[3] + 11);
   }
+}
+// ===================== Рубка дров: колода у дровника и мини-игра «попади в момент» =====================
+const CHOP_SPOT = { x: -395, y: 336 };
+function drawChopBlock() {
+  const { x, y } = CHOP_SPOT;
+  const g = scene.add.graphics().setDepth(y);
+  g.fillStyle(0x1d2a12, 0.22).fillEllipse(x + 4, y + 2, 64, 18);
+  g.fillStyle(0x7A5230, 1).fillRect(x - 26, y - 22, 52, 22).fillEllipse(x, y, 52, 16);          // колода
+  g.fillStyle(0xD2A574, 1).fillEllipse(x, y - 22, 52, 16);
+  g.lineStyle(2, 0xA97A4C, 1).strokeEllipse(x, y - 22, 30, 9).strokeEllipse(x, y - 22, 14, 4);   // годовые кольца
+  g.lineStyle(2, 0x4A2E17, 1).strokeEllipse(x, y - 22, 52, 16);
+  g.lineStyle(4, 0x6B4424, 1).lineBetween(x + 4, y - 24, x + 22, y - 52);                        // топорище
+  g.fillStyle(0x8E959A, 1).fillTriangle(x - 4, y - 30, x + 12, y - 22, x + 4, y - 36);            // лезвие в колоде
+  for (const [dx, dy] of [[38, -2], [48, 4], [43, -10]]) {                                        // пара поленьев рядом
+    g.fillStyle(0xB07A47, 1).fillRoundedRect(x + dx - 12, y + dy - 6, 24, 10, 4);
+    g.fillStyle(0xE2B783, 1).fillEllipse(x + dx + 12, y + dy - 1, 8, 10);
+  }
+}
+const CHOP_LOGS = [0, 0, 1, 0, 0, 1, 0];   // 7 чурбаков, 1 — сучковатый (зона уже, нужно два точных удара)
+function startChopping() {
+  if (ui.open) return;
+  openModal(`<div class="card mg chop" id="chopCard"><div>
+    <div class="badge">Мини-игра</div><h2>Рубка дров</h2>
+    <p>Жми, когда метка в зелёной зоне. Сучковатый чурбак колется с двух ударов.</p></div>
+    <div class="chop-scene"><div class="stump"></div><div class="log" id="chopLog"><div class="h l"></div><div class="h r"></div><div class="top"></div><div class="axe">🪓</div></div></div>
+    <div class="mg-stats"><span id="chopN">Чурбак 1 из ${CHOP_LOGS.length}</span><span id="chopWood">Поленьев: 0</span></div>
+    <div class="chop-bar"><div class="zone" id="chopZone"></div><div class="mark" id="chopMark"></div></div>
+    <div class="chop-msg" id="chopMsg">&nbsp;</div>
+    <div class="row"><button class="btn" id="chopBtn" type="button">Рубить!</button></div></div>`);
+  const g = { i: 0, hits: 0, stuck: false, busy: false, misses: 0, streak: 0, wood: 0, pos: 0, dir: 1, zc: 0.5, zw: 0.24, last: performance.now(), raf: 0 };
+  const log = $('chopLog'), btn = $('chopBtn'), msg = t => { $('chopMsg').textContent = t; };
+  const setLog = () => {
+    const knot = CHOP_LOGS[g.i];
+    g.hits = knot ? 2 : 1;
+    g.zw = (knot ? 0.14 : 0.24) - g.i * 0.008;
+    g.zc = g.zw / 2 + 0.08 + Math.random() * (0.84 - g.zw);
+    log.className = 'log' + (knot ? ' knot' : '');
+    $('chopZone').style.left = (g.zc - g.zw / 2) * 100 + '%'; $('chopZone').style.width = g.zw * 100 + '%';
+    $('chopN').textContent = `Чурбак ${g.i + 1} из ${CHOP_LOGS.length}` + (knot ? ' · сучковатый' : '');
+  };
+  const tick = now => {
+    const dt = Math.min(50, now - g.last) / 1000; g.last = now;
+    if (!g.stuck && !g.busy) {
+      g.pos += g.dir * (0.85 + g.i * 0.07) * dt;
+      if (g.pos > 1) { g.pos = 1; g.dir = -1; } if (g.pos < 0) { g.pos = 0; g.dir = 1; }
+    }
+    $('chopMark').style.left = g.pos * 100 + '%';
+    g.raf = requestAnimationFrame(tick);
+  };
+  const act = () => {
+    if (g.busy) return;
+    if (g.stuck) { g.stuck = false; log.classList.remove('stuck'); btn.textContent = 'Рубить!'; msg('Вытащила топор. Ещё раз!'); return; }
+    if (Math.abs(g.pos - g.zc) <= g.zw / 2) {
+      g.hits--; g.streak++;
+      if (g.hits > 0) { log.classList.add('crack'); msg('Трещина пошла! Ещё один удар'); return; }
+      log.classList.add('split'); g.wood += 2; $('chopWood').textContent = `Поленьев: ${g.wood}`;
+      msg(g.streak >= 3 && g.streak % 3 === 0 ? 'Сверкель издалека: «Вот это рука!»' : ['Хрясь!', 'Ровно пополам!', 'Готово!', 'Есть!'][g.i % 4]);
+      g.busy = true;
+      setTimeout(() => {
+        g.i++; g.busy = false;
+        if (g.i >= CHOP_LOGS.length) { cancelAnimationFrame(g.raf); closeModal(); return afterChopping(g.misses); }
+        setLog(); msg(' ');
+      }, 750);
+    } else {
+      g.misses++; g.streak = 0; g.stuck = true;
+      log.classList.remove('stuck'); void log.offsetWidth; log.classList.add('stuck');
+      btn.textContent = 'Вытащить топор'; msg('Топор застрял! Вытащи его и попробуй снова');
+    }
+  };
+  $('chopCard').addEventListener('pointerdown', e => { e.preventDefault(); act(); });
+  btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+  setLog(); g.raf = requestAnimationFrame(tick); btn.focus();
+}
+// После рубки: последнее полено катится к Торгелю, перепалка; потом подходит Змей (реплики — черновик)
+function afterChopping(misses) {
+  const nm = state.nanamin;
+  nm.tools = 3; progress();
+  toast('Последнее полено покатилось прямо под ноги Торгелю…', 'info');
+  showDialog([
+    ['torgel', 'Эй! Смотри, куда рубишь!'],
+    ['hero', 'Я же не нарочно! Оно само покатилось…'],
+    ['torgel', 'Само… Ещё раз «само» — и сама в поленницу ляжешь.'],
+    ['thought', 'Ну и характер… Лучше мне с ним больше не пересекаться.'],
+    ['zmey', misses >= 3
+      ? 'Ха! Я уж думал, это полено тебя наколет, а не ты его. Но упрямство — уважаю.'
+      : 'Неплохо машешь! Дед теперь до весны будет тобой хвастаться.'],
+    ['zmey', 'А на Торгеля не обижайся. Он со всеми так, пока не узнает поближе. Ну… почти со всеми.'],
+  ], () => toast('Вернись к Сверкелю'));
+}
+// Амбар: мини-игра «прокрадись за ящиком» будет следующей; пока — ВРЕМЕННО выдаём ящик сразу
+function enterBarn() {
+  showThought('Амбар скоро станет мини-игрой: нужно будет прокрасться за ящиком мимо Торгеля. Пока ящик выдаётся сразу.', () => {
+    state.nanamin.tools = 5; toast('Получено: ящик с инструментами'); progress();
+  });
 }
 function drawWell() {
   const g = scene.add.graphics().setDepth(598);
@@ -2278,6 +2443,7 @@ class FarmScene extends Phaser.Scene {
     for (let i = 0; i < BEDS.length; i++) drawBed(i);
     PLANTS.forEach(([key, x, y, s]) => plant(key, x, y, s));
     drawGarden();
+    drawChopBlock();
 
     for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
 
@@ -2356,6 +2522,7 @@ class FarmScene extends Phaser.Scene {
     if (q.get('pos')) { const [px, py] = q.get('pos').split(',').map(Number); player.setPosition(px, py); cam.centerOn(px, py); }
     if (q.get('seen')) state.nanamin.seen = true;
     if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
+    if (q.get('tools')) { state.nanamin.tools = +q.get('tools'); }   // служебное: этап с инструментами
     if (q.get('act')) setTimeout(() => interact(q.get('act')), 600);
     bakeBigGraphics(); cullStatic(); updateCull(0, true);   // сразу — по уже известной позиции героини
 
