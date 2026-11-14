@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 103;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 106;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -261,7 +261,8 @@ const PEN_SPOTS = [{ x: 180, y: 1500 }, { x: 440, y: 1750 }, { x: 710, y: 1470 }
 const COW_HOMES = [{ x: 1080, y: 1200 }, { x: 930, y: 1720 }, { x: 330, y: 1880 }, { x: 1700, y: 1450 },
                    { x: 2230, y: 1330 }, { x: 420, y: 1230 }, { x: 2150, y: 1800 }, { x: 2600, y: 1650 }];   // пастбище теперь на всю ширину
 
-const BEDS = [{ x: 335, y: 642, len: 230 }, { x: 410, y: 642, len: 230 }, { x: 485, y: 642, len: 230 }, { x: 560, y: 642, len: 230 }];   // центр и длина грядки (len), можно менять; первые 3 — сюжетные (полив)
+const BEDS = [...[348.5, 414.5, 480.5, 546.5].map(x => ({ x, y: 737.5, len: 295 })),   // центр и длина грядки (len); первые 3 — сюжетные (полив)
+  ...[-312, -246, -180, -114, -48].map(x => ({ x, y: 740, len: 290 }))];   // ряды слева от колодца; шаг рядов 66 (v106)
 const QUEST_BEDS = 3;
 
 // Точки, к которым героиня подходит, и дистанция, с которой срабатывает действие
@@ -292,7 +293,7 @@ const ANCHORS = {
 function anchorOf(id) {
   if (id && id.startsWith('cow')) { const c = cows[+id.slice(3)]; return { x: c.x, y: c.y, reach: 72, mark: -82 }; }
   if (id && id.startsWith('bed')) {   // у длинной грядки точка — ближайшее к героине место вдоль неё, облачко — над грядкой
-    const b = BEDS[+id[3]], top = b.y - b.len / 2, y = Math.max(top, Math.min(b.y + b.len / 2, player ? player.y : b.y));
+    const b = BEDS[+id.slice(3)], top = b.y - b.len / 2, y = Math.max(top, Math.min(b.y + b.len / 2, player ? player.y : b.y));
     return { x: b.x, y, reach: 56, mark: top - y - 10 };
   }
   if (id === 'thorfinn' && thorfinnChar) return { x: thorfinnChar.x, y: thorfinnChar.y, reach: 72, mark: -118 };
@@ -614,7 +615,7 @@ function interact(id) {
     return;
   }
   if (id.startsWith('bed')) {
-    const i = +id[3];
+    const i = +id.slice(3);
     if (i >= QUEST_BEDS || !s.items.can || s.watered[i]) return testBed(i);   // ВРЕМЕННО: меню теста грядок
     s.watered[i] = true; drawBed(i); splash(BEDS[i].x, BEDS[i].y - 10);
     const n = s.watered.filter(Boolean).length;
@@ -1099,7 +1100,7 @@ function actionLabel(id) {
   if (id === 'barn') return 'Войти в амбар';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
-  if (id.startsWith('bed')) return +id[3] < QUEST_BEDS && state.items.can && !state.watered[+id[3]] ? 'Полить' : 'Грядка (тест)';
+  if (id.startsWith('bed')) return +id.slice(3) < QUEST_BEDS && state.items.can && !state.watered[+id.slice(3)] ? 'Полить' : 'Грядка (тест)';
   if (id === 'gate') return 'Открыть';
   return 'Поговорить';
 }
@@ -1818,14 +1819,22 @@ function registerBedFrames() {
 function makeBed(x, cy, len, state) {
   const H = k => BED_FRAMES[state + '-' + k][3];
   const n = Math.max(0, Math.round((len / BED_K - H('top') - H('bot') + 2 * BED_OV) / (H('mid') - BED_OV)));
-  const parts = ['top', ...Array(n).fill('mid'), 'bot'];
-  const total = parts.reduce((sum, k) => sum + H(k), 0) - BED_OV * (parts.length - 1);
-  const c = scene.add.container(x, cy);
-  let y = -total / 2;
-  for (const k of parts) { c.add(scene.add.image(0, y * BED_K, 'beds', state + '-' + k).setOrigin(0.5, 0).setScale(BED_K)); y += H(k) - BED_OV; }
-  c.setScale(1, len / (total * BED_K));
-  c.setDepth(GROUND - 8);   // грядка плоская — лежит на земле, персонажи всегда поверх
-  return c;
+  // Куски склеиваются в одну картинку заранее (на телефоне с mipmap отдельные куски давали щели-полоски на стыках)
+  const key = 'bedc-' + state + '-' + n;
+  if (!scene.textures.exists(key)) {
+    const parts = ['top', ...Array(n).fill('mid'), 'bot'].map(k => BED_FRAMES[state + '-' + k]);
+    const w = Math.max(...parts.map(f => f[2]));
+    const total = parts.reduce((sum, f) => sum + f[3], 0) - BED_OV * (parts.length - 1);
+    const src = scene.textures.get('beds').getSourceImage();
+    const t = scene.textures.createCanvas(key, w, total), ctx = t.getContext();
+    let y = 0;
+    for (const f of parts) { ctx.drawImage(src, f[0], f[1], f[2], f[3], Math.round((w - f[2]) / 2), y, f[2], f[3]); y += f[3] - BED_OV; }
+    t.refresh();
+  }
+  const img = scene.add.image(x, cy, key);
+  img.setScale(BED_K, len / img.height);
+  img.setDepth(GROUND - 8);   // грядка плоская — лежит на земле, персонажи всегда поверх
+  return img;
 }
 // ВРЕМЕННО для тестов: переключить, что растёт на грядке
 function testBed(i) {
@@ -1963,12 +1972,12 @@ const TREE_FILES = [
 // [картинка, x, y основания ствола, масштаб]
 const PLANTS = [
   // огород: верх
-  ['tree-4', -110, 640, 0.9], ['poplar-1', 660, 120, 1], ['bush-1', 370, 255, 1],
+  ['tree-4', -465, 700, 0.9], ['poplar-1', 660, 120, 1], ['bush-1', 370, 255, 1],
   // огород: середина
-  ['tree-1', -310, 600, 1], ['bush-2', 470, 505, 0.9], ['bush-4', 120, 700, 1],
-  ['s2-branchy-2', 470, 880, 0.9], ['bush-1', 595, 865, 0.85],
+  ['tree-1', -310, 580, 1], ['bush-2', 470, 505, 0.9], ['bush-4', 120, 700, 1], ['bush-1', -200, 582, 0.85],
+  ['s2-branchy-2', -455, 905, 0.9],   // убраны из-под грядок (v105)
   // огород: низ — большое дерево и группа
-  ['s1-oak-1', 190, 1000, 1], ['s1-grove-1', 470, 995, 1],
+  ['s1-oak-1', 175, 1000, 1], ['s1-grove-1', 470, 1075, 1],   // сдвинута за забор, чтобы не наезжать на грядки (v106)
   // курятник
   ['s2-grove-1', 800, 150, 0.95], ['bush-2', 1010, 120, 1], ['poplar-2', 1385, 330, 0.9],
   ['s2-branchy-3', 1210, 480, 0.85], ['bush-4', 760, 475, 0.9],
