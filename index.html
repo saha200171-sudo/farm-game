@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 99;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 101;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1843,8 +1843,9 @@ function drawBed(i) {
 // ===================== Забор: рисованный, собирается из деталей (как конструктор) =====================
 // Атлас assets/fence/fence.png: [x, y, w, h]. Детали сняты с листа из Magnific, наклон выпрямлен.
 const FENCE_FRAMES = {"post":[718,0,38,119],"rails":[0,279,290,119],"rail-side":[0,0,29,277],"rail-one":[292,279,277,29],"gate-post-l":[505,0,40,149],"gate-post-r":[547,0,38,149],"leaf":[587,0,129,149],"leaf-side":[31,0,43,219],"end-post":[76,0,50,159],"broken":[128,0,375,158]};
-const FS = 1 / 2.96;      // единиц мира на пиксель атласа
-const F_SRC = 3.7;        // пикселей исходного листа на единицу мира (для размеров, снятых с листа)
+const FENCE_K = 1.2;      // масштаб забора (крупнее прежнего — соразмерно домам, деревьям и героине); линии заборов те же
+const FS = FENCE_K / 2.96;      // единиц мира на пиксель атласа
+const F_SRC = 3.7 / FENCE_K;    // пикселей исходного листа на единицу мира (для размеров, снятых с листа)
 const fenceObjs = { static: [], coop: [], pen: [] };
 const fW = k => FENCE_FRAMES[k][2] * FS, fH = k => FENCE_FRAMES[k][3] * FS;
 function registerFenceFrames() {
@@ -1871,7 +1872,7 @@ function splitRun(a1, a2, gaps) {
   return { pieces, edges: new Set(gaps.flatMap(g => [g[0].toFixed(1), g[1].toFixed(1)])) };
 }
 // Забор «прямо» (слева направо). gaps: [x1, x2, 'gate' | 'gate-open' | 'pass' | 'broken']
-function fenceH(list, x1, x2, y, gaps = [], step = 78) {
+function fenceH(list, x1, x2, y, gaps = [], step = 78 * FENCE_K) {
   const { pieces, edges } = splitRun(x1, x2, gaps), pw = fW('post');
   const afterBroken = new Set(gaps.filter(g => g[2] === 'broken').map(g => g[1].toFixed(1)));
   for (const [a, b, kind] of pieces) {
@@ -1896,7 +1897,7 @@ function fenceH(list, x1, x2, y, gaps = [], step = 78) {
   }
 }
 // Забор «сбоку» (сверху вниз по экрану): столбики друг под другом, жердь — вертикальная полоска между ними
-function fenceV(list, x, y1, y2, gaps = [], step = 62) {
+function fenceV(list, x, y1, y2, gaps = [], step = 62 * FENCE_K) {
   const { pieces, edges } = splitRun(y1, y2, gaps);
   const railTop = 26 / F_SRC, postH = 149 / F_SRC;
   const rail = (ya, yb, depth) => fImg(list, 'rail-side', x, ya - postH + railTop, 0.5, 0, depth, 1.3, (yb - ya) / fH('rail-side'));
