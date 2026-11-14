@@ -126,6 +126,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .bubble:active{box-shadow:0 1px 0 var(--wood);background:#C9472F}
 .bubble:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .off{visibility:hidden}
+body.in-barn .quest{display:none}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
 body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overview .toast, body.overview .bubble, body.overview .rotate{display:none!important}
 
 /* Просьба повернуть телефон */
@@ -217,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 66;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 67;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -269,7 +270,7 @@ const ANCHORS = {
   well:    { x: 140, y: 560, reach: 92, mark: -92 },
   zmey:    { x: 228, y: 588, reach: 72, mark: -118 },
   chop:    { x: -395, y: 336, reach: 70, mark: -70 },    // колода для рубки дров у дровника
-  barn:    { x: -190, y: 262, reach: 72, mark: -150 },   // ворота амбара
+  barn:    { x: -345, y: 292, reach: 62, mark: -150 },   // вход в амбар — проход между дровником и маленьким домиком
   torgel:  { x: -290, y: 440, reach: 76, mark: -140 },   // Торгель, сын Кетиля — пока стоит на площадке перед домиком   // Змей — главный помощник на ферме; пока стоит у колодца
   bed0:    { ...BEDS[0], reach: 84, mark: -84 },
   bed1:    { ...BEDS[1], reach: 84, mark: -84 },
@@ -308,7 +309,7 @@ const freshState = () => ({
   pos: { x: 300, y: 430 },
   // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   // tools: 0 — ещё не пробовали чинить, 1 — нужны инструменты, 2 — Сверкель попросил наколоть дров, 3 — дрова готовы, 4 — идти в амбар, 5 — ящик у нас
-  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false, tools: 0 },
+  nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false, tools: 0, barn: { round1: false, helped: null } },
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
@@ -333,7 +334,7 @@ function loadState() {
 let state = loadState();
 function save() {
   try {
-    if (player) state.pos = { x: Math.round(player.x), y: Math.round(player.y) };
+    if (player) state.pos = barn.active ? { x: BARN_EXIT.x, y: BARN_EXIT.y } : { x: Math.round(player.x), y: Math.round(player.y) };
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch (e) {}
 }
@@ -342,6 +343,7 @@ function save() {
 const ui = { open: false };
 
 function questTarget() {
+  if (barn.active) return null;
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
   switch (state.step) {
@@ -374,7 +376,8 @@ function updateHud() {
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
-  if (state.nanamin.tools === 5 && state.nanamin.stage === 1) chips.push(['Ящик с инструментами', '#9C6B3E']);
+  if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
+  if (state.items.horseshoe) chips.push(['Подкова на удачу', '#C9A040']);
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7) chips.push([`Яйца × ${state.items.eggs}`, '#FFF6E3']);
   if (state.time.day > 1 || state.time.phase !== 'day') {
@@ -384,12 +387,13 @@ function updateHud() {
   $('bag').innerHTML = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
   // второе задание — квест Нанамина
   const nm = state.nanamin, side = $('sideQuest');
-  const sideText = {
+  let sideText = {
     1: [`Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`, 'Спроси у Сверкеля инструменты', 'Наколи дров у дровника',
         'Вернись к Сверкелю', 'Забери ящик с инструментами из амбара'][nm.tools === 5 || !nm.tools ? 0 : nm.tools],
     2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из ${COW_HOMES.length}`,
     3: 'Поговори с Нанамином',
   }[nm.stage] || (state.time.phase === 'evening' ? 'Вечереет: вернись домой и ложись спать' : null);
+  if (barn.active) sideText = barn.carry ? 'Вынеси ящик из амбара — к двери внизу' : 'Прокрадись к ящику у дальней стены';
   side.hidden = !sideText;
   if (sideText) side.textContent = sideText;
   $('skipBtn').hidden = nm.stage >= 3;   // ВРЕМЕННО: кнопка для теста смены дня
@@ -955,6 +959,7 @@ function solids() {
   return list;
 }
 function walkable(x, y) {
+  if (barn.active) return barnWalkable(x, y);
   if (x < WORLD.x + 18 || x > WORLD.w - 18 || y < WORLD.top + 30 || y > WORLD.top + WORLD.h - 12) return false;
   if (!state.open[zoneAt(x, y)]) return false;
   if (inHill(x, y) || inCrag(x, y) || inSea(x, y) || inPond(x, y)) return false;
@@ -988,7 +993,7 @@ function hitTest(x, y) {
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(228, 553, 40)) return 'zmey';
   if (state.nanamin.tools === 2 && near(CHOP_SPOT.x, CHOP_SPOT.y - 14, 42)) return 'chop';
-  if (state.nanamin.tools === 4 && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 52)) return 'barn';
+  if (state.nanamin.tools === 4 && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 46)) return 'barn';
   if (near(-290, 396, 48)) return 'torgel';
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < BEDS.length; i++) if (Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
@@ -1471,11 +1476,258 @@ function afterChopping(misses) {
     ['zmey', 'А на Торгеля не обижайся. Он со всеми так, пока не узнает поближе. Ну… почти со всеми.'],
   ], () => toast('Вернись к Сверкелю'));
 }
-// Амбар: мини-игра «прокрадись за ящиком» будет следующей; пока — ВРЕМЕННО выдаём ящик сразу
+// ===================== Амбар: прокрасться за ящиком мимо Торгеля =====================
+// Комната амбара нарисована за пределами карты (справа от неё); камера на время игры смотрит только туда.
+// Раунд 1 — всегда проигрыш по сценарию (скрипит доска у ящика). Потом Змей предлагает помощь:
+// со Змеем — Торгель болтает с ним и лишь изредка оглядывается (Змей перед этим кашляет); сама — Торгель обходит амбар.
+// Взгляд Торгеля — светлый конус на полу; за сеном, бочками, телегой он не видит. Заметил — погоня; поймал — выставляет.
+const BX = 3600, BY = 200, BW = 960, BH = 560;
+const BARN_DOOR = { x: BX + 480, w: 110 };
+const BARN_EXIT = { x: -345, y: 305 };                     // где героиня оказывается снаружи
+const BARN_BOX = { x: BX + 128, y: BY + 128 };              // ящик с инструментами у дальней стены
+const BARN_OBST = [                                         // препятствия: [x, y, w, h, вид] — и стены для взгляда
+  [BX + 250, BY + 205, 140, 62, 'hay'], [BX + 590, BY + 330, 150, 62, 'hay'], [BX + 165, BY + 385, 86, 54, 'barrels'],
+  [BX + 715, BY + 165, 160, 72, 'cart'], [BX + 55, BY + 190, 74, 50, 'crates'], [BX + 790, BY + 88, 140, 40, 'bench'],
+  [BX + 380, BY + 455, 70, 46, 'crates'],
+];
+const TORGEL_LOOK = { skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
+  hair: 'swept', hairColor: 0xE8D27E, jawBeard: true, scar: true, stern: true, noBlush: true, longsword: true, scale: 1.18 };
+const ZMEY_LOOK = { skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
+  hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true };
+const barn = { active: false, built: false, mode: 'round1', carry: false };
+function barnWalkable(x, y) {
+  const r = 12;
+  if (x < BX + 24 + r || x > BX + BW - 24 - r || y < BY + 78 + r) return false;
+  if (y > BY + BH - 14 && Math.abs(x - BARN_DOOR.x) > BARN_DOOR.w / 2 - r) return false;
+  if (y > BY + BH + 30) return false;
+  for (const [ox, oy, w, h] of BARN_OBST) if (x > ox - r && x < ox + w + r && y > oy - r && y < oy + h + r) return false;
+  return true;
+}
+function barnBlocked(x, y) {   // укрытия и стены загораживают взгляд
+  if (x < BX + 24 || x > BX + BW - 24 || y < BY + 74 || y > BY + BH + 6) return true;
+  return BARN_OBST.some(([ox, oy, w, h]) => x > ox && x < ox + w && y > oy && y < oy + h);
+}
+function barnSees(t, px, py, R, half) {
+  const dx = px - t.x, dy = py - (t.y - 6), d = Math.hypot(dx, dy);
+  if (d < 34) return true;                                      // вплотную — заметит в любом случае
+  if (d > R) return false;
+  let da = Math.atan2(dy, dx) - barn.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+  if (Math.abs(da) > half) return false;
+  for (let k = 1; k < d / 8; k++) if (barnBlocked(t.x + dx * k * 8 / d, t.y - 6 + dy * k * 8 / d)) return false;   // за укрытием не видно
+  return true;
+}
+function buildBarnRoom() {
+  barn.built = true;
+  const g = scene.add.graphics().setDepth(GROUND - 5);
+  g.fillStyle(0x1E150D, 1).fillRect(BX - 1400, BY - 900, BW + 2800, BH + 1800);            // темнота вокруг
+  g.fillStyle(0xA9794B, 1).fillRect(BX, BY, BW, BH);                                         // пол из досок
+  for (let y = BY + 78; y < BY + BH; y += 34) {
+    g.fillStyle(y / 34 % 2 ? 0xB0804F : 0xA27247, 1).fillRect(BX, y, BW, 33);
+    g.lineStyle(2, 0x7A5230, 0.6).lineBetween(BX, y + 33, BX + BW, y + 33);
+    for (let x = BX + ((y / 34) % 3) * 70; x < BX + BW; x += 210) g.lineBetween(x, y, x, y + 33);
+  }
+  g.fillStyle(0x5B3A1E, 1).fillRect(BX, BY, BW, 78);                                         // дальняя стена
+  for (let x = BX; x < BX + BW; x += 40) g.lineStyle(2, 0x43290F, 1).lineBetween(x, BY, x, BY + 78);
+  g.fillStyle(0x43290F, 1).fillRect(BX, BY + 70, BW, 10);
+  g.fillStyle(0x4A2E17, 1).fillRect(BX - 24, BY, 24, BH + 20).fillRect(BX + BW, BY, 24, BH + 20);   // боковые стены
+  g.fillStyle(0x4A2E17, 1).fillRect(BX, BY + BH, BARN_DOOR.x - BARN_DOOR.w / 2 - BX, 20).fillRect(BARN_DOOR.x + BARN_DOOR.w / 2, BY + BH, BX + BW - BARN_DOOR.x - BARN_DOOR.w / 2, 20);
+  g.fillStyle(0xFFE9A8, 0.35).fillRect(BARN_DOOR.x - BARN_DOOR.w / 2, BY + BH - 40, BARN_DOOR.w, 60);   // свет из двери
+  g.fillStyle(0xFFF4CC, 0.7).fillRect(BX + 300, BY + 22, 46, 30).fillRect(BX + 620, BY + 22, 46, 30);     // окошки
+  for (const [x, y, w, h, kind] of BARN_OBST) {
+    const o = scene.add.graphics().setDepth(y + h);
+    o.fillStyle(0x1d2a12, 0.25).fillEllipse(x + w / 2, y + h, w * 1.05, 16);
+    if (kind === 'hay') {
+      o.fillStyle(0xD9B24C, 1).fillRoundedRect(x, y - 26, w, h + 22, 18);
+      o.fillStyle(0xE9C96A, 1).fillRoundedRect(x + 8, y - 22, w - 16, 26, 12);
+      o.lineStyle(2, 0xB08A2E, 1);
+      for (let k = 0; k < 9; k++) { const sx = x + 10 + k * (w - 20) / 8; o.lineBetween(sx, y - 18, sx + 6, y + h - 6); }
+    } else if (kind === 'barrels') {
+      for (const [cx, cy] of [[x + 22, y + 26], [x + 62, y + 30], [x + 42, y + 8]]) {
+        o.fillStyle(0x7A4E2A, 1).fillCircle(cx, cy, 21); o.lineStyle(3, 0x3C3E37, 1).strokeCircle(cx, cy, 21).strokeCircle(cx, cy, 12);
+      }
+    } else if (kind === 'cart') {
+      o.fillStyle(0x6B4424, 1).fillCircle(x + 22, y + h - 8, 18).fillCircle(x + w - 22, y + h - 8, 18);
+      o.fillStyle(0x9C6B3E, 1).fillRect(x, y - 18, w, h - 8); o.lineStyle(3, 0x5B3A1E, 1).strokeRect(x, y - 18, w, h - 8);
+      o.fillStyle(0xD9B24C, 1).fillRoundedRect(x + 12, y - 30, w - 24, 22, 10);
+    } else if (kind === 'crates') {
+      for (let k = 0; k < Math.floor(w / 36); k++) {
+        const cx = x + k * 38; o.fillStyle(0xB07A47, 1).fillRect(cx, y - 10, 34, h + 6);
+        o.lineStyle(3, 0x5B3A1E, 1).strokeRect(cx, y - 10, 34, h + 6).lineBetween(cx, y - 10, cx + 34, y + h - 4);
+      }
+    } else if (kind === 'bench') {
+      o.fillStyle(0x7A5230, 1).fillRect(x, y - 16, w, h + 10); o.lineStyle(3, 0x4A2E17, 1).strokeRect(x, y - 16, w, h + 10);
+      o.fillStyle(0x8E959A, 1).fillRect(x + 20, y - 8, 30, 6).fillRect(x + 80, y - 10, 10, 18);
+    }
+  }
+  barn.cone = scene.add.graphics().setDepth(GROUND - 4);
+  barn.boxG = scene.add.graphics();
+  const b = barn.boxG; b.fillStyle(0x7A4E2A, 1).fillRoundedRect(-22, -26, 44, 28, 4); b.lineStyle(3, 0x4A2E17, 1).strokeRoundedRect(-22, -26, 44, 28, 4);
+  b.fillStyle(0xC9A040, 1).fillRect(-6, -18, 12, 8); b.lineStyle(3, 0x8E959A, 1).lineBetween(-14, -30, 8, -36);
+  barn.torgel = makeChar(TORGEL_LOOK); barn.zmey = makeChar(ZMEY_LOOK);
+  barn.alert = scene.add.text(0, 0, '!', { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: '34px', color: '#E2553A', stroke: '#2E2418', strokeThickness: 5, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
+}
 function enterBarn() {
-  showThought('Амбар скоро станет мини-игрой: нужно будет прокрасться за ящиком мимо Торгеля. Пока ящик выдаётся сразу.', () => {
-    state.nanamin.tools = 5; toast('Получено: ящик с инструментами'); progress();
+  const nm = state.nanamin;
+  if (!nm.barn.round1) return startBarn('round1');
+  if (!nm.barn.helped) return barnChoice();
+  startBarn(nm.barn.helped);
+}
+function barnChoice() {
+  showChoice('zmey', 'Ну что, сообщница, второй заход? Могу заговорить Торгелю зубы, а ты проскочишь. Или сама?', [
+    ['Помоги, пожалуйста', () => { state.nanamin.barn.helped = 'zmey'; save(); showDialog([['zmey', 'Тогда слушай: я его отвлеку. Как кашляну — замри, он сейчас обернётся.']], () => startBarn('zmey')); }],
+    ['Попробую сама', () => { state.nanamin.barn.helped = 'solo'; save(); showDialog([['zmey', 'Смелая! Он ходит по кругу и оглядывается. Прячься за сеном и бочками.']], () => startBarn('solo')); }],
+  ]);
+}
+const BARN_PATROL = [[480, 150], [600, 260], [800, 300], [560, 470], [300, 480], [150, 300], [330, 150]];
+function startBarn(mode) {
+  if (!barn.built) buildBarnRoom();
+  Object.assign(barn, { active: true, mode, carry: false, state: 'idle', wp: 0, wait: 0.6, lost: 0, timer: 0, glance: 0, cough: 0, chat: 3, squeak: false });
+  const t = barn.torgel, z = barn.zmey;
+  if (mode === 'round1') { t.setPosition(BX + 860, BY + 150); barn.ang = -Math.PI / 2; barn.state = 'work'; }
+  else if (mode === 'zmey') { t.setPosition(BX + 760, BY + 440); barn.ang = 0; barn.state = 'chat'; barn.glance = 6 + Math.random() * 3; }
+  else { t.setPosition(BX + 330, BY + 150); barn.ang = 0; barn.state = 'patrol'; }
+  z.setVisible(mode === 'zmey'); z.setPosition(BX + 870, BY + 450); z.bodyG.scaleX = -1;
+  barn.boxG.setVisible(true).setPosition(BARN_BOX.x, BARN_BOX.y).setDepth(BARN_BOX.y);
+  barn.alert.setVisible(false);
+  player.setPosition(BARN_DOOR.x, BY + BH - 30); facing = 1;
+  const cam = scene.cameras.main; cam.stopFollow(); cam.removeBounds(); document.body.classList.add('in-barn'); fitCamera();
+  toast(mode === 'round1' ? 'Амбар: ящик у дальней стены слева' : mode === 'zmey' ? 'Змей отвлекает Торгеля. Кашель — замри!' : 'Торгель обходит амбар. Не попадайся на глаза', 'info');
+  updateHud();
+}
+function leaveBarn() {
+  barn.active = false; barn.carry = false;
+  barn.cone.clear(); barn.alert.setVisible(false);
+  player.setPosition(BARN_EXIT.x, BARN_EXIT.y);
+  const cam = scene.cameras.main; document.body.classList.remove('in-barn'); cam.setBounds(WORLD.x, WORLD.top, WW, WORLD.h); fitCamera();
+  cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y);
+  updateHud();
+}
+function barnSpotted(line) {
+  if (barn.state === 'chase') return;
+  barn.state = 'chase'; barn.lost = 0;
+  barn.alert.setVisible(true);
+  toast(line || 'Торгель: «Эй! Опять ты?!»');
+}
+function barnCaught() {
+  barn.state = 'done';
+  const round1 = barn.mode === 'round1';
+  showDialog(round1 ? [
+    ['torgel', 'Опять ты?! Что ты забыла в амбаре?'],
+    ['hero', 'Я… я просто…'],
+    ['torgel', 'Вон отсюда. И чтобы я тебя здесь больше не видел.'],
+  ] : [['torgel', 'Ещё раз увижу — пожалеешь. Брысь!']], () => { leaveBarn(); afterBarnFail(); });
+}
+function afterBarnFail() {
+  const nm = state.nanamin;
+  if (!nm.barn.round1) {   // сценарный проигрыш: снаружи — Змей
+    nm.barn.round1 = true; save();
+    return showDialog([
+      ['zmey', 'Ого, как ты оттуда вылетела! Торгель, да?'],
+      ['zmey', 'Он сегодня злой как медведь. Но ящик нам всё равно нужен — дед ведь разрешил.'],
+    ], barnChoice);
+  }
+  toast('Не вышло. Попробуй ещё раз — зайди в амбар', 'info');
+}
+function barnWin() {
+  const nm = state.nanamin, solo = nm.barn.helped === 'solo';
+  barn.state = 'done';
+  leaveBarn();
+  nm.tools = 5;
+  if (solo) state.items.horseshoe = true;
+  progress();
+  showDialog([
+    ...(solo ? [['zmey', 'Ого. А я уже приготовился тебя спасать. Держи — на удачу, заслужила.']]
+             : [['zmey', 'Ха! Торгель так и не понял, зачем я ему про своих коз рассказывал. Чистая работа, сообщница!']]),
+    ['zmey', 'Раз уж мы теперь сообщники — завтра после обеда пойдём на рыбалку? Покажу одно место у моря.'],
+    ['hero', 'С удовольствием!'],
+  ], () => {
+    toast('Получено: ящик с инструментами' + (solo ? ' и подкова на удачу' : ''));
+    state.day2.fishing = 'invited'; save();
   });
+}
+function moveTorgel(tx, ty, speed, dt) {
+  const t = barn.torgel, dx = tx - t.x, dy = ty - t.y, d = Math.hypot(dx, dy);
+  if (d < 2) return d;
+  const st = Math.min(d, speed * dt), nx = t.x + dx / d * st, ny = t.y + dy / d * st;
+  if (barnWalkable(nx, ny)) t.setPosition(nx, ny);
+  else if (barnWalkable(nx, t.y)) t.x = nx;
+  else if (barnWalkable(t.x, ny)) t.y = ny;
+  const want = Math.atan2(dy, dx);
+  barn.ang = want;
+  if (Math.abs(dx) > 2) t.bodyG.scaleX = dx < 0 ? -1 : 1;
+  return d;
+}
+function turnTo(target, rate, dt) {
+  let da = target - barn.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+  barn.ang += Math.sign(da) * Math.min(Math.abs(da), rate * dt);
+}
+function updateBarn(dt, time) {
+  if (!barn.active) return;
+  const t = barn.torgel, s = dt / 1000, px = player.x, py = player.y;
+  if (!ui.open && barn.state !== 'done') {
+    // ящик и выход
+    if (!barn.carry && Math.hypot(px - BARN_BOX.x, py - BARN_BOX.y) < 40 && barn.mode !== 'round1') {
+      barn.carry = true; toast('Ящик у тебя! Теперь к двери', 'info'); updateHud();
+    }
+    if (barn.carry) barn.boxG.setPosition(px + 14, py - 30).setDepth(py + 1);
+    if (py > BY + BH - 4) {                                   // вышла в дверь
+      if (barn.carry) return barnWin();
+      if (barn.mode === 'round1' && barn.squeak) { barn.state = 'done'; leaveBarn(); return afterBarnFail(); }
+      leaveBarn(); return;
+    }
+    // поведение Торгеля
+    const R = barn.mode === 'zmey' ? 340 : 190, HALF = 0.55;   // со Змеем Торгель оборачивается редко, зато видит весь амбар
+    if (barn.state === 'work') {                               // раунд 1: возится у верстака, потом скрип доски
+      turnTo(-Math.PI / 2 + Math.sin(time / 900) * 0.25, 2, s);
+      if (!barn.squeak && Math.hypot(px - BARN_BOX.x, py - BARN_BOX.y) < 110) {
+        barn.squeak = true; toast('Скри-и-ип! Доска под ногой…', 'info');
+        barn.ang = Math.atan2(py - t.y, px - t.x);
+        setTimeout(() => barnSpotted('Торгель: «Кто здесь?! Опять ты?!»'), 450);
+      }
+    } else if (barn.state === 'chat') {                        // со Змеем: болтают, изредка оглядывается
+      barn.glance -= s; barn.chat -= s;
+      if (barn.chat < 0) { barn.chat = 5 + Math.random() * 3; toast(['Змей: «…и тут коза как прыгнет!»', 'Торгель: «Хм.»', 'Змей: «…а дед ей и говорит…»', 'Торгель: «Ну и?»'][Math.floor(time / 1000) % 4], 'info'); }
+      if (barn.glance < 1.1 && !barn.cough) { barn.cough = 1; toast('Змей: «Кхе-кхе!» — замри!'); }
+      const look = barn.glance < 0 && barn.glance > -1.8;
+      turnTo(look ? Math.PI : 0, 5, s);
+      if (barn.glance < -1.8) { barn.glance = 6 + Math.random() * 3; barn.cough = 0; }
+      if (look && barnSees(t, px, py, R, HALF)) barnSpotted();
+    } else if (barn.state === 'patrol') {                      // сама: обход по кругу с остановками
+      if (barn.wait > 0) {
+        barn.wait -= s; turnTo(barn.ang + Math.sin(time / 300) * 0.9, 1.6, s);
+      } else {
+        const [wx, wy] = BARN_PATROL[barn.wp];
+        if (moveTorgel(BX + wx, BY + wy, 82, s) < 4) { barn.wp = (barn.wp + 1) % BARN_PATROL.length; barn.wait = 0.6 + Math.random() * 0.9; }
+      }
+      if (barnSees(t, px, py, R, HALF)) barnSpotted();
+    } else if (barn.state === 'chase') {
+      const sees = barnSees(t, px, py, 999, Math.PI);
+      if (sees) { barn.lost = 0; barn.last = [px, py]; } else barn.lost += s;
+      const [lx, ly] = barn.last || [px, py];
+      const sp = barn.mode === 'round1' ? 262 : barn.carry ? 210 : 195;
+      const d = moveTorgel(lx, ly, sp, s);
+      if (Math.hypot(px - t.x, py - t.y) < 28) return barnCaught();
+      if (barn.mode !== 'round1' && barn.lost > 1.6 && d < 10) {       // потерял из виду
+        barn.state = barn.mode === 'zmey' ? 'back' : 'patrol'; barn.alert.setVisible(false);
+        toast('Торгель: «Показалось, что ли…»', 'info');
+      }
+    } else if (barn.state === 'back') {
+      if (moveTorgel(BX + 760, BY + 440, 120, s) < 4) { barn.state = 'chat'; barn.ang = 0; barn.glance = 6; }
+    }
+  }
+  // взгляд Торгеля на полу
+  const c = barn.cone, R2 = barn.mode === 'zmey' ? 340 : 190, HALF2 = 0.55;
+  c.clear();
+  const alertCol = barn.state === 'chase' ? 0xE2553A : 0xFFF2B0;
+  c.fillStyle(alertCol, barn.state === 'chase' ? 0.28 : 0.22).beginPath().moveTo(t.x, t.y - 6);
+  for (let k = 0; k <= 16; k++) {
+    const a = barn.ang - HALF2 + 2 * HALF2 * k / 16;
+    let rr = R2; for (let q = 8; q < R2; q += 8) if (barnBlocked(t.x + Math.cos(a) * q, t.y - 6 + Math.sin(a) * q)) { rr = q; break; }
+    c.lineTo(t.x + Math.cos(a) * rr, t.y - 6 + Math.sin(a) * rr);
+  }
+  c.closePath().fillPath();
+  t.setDepth(t.y); barn.zmey.setDepth(barn.zmey.y);
+  barn.alert.setPosition(t.x, t.y - 96);
 }
 function drawWell() {
   const g = scene.add.graphics().setDepth(598);
@@ -2378,6 +2630,7 @@ function fitCamera() {
   const W = app.clientWidth, H = app.clientHeight;
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
   if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WW, H / WORLD.h)); cam.centerOn(WORLD.x + WW / 2, WORLD.top + WORLD.h / 2); return; }
+  if (barn.active) { cam.setZoom(DPR * Math.min(1.15, W / (BW + 60), H / (BH + 90))); cam.centerOn(BX + BW / 2, BY + BH / 2 + 10); return; }   // в амбаре виден весь амбар — для пряток
   // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WW, H / WORLD.h);
@@ -2523,6 +2776,7 @@ class FarmScene extends Phaser.Scene {
     if (q.get('seen')) state.nanamin.seen = true;
     if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
     if (q.get('tools')) { state.nanamin.tools = +q.get('tools'); }   // служебное: этап с инструментами
+    if (q.get('barn')) { state.nanamin.barn = { round1: true, helped: q.get('barn') }; }   // служебное: второй заход в амбар (zmey | solo)
     if (q.get('act')) setTimeout(() => interact(q.get('act')), 600);
     bakeBigGraphics(); cullStatic(); updateCull(0, true);   // сразу — по уже известной позиции героини
 
@@ -2538,7 +2792,7 @@ class FarmScene extends Phaser.Scene {
     const mag = Math.hypot(v.x, v.y);
     if (mag > 0.05) {
       // скорость зависит от наклона джойстика; полная — с 70% наклона
-      const sp = 240 * Math.min(1, mag / 0.7) * Math.min(dt, 50) / 1000;
+      const sp = (barn.active && barn.carry ? 205 : 240) * Math.min(1, mag / 0.7) * Math.min(dt, 50) / 1000;
       const ux = v.x / mag, uy = v.y / mag;
       const nx = player.x + ux * sp, ny = player.y + uy * sp;
       if (Math.abs(ux) > 0.2) facing = ux < 0 ? -1 : 1;
@@ -2556,6 +2810,7 @@ class FarmScene extends Phaser.Scene {
     updatePasture(dt);
     updateField();
     updateThorfinn(dt);
+    if (barn.active) updateBarn(dt, time);
 
     const id = questTarget();
     if (id && id !== nearId) { // когда над целью облачко, «!» прячем
