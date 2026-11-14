@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    заново скачивает все файлы с меткой версии — гарантированно свежие.
-const CACHE = 'farm-v133';
+const CACHE = 'farm-v135';
 const CORE = [
   './',
   './index.html',
@@ -80,6 +80,9 @@ self.addEventListener('fetch', e => {
       const slow = new Promise(r => setTimeout(() => r(cached), 4000));
       return Promise.race([net.catch(() => cached), slow]);
     }
+    // картинки с меткой версии от другой версии игры (страница уже новее, чем этот service worker) — только из сети
+    const ver = url.searchParams.get('v');
+    if (ver && 'farm-v' + ver !== CACHE) return fetch(url.pathname + '?v=' + ver, { cache: 'no-store' });
     // картинки, движок и прочее: сначала сохранённая копия, если её нет — из сети (и сохраняем)
     const cached = await cache.match(req, { ignoreSearch: true });
     if (cached) return cached;
