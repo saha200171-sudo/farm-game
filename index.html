@@ -195,7 +195,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
     <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
-    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><div class="bag" id="bag"></div></div>
+    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><div class="bag" id="bag"></div></div>
   </div>
   <button class="bubble" id="bubble" type="button" hidden></button>
   <div class="guide" id="guide" hidden><span></span></div>
@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 69;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 70;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -397,6 +397,7 @@ function updateHud() {
   side.hidden = !sideText;
   if (sideText) side.textContent = sideText;
   $('skipBtn').hidden = nm.stage >= 3;   // ВРЕМЕННО: кнопка для теста смены дня
+  $('barnBtn').hidden = barn.active;     // ВРЕМЕННО: кнопка для теста амбара
 }
 function progress() { save(); updateHud(); }
 
@@ -487,6 +488,15 @@ $('resetBtn').addEventListener('click', () => {
 });
 // ВРЕМЕННО (для теста): пропустить квест Нанамина — загон починен, коровы дома,
 // героиня рядом с повеселевшим Нанамином; остаётся поговорить с ним, и наступит вечер.
+// ВРЕМЕННО: кнопка для теста амбара с любого момента игры — ставит квест на шаг «забери ящик из амбара» и сразу заводит в амбар
+$('barnBtn').addEventListener('click', () => {
+  if (ui.open || barn.active) return;
+  const nm = state.nanamin;
+  nm.seen = true; nm.stage = 1; nm.tools = 4;
+  if (state.time.phase === 'evening') state.time.phase = 'day';
+  progress();
+  enterBarn();
+});
 $('skipBtn').addEventListener('click', () => {
   if (ui.open) return;
   const nm = state.nanamin;
