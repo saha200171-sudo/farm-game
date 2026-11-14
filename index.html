@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 117;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 118;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2485,7 +2485,7 @@ function henWalk(c) {
   const tx = Phaser.Math.Clamp(c.x + (Math.random() - 0.5) * 260, Y.x1, Y.x2), ty = Phaser.Math.Clamp(c.y + (Math.random() - 0.5) * 140, Y.y1, Y.y2);
   const d = Math.hypot(tx - c.x, ty - c.y);
   if (d < 12) { c.mode = 'idle'; c.t = 500; return; }
-  Object.assign(c, { mode: 'walk', sx: c.x, sy: c.y, tx, ty, t: 0, dur: d / (26 + Math.random() * 12) * 1000, next: null });
+  Object.assign(c, { mode: 'walk', sx: c.x, sy: c.y, tx, ty, t: 0, dur: d / (26 + Math.random() * 12) * 1000, hNext: null });
   c.g.scaleX = tx < c.x ? -1 : 1;
   henPose(c, false);
 }
@@ -2495,23 +2495,23 @@ const henDoor = () => ({ x: COOP.x - COOP.w * 0.28, y: COOP.y - COOP.w * 0.2 });
 function henTime(night, instant) {
   chickens.forEach((c, i) => {
     if (night) {
-      if (c.mode === 'asleep' || c.mode === 'climbing' || c.mode === 'bedwait' || c.next === 'climb') return;
+      if (c.mode === 'asleep' || c.mode === 'climbing' || c.mode === 'bedwait' || c.hNext === 'climb') return;
       if (instant) { Object.assign(c, { mode: 'asleep' }); c.setVisible(false); return; }
       henPose(c, false);
       Object.assign(c, { mode: 'bedwait', t: 400 + i * 700 + Math.random() * 600 });
     } else {
-      if (c.mode !== 'asleep' && c.mode !== 'climbing' && c.mode !== 'bedwait' && c.next !== 'climb') return;
+      if (c.mode !== 'asleep' && c.mode !== 'climbing' && c.mode !== 'bedwait' && c.hNext !== 'climb') return;
       const morning = instant && state.time.phase === 'morning';   // утро наступает под чёрным экраном — выходят, когда он погаснет
       if (instant && !morning) { c.setVisible(true).setAlpha(1).setScale(1); Object.assign(c, { mode: 'idle', t: 300 + Math.random() * 1500, depthFix: null }); return; }
       const d = henDoor();
       c.setPosition(d.x, d.y).setVisible(true).setAlpha(0).setScale(0.85); c.g.scaleX = -1; henPose(c, false);
-      c.next = null;
+      c.hNext = null;
       Object.assign(c, { mode: 'wakewait', t: (morning ? 3000 : 600) + i * 900 + Math.random() * 500, depthFix: COOP.y - 10 });
     }
   });
 }
 function henMoveTo(c, tx, ty, speed, next) {
-  Object.assign(c, { mode: 'walk', sx: c.x, sy: c.y, tx, ty, t: 0, dur: Math.max(200, Math.hypot(tx - c.x, ty - c.y) / speed * 1000), next });
+  Object.assign(c, { mode: 'walk', sx: c.x, sy: c.y, tx, ty, t: 0, dur: Math.max(200, Math.hypot(tx - c.x, ty - c.y) / speed * 1000), hNext: next });
   if (Math.abs(tx - c.x) > 2) c.g.scaleX = tx < c.x ? -1 : 1;
   henPose(c, false);
 }
@@ -2546,7 +2546,7 @@ function updateHen(c, dt) {
     c.g.angle = REDUCED ? 0 : Math.sin(c.phase) * 3;            // и чуть покачивается
     if (k >= 1) {
       c.legB.angle = c.legF.angle = c.g.angle = 0; c.body.y = c.bodyY0;
-      if (c.next === 'climb') { c.next = null; Object.assign(c, { mode: 'climbing', t: 0, sx: c.x, sy: c.y, depthFix: COOP.y - 10 }); c.g.scaleX = 1; return; }
+      if (c.hNext === 'climb') { c.hNext = null; Object.assign(c, { mode: 'climbing', t: 0, sx: c.x, sy: c.y, depthFix: COOP.y - 10 }); c.g.scaleX = 1; return; }
       if (Math.random() < 0.75) Object.assign(c, { mode: 'peck', n: 1 + Math.floor(Math.random() * 3), t: 0, down: false });
       else Object.assign(c, { mode: 'idle', t: 600 + Math.random() * 1800 });
     }
@@ -2968,7 +2968,6 @@ class FarmScene extends Phaser.Scene {
     const q = new URLSearchParams(location.search);
     if (q.get('pos')) { const [px, py] = q.get('pos').split(',').map(Number); player.setPosition(px, py); cam.centerOn(px, py); }
     if (q.get('seen')) state.nanamin.seen = true;
-    if (q.get('dusk')) { setTimeout(startEvening, 1000); setTimeout(() => { document.title = 'HENS:' + chickens.map(c => c.mode + (c.visible ? '+' : '-') + Math.round(c.t) + '@' + Math.round(c.x)).join(',') + ' T' + Math.round(scene.time.now); }, +q.get('dusk')); }   // служебное: наступает вечер через 1 с, через N мс — что делают курочки
     if (q.get('stage')) { state.nanamin.stage = +q.get('stage'); }
     if (q.get('walk')) document.title = 'WALK:' + q.get('walk').split(';').map(p => walkable(...p.split(',').map(Number)) ? 1 : 0).join('');   // служебное: проверка проходимости
     if (q.get('tools')) { state.nanamin.tools = +q.get('tools'); }   // служебное: этап с инструментами
