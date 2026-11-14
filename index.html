@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 106;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 107;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1810,6 +1810,7 @@ const BED_FRAMES = {"pustaya-top":[0,0,208,50],"pustaya-mid":[0,52,208,155],"pus
 // состояния: pustaya — пустая, rostki — ростки, kapusta — капуста, tykva — тыква (v2: квадратные клетки без подставки, моркови нет)
 const BED_K = 60 / 208;   // единиц карты на пиксель атласа (ширина грядки на карте ≈ 60)
 const BED_OV = 15;        // нахлёст кусков, px атласа
+const BED_PAD = { tykva: [18, 16] };   // у тыквы листья свисают за кромку: сверху 18, снизу 16 px атласа
 function registerBedFrames() {
   const t = scene.textures.get('beds');
   for (const [k, f] of Object.entries(BED_FRAMES)) if (!t.has(k)) t.add(k, 0, f[0], f[1], f[2], f[3]);
@@ -1818,7 +1819,8 @@ function registerBedFrames() {
 // число средних кусков подбирается, а остаток добирается лёгким растяжением по высоте.
 function makeBed(x, cy, len, state) {
   const H = k => BED_FRAMES[state + '-' + k][3];
-  const n = Math.max(0, Math.round((len / BED_K - H('top') - H('bot') + 2 * BED_OV) / (H('mid') - BED_OV)));
+  const [pt, pb] = BED_PAD[state] || [0, 0];   // листья, свисающие за кромку грядки сверху/снизу (px атласа)
+  const n = Math.max(0, Math.round((len / BED_K + pt + pb - H('top') - H('bot') + 2 * BED_OV) / (H('mid') - BED_OV)));
   // Куски склеиваются в одну картинку заранее (на телефоне с mipmap отдельные куски давали щели-полоски на стыках)
   const key = 'bedc-' + state + '-' + n;
   if (!scene.textures.exists(key)) {
@@ -1831,8 +1833,9 @@ function makeBed(x, cy, len, state) {
     for (const f of parts) { ctx.drawImage(src, f[0], f[1], f[2], f[3], Math.round((w - f[2]) / 2), y, f[2], f[3]); y += f[3] - BED_OV; }
     t.refresh();
   }
-  const img = scene.add.image(x, cy, key);
-  img.setScale(BED_K, len / img.height);
+  // длина len — это сама земля грядки; свисающие листья (у тыквы) выходят за неё, а не сжимают грядку
+  const img = scene.add.image(x, cy, key), soil = img.height - pt - pb;
+  img.setOrigin(0.5, (pt + soil / 2) / img.height).setScale(BED_K, len / soil);
   img.setDepth(GROUND - 8);   // грядка плоская — лежит на земле, персонажи всегда поверх
   return img;
 }
@@ -2771,6 +2774,7 @@ class FarmScene extends Phaser.Scene {
     drawWell();
     drawCoop();
     registerBedFrames();
+    { const cr = new URLSearchParams(location.search).get('crops'); if (cr) state.bedCrop = cr.split(','); }   // служебное: ?crops=tykva,rostki,… — что растёт на грядках
     for (let i = 0; i < BEDS.length; i++) drawBed(i);
     PLANTS.forEach(([key, x, y, s]) => plant(key, x, y, s));
     drawGarden();
