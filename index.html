@@ -233,7 +233,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 136;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 137;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2094,9 +2094,32 @@ function updateBarn(dt, time) {
   t.setDepth(t.y); barn.zmey.setDepth(barn.zmey.y);
   barn.alert.setPosition(t.x, t.y - 96);
 }
+// Мелочи по карте: цветы и камушки из «Сада Айро», разбросаны случайно (но одинаково при каждом запуске)
+// — не на дорожках, грядках, постройках и не вплотную к деревьям; поле, сад и море не трогаем
+const DECOR_KINDS = [['g-tuft-poppy', 40], ['g-tuft-cornflower', 42], ['g-tuft-clover', 44], ['g-pebbles-a', 40], ['g-pebbles-b', 36], ['g-rock-flat-daisies', 92], ['g-rock-poppies-a', 70]];
+function scatterDecor() {
+  const rnd = mulberry32(2026), cells = pathCells(), placed = [];
+  const nearPath = (x, y) => { const c = Math.floor(x / CELL), r = Math.floor(y / CELL);
+    for (let dc = -1; dc <= 1; dc++) for (let dr = -1; dr <= 1; dr++) if (cells.has((c + dc) + ',' + (r + dr))) return true; return false; };
+  const onBed = (x, y) => BEDS.some(b => Math.abs(x - b.x) < 60 && Math.abs(y - b.y) < b.len / 2 + 40);
+  const nearTree = (x, y) => PLANTS.some(([, px, py]) => Math.hypot(x - px, y - py) < 70);
+  let tries = 0;
+  while (placed.length < 46 && tries++ < 4000) {
+    const x = WORLD.x + 40 + rnd() * (WW - 80), y = 30 + rnd() * 1940;
+    const z = zoneAt(x, y);
+    if (z === 'sad' || z === 'pole' || z === 'more') continue;
+    if (!walkable(x, y) || !walkable(x - 30, y) || !walkable(x + 30, y) || !walkable(x, y - 25)) continue;
+    if (nearPath(x, y) || onBed(x, y) || nearTree(x, y)) continue;
+    if (x > PEN.x - 30 && x < PEN.x + PEN.w + 30 && y > PEN.y - 30 && y < PEN.y + PEN.h + 30) continue;
+    if (placed.some(([px, py]) => Math.hypot(x - px, y - py) < 110)) continue;
+    const [k, w] = DECOR_KINDS[Math.floor(rnd() * DECOR_KINDS.length)];
+    const im = scene.add.image(x, y, k).setOrigin(0.5, 0.92); im.setScale(w * (0.85 + rnd() * 0.3) / im.width).setFlipX(rnd() < 0.5).setDepth(y);
+    placed.push([x, y]);
+  }
+}
 function drawWell() {   // каменный колодец с крышей и ведром (Magnific, мягкий стиль)
   const w = 126, h = w * 453 / 345;
-  scene.add.ellipse(140, 596, 112, 26, 0x1d2a12, 0.2).setDepth(GROUND - 8);
+  buildingShadow(140, 602, w, h);   // мягкая тень, как у домов
   scene.add.image(140, 602, 'prop-well').setOrigin(0.5, 1).setDisplaySize(w, h).setDepth(598);
   const g = scene.add.graphics().setDepth(599);
   if (!state.items.can) { // лейка висит на столбе
@@ -3207,7 +3230,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowShokolad', 'assets/cows/cow-shokolad.png');
     this.load.image('cowSeraya', 'assets/cows/cow-seraya.png');
     this.load.image('fence', 'assets/fence/fence.png');
-    for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', 'g-iro'])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
+    for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', 'g-iro', ...DECOR_KINDS.map(d => d[0])])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
     this.load.image('kale', 'assets/chars/kale.png');
     for (const k of new Set(BUILDINGS.map(b => b[0]))) this.load.image('h-' + k, 'assets/houses/' + k + '.webp');
     this.load.image('wheatPlot', 'assets/fields/wheat-plot.webp');
@@ -3238,6 +3261,7 @@ class FarmScene extends Phaser.Scene {
     drawFences();
     drawHouse();
     drawWell();
+    scatterDecor();
     drawCoop();
     registerBedFrames();
     { const cr = new URLSearchParams(location.search).get('crops'); if (cr) state.bedCrop = cr.split(','); }   // служебное: ?crops=tykva,rostki,… — что растёт на грядках
