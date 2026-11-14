@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 118;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 119;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2493,9 +2493,11 @@ function henWalk(c) {
 const henRamp = () => ({ x: COOP.x - COOP.w * 0.38, y: COOP.y + 8 });                     // низ лесенки
 const henDoor = () => ({ x: COOP.x - COOP.w * 0.28, y: COOP.y - COOP.w * 0.2 });          // дверца
 function henTime(night, instant) {
+  if (!night) henVisitT = 15000 + Math.random() * 10000;   // после пробуждения не сразу снова в курятник
   chickens.forEach((c, i) => {
     if (night) {
-      if (c.mode === 'asleep' || c.mode === 'climbing' || c.mode === 'bedwait' || c.hNext === 'climb') return;
+      if (c.mode === 'inside') { c.mode = 'asleep'; return; }
+      if (c.mode === 'asleep' || c.mode === 'climbing' || c.mode === 'bedwait' || c.hNext === 'climb') { c.hVisit = false; return; }
       if (instant) { Object.assign(c, { mode: 'asleep' }); c.setVisible(false); return; }
       henPose(c, false);
       Object.assign(c, { mode: 'bedwait', t: 400 + i * 700 + Math.random() * 600 });
@@ -2503,12 +2505,31 @@ function henTime(night, instant) {
       if (c.mode !== 'asleep' && c.mode !== 'climbing' && c.mode !== 'bedwait' && c.hNext !== 'climb') return;
       const morning = instant && state.time.phase === 'morning';   // утро наступает под чёрным экраном — выходят, когда он погаснет
       if (instant && !morning) { c.setVisible(true).setAlpha(1).setScale(1); Object.assign(c, { mode: 'idle', t: 300 + Math.random() * 1500, depthFix: null }); return; }
-      const d = henDoor();
-      c.setPosition(d.x, d.y).setVisible(true).setAlpha(0).setScale(0.85); c.g.scaleX = -1; henPose(c, false);
-      c.hNext = null;
-      Object.assign(c, { mode: 'wakewait', t: (morning ? 3000 : 600) + i * 900 + Math.random() * 500, depthFix: COOP.y - 10 });
+      henExit(c, (morning ? 3000 : 600) + i * 900 + Math.random() * 500);
     }
   });
+}
+function henExit(c, delay) {   // курочка появляется в дверце и спускается по лесенке
+  const d = henDoor();
+  c.setPosition(d.x, d.y).setVisible(true).setAlpha(0).setScale(0.85); c.g.scaleX = -1; henPose(c, false);
+  c.hNext = null; c.hVisit = false;
+  Object.assign(c, { mode: 'wakewait', t: delay, depthFix: COOP.y - 10 });
+}
+// Днём иногда (раз в 12–35 с) одна курочка, а порой сразу две, заходят в курятник и через 5–17 с выходят обратно
+let henVisitT = 9000;
+function henVisits(dt) {
+  if (state.time.phase === 'evening' || !chickens.length) return;
+  if ((henVisitT -= dt) > 0) return;
+  henVisitT = 12000 + Math.random() * 23000;
+  const busy = chickens.filter(c => c.hVisit || c.mode === 'inside').length;
+  const free = chickens.filter(c => !c.hVisit && (c.mode === 'idle' || (c.mode === 'walk' && !c.hNext)));
+  const n = Math.min(2 - busy, free.length, Math.random() < 0.3 ? 2 : 1);
+  for (let i = 0; i < n; i++) {
+    const c = free.splice(Math.floor(Math.random() * free.length), 1)[0], r = henRamp();
+    c.hVisit = true;
+    henPose(c, false); c.legB.angle = c.legF.angle = c.g.angle = 0; c.body.y = c.bodyY0;
+    henMoveTo(c, r.x + (Math.random() - 0.5) * 10, r.y, 34, 'climb');
+  }
 }
 function henMoveTo(c, tx, ty, speed, next) {
   Object.assign(c, { mode: 'walk', sx: c.x, sy: c.y, tx, ty, t: 0, dur: Math.max(200, Math.hypot(tx - c.x, ty - c.y) / speed * 1000), hNext: next });
@@ -2523,7 +2544,14 @@ function updateHenNight(c, dt) {
     c.x = c.sx + (d.x - c.sx) * k; c.y = c.sy + (d.y - c.sy) * k;
     c.setAlpha(1 - k * k).setScale(1 - 0.15 * k);
     c.legB.angle = -Math.sin(c.t * 0.03) * 20; c.legF.angle = -c.legB.angle;
-    if (k >= 1) { c.mode = 'asleep'; c.setVisible(false); c.legB.angle = c.legF.angle = 0; }
+    if (k >= 1) {
+      c.setVisible(false); c.legB.angle = c.legF.angle = 0;
+      if (c.hVisit && state.time.phase !== 'evening') Object.assign(c, { mode: 'inside', t: 5000 + Math.random() * 12000 });   // днём — просто заглянула
+      else c.mode = 'asleep';
+      c.hVisit = false;
+    }
+  } else if (c.mode === 'inside' && (c.t -= dt) <= 0) {
+    henExit(c, 0);
   } else if (c.mode === 'wakewait' && (c.t -= dt) <= 0) {
     c.mode = 'waking'; c.t = 0; c.sx = c.x; c.sy = c.y;
   } else if (c.mode === 'waking') {
@@ -3007,6 +3035,7 @@ class FarmScene extends Phaser.Scene {
     player.bodyG.scaleX = facing;
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
+    henVisits(dt);
     chickens.forEach(c => { updateHen(c, dt); c.setDepth(c.depthFix || c.y); });
     updateCull(dt);
     updatePasture(dt);
