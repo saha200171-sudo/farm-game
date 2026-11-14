@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 125;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 128;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1416,13 +1416,22 @@ function playerDepth(x, y) {
     if (y > by + y2 - 28 && y < by + y2 + 12 && (x < bx + x1 || x > bx + x2) && x > bx + x1 - 90 && x < bx + x2 + 90)
       d = Math.max(d, by + y2 + 11.5);
   }
+  // рисованные постройки с диагональным основанием (коровник): героиня перед ними, если стоит не дальше линии основания
+  for (const { B, ar, base } of PAINTED_BASES) {
+    const w = B.w, h = w * ar, left = B.x - w / 2, fx = (x - left) / w;
+    if (fx < -0.04 || fx > 1.04) continue;
+    let by = base[0][1];
+    for (let i = 0; i < base.length - 1; i++) if (fx >= base[i][0]) by = base[i][1] + (base[i + 1][1] - base[i][1]) * Math.min(1, (fx - base[i][0]) / (base[i + 1][0] - base[i][0]));
+    if (y >= B.y - h + by * h - 10 && y < B.y + 14) d = Math.max(d, B.y - 14);
+  }
   return d;
 }
 function drawHouse() {
   for (const [k, x, y, sc, ox, sol] of BUILDINGS) {
     // глубина = самая близкая точка, куда героиня может подойти снизу (низ «стены» + её радиус 12),
     // иначе в узкой полоске у фасада она оказывалась «за» домом
-    scene.add.image(x, y, 'h-' + k).setOrigin(ox, 1).setScale(sc).setDepth(y + sol[3] + 11);
+    const img = scene.add.image(x, y, 'h-' + k).setOrigin(ox, 1).setScale(sc).setDepth(y + sol[3] + 11);
+    buildingShadow(x + (0.5 - ox) * img.displayWidth, y, img.displayWidth, img.displayHeight);   // мягкая тень, как у курятника и коровника
   }
 }
 // ===================== Рубка дров: колода у дровника и мини-игра «попади в момент» =====================
@@ -1430,7 +1439,7 @@ const CHOP_SPOT = { x: -395, y: 336 };
 function drawChopBlock() {   // пень с топором и поленницей (Magnific, мягкий стиль)
   const { x, y } = CHOP_SPOT, w = 96, h = w * 393 / 358;
   // низ картинки — щепки; основание пня на 12% выше, поэтому картинку опускаем, а тень кладём под пень и поленья
-  scene.add.ellipse(x + w * 0.1, y + 4, w * 0.82, 15, 0x1d2a12, 0.22).setDepth(GROUND - 8);
+  buildingShadow(x + w * 0.1, y + h * 0.12, w, h);   // мягкая тень, как у построек
   scene.add.image(x - w * 0.4, y + h * 0.12, 'prop-chop').setOrigin(0, 1).setDisplaySize(w, h).setDepth(y + 8);
 }
 const CHOP_LOGS = [0, 0, 1, 0, 0, 1, 0];   // 7 чурбаков, 1 — сучковатый (зона уже, нужно два точных удара)
@@ -1977,7 +1986,9 @@ function drawFences() {
 }
 // Курятник — рисованный (Magnific, с фильтрами из Figma «Сад Айро»), основание ножек на y 215
 const COOP = { x: 1227, y: 215, w: 272 };   // увеличен (v110); под ним вытоптанная площадка из дорожки
-const KOROVNIK = { x: -138, y: 1500, w: 458 };   // коровник у загона Нанамина (v121), ворота смотрят к загону
+const KOROVNIK = { x: -138, y: 1500, w: 458 };
+// линия основания стен (доли ширины/высоты картинки) — для правильного наложения героини сбоку и сзади
+const PAINTED_BASES = [{ B: KOROVNIK, ar: 669 / 993, base: [[0.04, 0.735], [0.5, 0.99], [0.96, 0.83]] }];   // коровник у загона Нанамина (v121), ворота смотрят к загону
 // мягкая тень под постройкой (овал с размытым краем), лежит на земле поверх дорожки
 function buildingShadow(x, y, w, h) {
   shadowTex();
@@ -2301,7 +2312,6 @@ const GARDEN = [
   ['g-bush-poppy', 697, 633, 86, 70, 702.12, 0],
   ['g-rock-moss-flowers', 727, 648, 112, 82, 727.45, 0],
   ['tree-4', 674, 697, 141, 148, 840.12, 1],
-  ['bush-2', 784, 703, 72, 62, 774.05, 1],
   ['s2-branchy-2', 786, 555, 195, 194, 760.00, 1],   // ствол левее Айро, за кустами (по эскизу)
   ['bush-4', 825, 727, 50, 43, 774.10, 1],
   ['tree-3', 1598, 727, 195, 206, 927.01, 1],
