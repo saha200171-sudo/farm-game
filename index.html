@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 121;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 124;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1512,14 +1512,20 @@ function afterChopping(misses) {
 const BX = 3600, BY = 200, BW = 460, BH = 1500;
 const BARN_DOOR = { x: BX + 230, w: 100 };
 const BARN_EXIT = { x: -130, y: 208 };                     // где героиня оказывается снаружи
-const BARN_BOX = { x: BX + 80, y: BY + 132 };               // ящик с инструментами у дальней стены (наверху слева)
-const BARN_OBST = [                                         // препятствия-укрытия: [x, y, w, h, вид] — и стены для взгляда
-  [BX + 300, BY + 90, 130, 40, 'bench'],
-  [BX + 40, BY + 260, 150, 58, 'hay'], [BX + 300, BY + 330, 110, 46, 'crates'],
-  [BX + 60, BY + 520, 150, 70, 'cart'], [BX + 300, BY + 640, 90, 54, 'barrels'],
-  [BX + 150, BY + 820, 160, 58, 'hay'], [BX + 40, BY + 1000, 76, 46, 'crates'],
-  [BX + 320, BY + 1060, 90, 54, 'barrels'], [BX + 120, BY + 1240, 140, 58, 'hay'],
-];
+// Рисованный амбар (v122): расстановка — по макету пользователя в Figma («Амбар с Торгелем», раздел 4).
+// BARN_ART: [картинка, левый край, низ, ширина, отражена, тип] в точках комнаты (от BX, BY);
+// тип: c — укрытие (не пройти и не видно сквозь), s — мелочь (не пройти, но видно), d — у стены, просто картинка.
+const BARN_FRAMES = {"pitchfork":[0,0,268,381],"post1":[270,0,142,358],"pitchfork1":[414,0,315,356],"post":[731,0,144,341],"cart2":[877,0,389,335],"cart":[1268,0,375,316],"lantern":[1645,0,137,315],"haystack":[0,383,359,309],"crates":[361,383,398,308],"sacks1":[761,383,329,299],"bales":[1092,383,341,298],"sacks":[1435,383,343,290],"lantern1":[1780,383,131,283],"workbench2":[0,694,374,280],"bucket1":[376,694,191,276],"barrels":[569,694,299,274],"bucket":[870,694,181,264],"toolbox":[1053,694,289,220],"straw02":[1344,694,110,86],"straw32":[1456,694,110,83],"straw00":[1568,694,110,81],"straw31":[1680,694,110,81],"straw30":[1792,694,110,75],"straw03":[1904,694,110,71],"straw19":[0,976,110,65],"straw20":[112,976,110,61],"straw05":[224,976,110,58],"straw11":[336,976,110,58],"straw21":[448,976,110,57],"straw04":[560,976,110,55],"straw16":[672,976,110,55],"straw42":[784,976,110,55],"straw28":[896,976,110,53],"straw18":[1008,976,110,52],"straw26":[1120,976,110,50],"straw43":[1232,976,110,43]};
+const BARN_ART = [["workbench2",331,161,130,0,"c"],["pitchfork",285,117,56,0,"d"],["sacks1",412.5,306,61,0,"s"],["sacks1",172,123,65,0,"s"],["haystack",25,326,172.5,0,"c"],["crates",273.5,381,147.5,0,"c"],["post",-1,460,26,0,"s"],["post",443,208.1,26,0,"s"],["sacks",387.5,521,89,0,"s"],["cart",48.8,596,172.5,0,"c"],["bucket1",103,600,32,0,"s"],["barrels",293,717.3,103.5,0,"c"],["pitchfork1",-19,740,68,1,"d"],["bucket",425,820,30,0,"s"],["bales",144,906.3,176,0,"c"],["bales",-6,146,94,0,"c"],["lantern1",9,905,22,0,"d"],["post",435,960,26,0,"s"],["crates",-40,1076,176.5,0,"c"],["bucket1",86,1034,30,0,"s"],["barrels",311,1133,107.5,0,"c"],["pitchfork",426,1190,40,0,"d"],["post1",-1,1190,26,0,"s"],["lantern",420,1300,20,0,"d"],["sacks1",-16,1423.5,92,0,"c"],["bucket",22.5,1431.9,26,0,"s"],["haystack",107,1300,172.5,0,"c"],["cart2",48.5,176.5,168,1,"c"],["barrels",369.5,1488.5,97.5,0,"c"],["sacks",332,1496,75.5,1,"c"]];
+const BARN_STRAW = [["straw11",20,1378.6,27.5,0],["straw30",229.8,573.2,41.6,0],["straw31",307.5,991.7,28.3,6],["straw28",52.3,171.5,38.5,0],["straw28",433.3,234.5,38.5,0],["straw20",359.1,291.1,46,0],["straw42",290.4,912.4,45.6,-5],["straw03",371.6,574.8,29.7,-6],["straw30",413.6,888.9,44.8,-7],["straw42",197,380.2,23.4,-5],["straw20",321.7,1388,35.9,-6],["straw11",173.1,700.2,35.8,0],["straw19",123.5,1364.8,33,0],["straw42",232.1,1062,32.3,0],["straw16",125.5,921.6,30.6,9],["straw31",388.6,271.1,24,-10],["straw04",99.2,1460.2,38.4,-1],["straw42",269,310,45,0],["straw30",408.2,1359,29.2,-8],["straw26",318,124.8,39,0],["straw05",225.5,1063.7,44.9,-4],["straw19",395.6,278.6,22.1,0],["straw05",257.4,1048,27.8,2],["straw28",42,1173.8,40.6,-14],["straw03",66.3,1382,39.9,0],["straw32",35.6,1337.9,47.8,0],["straw32",124.2,1119.1,32.4,-3],["straw16",392.5,885.1,38.2,0],["straw18",160.7,1109.9,27.2,15],["straw18",386.5,1195.9,43,15],["straw21",76.9,802.5,42.1,0],["straw19",222.5,374.1,26.3,0],["straw16",232.8,1157.7,41.5,-6],["straw30",247.5,397.9,29.6,5]];   // [пучок, центр x, центр y, ширина, поворот°]
+const BARN_WALL_Y = 106;                                     // низ дальней стены
+const BARN_BOX = { x: BX + 132.5, y: BY + 89 };               // ящик с инструментами — лежит на телеге у дальней стены
+const BARN_PICK = { x: BX + 132, y: BY + 196 };              // откуда героиня его берёт (перед телегой)
+const barnArtH = ([k, , , w]) => w * BARN_FRAMES[k][3] / BARN_FRAMES[k][2];
+// следы на полу (где нельзя пройти) — нижняя часть каждой картинки
+const BARN_OBST = BARN_ART.filter(a => a[5] === 'c').map(a => { const [k, l, b, w] = a, h = barnArtH(a), fh = Math.min(h * 0.42, 66);
+  const x1 = Math.max(0, l + w * 0.08), x2 = Math.min(BW, l + w * 0.92); return [BX + x1, BY + b - fh, x2 - x1, fh, k]; });
+const BARN_SOLID = BARN_ART.filter(a => a[5] === 's').map(([k, l, b, w]) => { const x1 = Math.max(0, l + w * 0.1), x2 = Math.min(BW, l + w * 0.9); return [BX + x1, BY + b - 16, x2 - x1, 16]; });
 const TORGEL_LOOK = { skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
   hair: 'swept', hairColor: 0xE8D27E, jawBeard: true, scar: true, stern: true, noBlush: true, longsword: true, scale: 1.18 };
 const ZMEY_LOOK = { skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
@@ -1527,14 +1533,15 @@ const ZMEY_LOOK = { skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020
 const barn = { active: false, built: false, mode: 'round1', carry: false };
 function barnWalkable(x, y) {
   const r = 12;
-  if (x < BX + 24 + r || x > BX + BW - 24 - r || y < BY + 78 + r) return false;
+  if (x < BX + 24 + r || x > BX + BW - 24 - r || y < BY + BARN_WALL_Y + r) return false;
   if (y > BY + BH - 14 && Math.abs(x - BARN_DOOR.x) > BARN_DOOR.w / 2 - r) return false;
   if (y > BY + BH + 30) return false;
   for (const [ox, oy, w, h] of BARN_OBST) if (x > ox - r && x < ox + w + r && y > oy - r && y < oy + h + r) return false;
+  for (const [ox, oy, w, h] of BARN_SOLID) if (x > ox - r && x < ox + w + r && y > oy - r && y < oy + h + r) return false;
   return true;
 }
 function barnBlocked(x, y) {   // укрытия и стены загораживают взгляд
-  if (x < BX + 24 || x > BX + BW - 24 || y < BY + 74 || y > BY + BH + 6) return true;
+  if (x < BX + 24 || x > BX + BW - 24 || y < BY + BARN_WALL_Y - 4 || y > BY + BH + 6) return true;
   return BARN_OBST.some(([ox, oy, w, h]) => x > ox && x < ox + w && y > oy && y < oy + h);
 }
 function barnSees(t, px, py, R, half) {
@@ -1548,51 +1555,53 @@ function barnSees(t, px, py, R, half) {
 }
 function buildBarnRoom() {
   barn.built = true;
-  const g = scene.add.graphics().setDepth(GROUND - 5);
+  const tx = scene.textures.get('barn');
+  for (const [k, f] of Object.entries(BARN_FRAMES)) if (!tx.has(k)) tx.add(k, 0, ...f);
+  const g = scene.add.graphics().setDepth(GROUND - 7);
   g.fillStyle(0x1E150D, 1).fillRect(BX - 1400, BY - 900, BW + 2800, BH + 1800);            // темнота вокруг
-  g.fillStyle(0xA9794B, 1).fillRect(BX, BY, BW, BH);                                         // пол из досок
-  for (let y = BY + 78; y < BY + BH; y += 34) {
-    g.fillStyle(y / 34 % 2 ? 0xB0804F : 0xA27247, 1).fillRect(BX, y, BW, 33);
-    g.lineStyle(2, 0x7A5230, 0.6).lineBetween(BX, y + 33, BX + BW, y + 33);
-    for (let x = BX + ((y / 34) % 3) * 70; x < BX + BW; x += 210) g.lineBetween(x, y, x, y + 33);
+  scene.add.tileSprite(BX, BY, BW, BH, 'barn-floor').setOrigin(0, 0).setTileScale(170 / 512).setDepth(GROUND - 6.5);   // доски пола
+  for (const [k, cx, cy, w, rot] of BARN_STRAW)                                                   // солома на полу
+    scene.add.image(BX + cx, BY + cy, 'barn', k).setScale(w / BARN_FRAMES[k][2]).setAngle(rot).setAlpha(0.92).setDepth(GROUND - 6.2);
+  // дальняя стена — шире комнаты, края прячутся за боковыми стенами
+  const wall = scene.add.image(BX - 115.5, BY + BARN_WALL_Y + 0.5, 'barn-wall').setOrigin(0, 1).setDepth(GROUND - 5.6);
+  const ws = 691.5 / wall.width; wall.setScale(ws).setCrop((115.5 - 24) / ws, 0, (BW + 48) / ws, wall.height);   // только в пределах стен
+  const w2 = scene.add.graphics().setDepth(GROUND - 5.4);
+  w2.fillStyle(0x3D2614, 1).fillRect(BX - 24, BY - 30, 24, BH + 50).fillRect(BX + BW, BY - 30, 24, BH + 50);   // боковые стены
+  w2.fillRect(BX, BY + BH, BARN_DOOR.x - BARN_DOOR.w / 2 - BX, 20).fillRect(BARN_DOOR.x + BARN_DOOR.w / 2, BY + BH, BX + BW - BARN_DOOR.x - BARN_DOOR.w / 2, 20);
+  shadowTex();
+  // мягкие текстуры: луч света (сверху ярко → вниз прозрачно) и затемнение краёв
+  if (!scene.textures.exists('barnRay')) {
+    const r = scene.textures.createCanvas('barnRay', 64, 256), c = r.getContext();
+    const gr = c.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(255,226,160,1)'); gr.addColorStop(1, 'rgba(255,226,160,0)');
+    const gx = c.createLinearGradient(0, 0, 64, 0); gx.addColorStop(0, 'rgba(0,0,0,0)'); gx.addColorStop(0.3, 'rgba(0,0,0,1)'); gx.addColorStop(0.7, 'rgba(0,0,0,1)'); gx.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = gr; c.fillRect(0, 0, 64, 256); c.globalCompositeOperation = 'destination-in'; c.fillStyle = gx; c.fillRect(0, 0, 64, 256); r.refresh();
+    const e = scene.textures.createCanvas('barnEdge', 64, 4), ce = e.getContext();
+    const ge = ce.createLinearGradient(0, 0, 64, 0); ge.addColorStop(0, 'rgba(20,12,5,0.6)'); ge.addColorStop(1, 'rgba(20,12,5,0)');
+    ce.fillStyle = ge; ce.fillRect(0, 0, 64, 4); e.refresh();
   }
-  g.fillStyle(0x5B3A1E, 1).fillRect(BX, BY, BW, 78);                                         // дальняя стена
-  for (let x = BX; x < BX + BW; x += 40) g.lineStyle(2, 0x43290F, 1).lineBetween(x, BY, x, BY + 78);
-  g.fillStyle(0x43290F, 1).fillRect(BX, BY + 70, BW, 10);
-  g.fillStyle(0x4A2E17, 1).fillRect(BX - 24, BY, 24, BH + 20).fillRect(BX + BW, BY, 24, BH + 20);   // боковые стены
-  g.fillStyle(0x4A2E17, 1).fillRect(BX, BY + BH, BARN_DOOR.x - BARN_DOOR.w / 2 - BX, 20).fillRect(BARN_DOOR.x + BARN_DOOR.w / 2, BY + BH, BX + BW - BARN_DOOR.x - BARN_DOOR.w / 2, 20);
-  g.fillStyle(0xFFE9A8, 0.35).fillRect(BARN_DOOR.x - BARN_DOOR.w / 2, BY + BH - 40, BARN_DOOR.w, 60);   // свет из двери
-  g.fillStyle(0xFFF4CC, 0.7).fillRect(BX + 110, BY + 22, 46, 30).fillRect(BX + 300, BY + 22, 46, 30);     // окошки
-  for (const [x, y, w, h, kind] of BARN_OBST) {
-    const o = scene.add.graphics().setDepth(y + h);
-    o.fillStyle(0x1d2a12, 0.25).fillEllipse(x + w / 2, y + h, w * 1.05, 16);
-    if (kind === 'hay') {
-      o.fillStyle(0xD9B24C, 1).fillRoundedRect(x, y - 26, w, h + 22, 18);
-      o.fillStyle(0xE9C96A, 1).fillRoundedRect(x + 8, y - 22, w - 16, 26, 12);
-      o.lineStyle(2, 0xB08A2E, 1);
-      for (let k = 0; k < 9; k++) { const sx = x + 10 + k * (w - 20) / 8; o.lineBetween(sx, y - 18, sx + 6, y + h - 6); }
-    } else if (kind === 'barrels') {
-      for (const [cx, cy] of [[x + 22, y + 26], [x + 62, y + 30], [x + 42, y + 8]]) {
-        o.fillStyle(0x7A4E2A, 1).fillCircle(cx, cy, 21); o.lineStyle(3, 0x3C3E37, 1).strokeCircle(cx, cy, 21).strokeCircle(cx, cy, 12);
-      }
-    } else if (kind === 'cart') {
-      o.fillStyle(0x6B4424, 1).fillCircle(x + 22, y + h - 8, 18).fillCircle(x + w - 22, y + h - 8, 18);
-      o.fillStyle(0x9C6B3E, 1).fillRect(x, y - 18, w, h - 8); o.lineStyle(3, 0x5B3A1E, 1).strokeRect(x, y - 18, w, h - 8);
-      o.fillStyle(0xD9B24C, 1).fillRoundedRect(x + 12, y - 30, w - 24, 22, 10);
-    } else if (kind === 'crates') {
-      for (let k = 0; k < Math.floor(w / 36); k++) {
-        const cx = x + k * 38; o.fillStyle(0xB07A47, 1).fillRect(cx, y - 10, 34, h + 6);
-        o.lineStyle(3, 0x5B3A1E, 1).strokeRect(cx, y - 10, 34, h + 6).lineBetween(cx, y - 10, cx + 34, y + h - 4);
-      }
-    } else if (kind === 'bench') {
-      o.fillStyle(0x7A5230, 1).fillRect(x, y - 16, w, h + 10); o.lineStyle(3, 0x4A2E17, 1).strokeRect(x, y - 16, w, h + 10);
-      o.fillStyle(0x8E959A, 1).fillRect(x + 20, y - 8, 30, 6).fillRect(x + 80, y - 10, 10, 18);
-    }
+  // предметы: тень (как у курятника) + картинка; глубина — по низу картинки
+  for (const a of BARN_ART) {
+    const [k, l, b, w, flip] = a, h = barnArtH(a);
+    scene.add.image(BX + l + w * 0.52, BY + b - h * 0.12, 'coopShadow').setDisplaySize(w * 0.95, Math.max(8, h * 0.3)).setDepth(GROUND - 6);   // тень прижата к низу предмета
+    scene.add.image(BX + l + w / 2, BY + b, 'barn', k).setOrigin(0.5, 1).setScale(w / BARN_FRAMES[k][2]).setFlipX(!!flip).setDepth(BY + b);
+  }
+  const TOP = BY + BH + 200;   // свет и полумрак — поверх всего в комнате
+  for (const wx of [63, 388]) scene.add.image(BX + wx, BY + 70, 'barnRay').setOrigin(0.5, 0).setDisplaySize(64, 440).setAngle(-12).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setDepth(TOP);
+  scene.add.image(BARN_DOOR.x, BY + BH + 10, 'barnRay').setOrigin(0.5, 0).setDisplaySize(150, 120).setAngle(180).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35).setDepth(TOP);   // свет из ворот
+  scene.add.image(BX, BY - 30, 'barnEdge').setOrigin(0, 0).setDisplaySize(120, BH + 60).setDepth(TOP + 1);
+  scene.add.image(BX + BW, BY - 30, 'barnEdge').setOrigin(1, 0).setDisplaySize(120, BH + 60).setFlipX(true).setDepth(TOP + 1);
+  // пылинки в лучах
+  barn.dust = [];
+  if (!REDUCED) for (let i = 0; i < 26; i++) {
+    const wx = i % 2 ? 388 : 63, k = Math.random();
+    const d = scene.add.circle(BX + wx + k * 90 + (Math.random() - 0.5) * 36, BY + 90 + k * 410, 1.2 + Math.random() * 1.2, 0xFFF1C8, 1).setAlpha(0).setDepth(TOP).setBlendMode(Phaser.BlendModes.ADD);
+    scene.tweens.add({ targets: d, alpha: { from: 0, to: 0.7 }, duration: 1800 + Math.random() * 2000, yoyo: true, repeat: -1, delay: Math.random() * 3000 });
+    scene.tweens.add({ targets: d, x: d.x + (Math.random() - 0.5) * 30, y: d.y + 20 + Math.random() * 30, duration: 5000 + Math.random() * 4000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    barn.dust.push(d);
   }
   barn.cone = scene.add.graphics().setDepth(GROUND - 4);
-  barn.boxG = scene.add.graphics();
-  const b = barn.boxG; b.fillStyle(0x7A4E2A, 1).fillRoundedRect(-22, -26, 44, 28, 4); b.lineStyle(3, 0x4A2E17, 1).strokeRoundedRect(-22, -26, 44, 28, 4);
-  b.fillStyle(0xC9A040, 1).fillRect(-6, -18, 12, 8); b.lineStyle(3, 0x8E959A, 1).lineBetween(-14, -30, 8, -36);
+  barn.boxG = scene.add.image(0, 0, 'barn', 'toolbox').setOrigin(0.5, 1).setScale(41 / BARN_FRAMES.toolbox[2]);   // ящик с инструментами
+  barn.boxSh = scene.add.container(BARN_BOX.x + 3, BARN_BOX.y - 3, [scene.add.image(0, 0, 'coopShadow').setDisplaySize(64, 22), scene.add.image(0, 0, 'coopShadow').setDisplaySize(64, 22), scene.add.ellipse(0, -1, 42, 10, 0x2A1A08, 0.4)]).setDepth(BY + 177.5);   // тень ящика на сене
   barn.torgel = makeChar(TORGEL_LOOK); barn.zmey = makeChar(ZMEY_LOOK);
   barn.alert = scene.add.text(0, 0, '!', { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: '34px', color: '#E2553A', stroke: '#2E2418', strokeThickness: 5, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
 }
@@ -1608,16 +1617,17 @@ function barnChoice() {
     ['Попробую сама', () => { state.nanamin.barn.helped = 'solo'; save(); showDialog([['zmey', 'Смелая! Он ходит по кругу и оглядывается. Прячься за сеном и бочками.']], () => startBarn('solo')); }],
   ]);
 }
-const BARN_PATROL = [[230, 190], [130, 420], [390, 470], [240, 750], [400, 920], [90, 900], [250, 1170], [390, 1360], [80, 1400], [230, 1080], [70, 700], [380, 250]];   // по кругу через весь амбар
+const BARN_PATROL = [[230, 200], [130, 420], [380, 440], [240, 760], [400, 920], [90, 900], [250, 1170], [390, 1360], [100, 1370], [230, 1080], [70, 700], [380, 240]];   // по кругу через весь амбар
 function startBarn(mode) {
   if (!barn.built) buildBarnRoom();
   Object.assign(barn, { active: true, mode, carry: false, state: 'idle', wp: 0, wpDir: 1, path: null, stuckT: 0, repath: 0, wait: 0.6, lost: 0, timer: 0, glance: 0, cough: 0, chat: 3, squeak: false, lookDir: Math.PI });
   const t = barn.torgel, z = barn.zmey;
-  if (mode === 'round1') { t.setPosition(BX + 360, BY + 165); barn.ang = -Math.PI / 2; barn.state = 'work'; }
+  if (mode === 'round1') { t.setPosition(BX + 390, BY + 190); barn.ang = -Math.PI / 2; barn.state = 'work'; }
   else if (mode === 'zmey') { t.setPosition(BX + 345, BY + 760); barn.ang = 0; barn.state = 'chat'; barn.glance = 6 + Math.random() * 3; }
   else { t.setPosition(BX + 230, BY + 190); barn.ang = Math.PI / 2; barn.state = 'patrol'; }
   z.setVisible(mode === 'zmey'); z.setPosition(BX + 415, BY + 775); z.bodyG.scaleX = -1;
-  barn.boxG.setVisible(true).setPosition(BARN_BOX.x, BARN_BOX.y).setDepth(BARN_BOX.y);
+  barn.boxG.setVisible(true).setPosition(BARN_BOX.x, BARN_BOX.y).setScale(41 / BARN_FRAMES.toolbox[2]).setDepth(BY + 178);   // на телеге
+  barn.boxSh.setVisible(true);
   barn.alert.setVisible(false);
   player.setPosition(BARN_DOOR.x, BY + BH - 30); facing = 1;
   const cam = scene.cameras.main; document.body.classList.add('in-barn'); cam.setBounds(BX - 20, BY - 70, BW + 40, BH + 110); fitCamera();
@@ -1735,10 +1745,10 @@ function updateBarn(dt, time) {
   const t = barn.torgel, s = dt / 1000, px = player.x, py = player.y;
   if (!ui.open && barn.state !== 'done') {
     // ящик и выход
-    if (!barn.carry && Math.hypot(px - BARN_BOX.x, py - BARN_BOX.y) < 40 && barn.mode !== 'round1') {
-      barn.carry = true; toast('Ящик у тебя! Теперь к двери', 'info'); updateHud();
+    if (!barn.carry && Math.hypot(px - BARN_PICK.x, py - BARN_PICK.y) < 42 && barn.mode !== 'round1') {
+      barn.carry = true; barn.boxSh.setVisible(false); toast('Ящик у тебя! Теперь к двери', 'info'); updateHud();
     }
-    if (barn.carry) barn.boxG.setPosition(px + 14, py - 30).setDepth(py + 1);
+    if (barn.carry) barn.boxG.setPosition(px + 14, py - 8).setScale(30 / BARN_FRAMES.toolbox[2]).setDepth(py + 1);
     if (py > BY + BH - 4) {                                   // вышла в дверь
       if (barn.carry) return barnWin();
       if (barn.mode === 'round1' && barn.squeak) { barn.state = 'done'; leaveBarn(); return afterBarnFail(); }
@@ -1748,7 +1758,7 @@ function updateBarn(dt, time) {
     const R = BH + BW, HALF = 0.5;   // Торгель — воин: видит до самой стены, остановить взгляд может только укрытие
     if (barn.state === 'work') {                               // раунд 1: возится у верстака, потом скрип доски
       turnTo(-Math.PI / 2 + Math.sin(time / 900) * 0.25, 2, s);
-      if (!barn.squeak && Math.hypot(px - BARN_BOX.x, py - BARN_BOX.y) < 110) {
+      if (!barn.squeak && Math.hypot(px - BARN_PICK.x, py - BARN_PICK.y) < 110) {
         barn.squeak = true; toast('Скри-и-ип! Доска под ногой…', 'info');
         barn.ang = Math.atan2(py - t.y, px - t.x);
         setTimeout(() => barnSpotted('Торгель: «Кто здесь?! Опять ты?!»'), 450);
@@ -1969,6 +1979,10 @@ const COOP = { x: 1227, y: 215, w: 272 };   // увеличен (v110); под �
 const KOROVNIK = { x: -138, y: 1500, w: 458 };   // коровник у загона Нанамина (v121), ворота смотрят к загону
 // мягкая тень под постройкой (овал с размытым краем), лежит на земле поверх дорожки
 function buildingShadow(x, y, w, h) {
+  shadowTex();
+  scene.add.image(x + w * 0.04, y - h * 0.1, 'coopShadow').setDisplaySize(w * 1.05, h * 0.42).setDepth(GROUND - 8);
+}
+function shadowTex() {
   if (!scene.textures.exists('coopShadow')) {
     const t = scene.textures.createCanvas('coopShadow', 256, 96), ctx = t.getContext();
     const grd = ctx.createRadialGradient(128, 48, 0, 128, 48, 128);
@@ -1976,7 +1990,6 @@ function buildingShadow(x, y, w, h) {
     ctx.setTransform(1, 0, 0, 0.375, 0, 30); ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(128, 48, 128, 0, Math.PI * 2); ctx.fill();
     t.refresh();
   }
-  scene.add.image(x + w * 0.04, y - h * 0.1, 'coopShadow').setDisplaySize(w * 1.05, h * 0.42).setDepth(GROUND - 8);
 }
 function drawPaintedBuilding(B, key) {
   const img = scene.add.image(B.x, B.y, key).setOrigin(0.5, 1);
@@ -2904,6 +2917,9 @@ class FarmScene extends Phaser.Scene {
     this.load.image('h-kuryatnik', 'assets/houses/kuryatnik.webp');
     this.load.image('h-korovnik', 'assets/houses/korovnik.webp');
     this.load.image('hens', 'assets/animals/hens.webp');
+    this.load.image('barn', 'assets/barn/barn.webp');
+    this.load.image('barn-wall', 'assets/barn/barn-wall.webp');
+    this.load.image('barn-floor', 'assets/barn/barn-floor.webp');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
     this.load.image('pathRim', 'assets/paths/path-rim.png');
