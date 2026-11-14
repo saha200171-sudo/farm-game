@@ -218,7 +218,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 129;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 133;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -269,7 +269,7 @@ const QUEST_BEDS = 3;
 const ANCHORS = {
   grandpa: { x: 312, y: 378, reach: 72, mark: -118 },
   well:    { x: 140, y: 560, reach: 92, mark: -92 },
-  zmey:    { x: 228, y: 588, reach: 72, mark: -118 },
+  zmey:    { x: 228, y: 588, reach: 80, mark: -118 },
   chop:    { x: -395, y: 336, reach: 70, mark: -70 },    // колода для рубки дров у дровника
   barn:    { x: -130, y: 205, reach: 62, mark: -150 },   // ворота амбара (к ним ведёт проход слева, за маленьким домиком)
   torgel:  { x: -290, y: 440, reach: 76, mark: -140 },   // Торгель, сын Кетиля — пока стоит на площадке перед домиком   // Змей — главный помощник на ферме; пока стоит у колодца
@@ -351,8 +351,9 @@ function questTarget() {
     case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
     case 2: { const i = state.watered.findIndex(w => !w); return i < 0 ? null : 'bed' + i; }
+    case 31: return 'zmey';
     case 4: return 'gate';
-    case 5: case 6: return 'klara';
+    case 5: return 'klara';
     default: return null;
   }
 }
@@ -365,14 +366,14 @@ function questText() {
     'Вернись к Сверкелю',
     'Открой калитку в курятник',
     'Познакомься с Ольмаром',
-    'Собери яйца для Ольмара',
-    'Отнеси корзину яиц Сверкелю',
+    `Загони кур в курятник: ${chickens.filter(c => c.mode === 'asleep').length} из 6`,
+    'Отнеси яйца Сверкелю',
     'Прототип пройден. Можно гулять по ферме',
-  ][state.step] || '';
+  ][state.step] || ({ 31: 'Найди Змея и представься ему', 61: `Собери яйца в соломе: ${state.items.eggs || 0} из 8` })[state.step] || '';
 }
 function updateHud() {
   const d2 = state.day2.stage;
-  $('questLabel').textContent = d2 ? 'Задание · день 2' : state.step >= 8 ? 'Готово' : 'Задание';
+  $('questLabel').textContent = d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61].includes(state.step)) ? 'Готово' : 'Задание';
   $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
   const chips = [];
@@ -380,7 +381,7 @@ function updateHud() {
   if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
   if (state.items.horseshoe) chips.push(['Подкова на удачу', '#C9A040']);
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
-  if (state.step === 7) chips.push([`Яйца × ${state.items.eggs}`, '#FFF6E3']);
+  if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
   if (state.time.day > 1 || state.time.phase !== 'day') {
     const sky = { day: '#9FD3F0', evening: '#F2A66B', morning: '#F7D9C4' }[state.time.phase] || '#9FD3F0';
     chips.unshift([`День ${state.time.day}`, sky]);
@@ -523,82 +524,6 @@ function resetGame() {
   scene.scene.restart();
 }
 
-// ===================== Мини-игра «Собери яйца» =====================
-function eggGame(onWin) {
-  const GOAL = 8, TIME = 20;
-  openModal(`<div class="card mg">
-    <div class="info">
-      <div class="badge">Мини-игра</div>
-      <h2>Собери яйца</h2>
-      <p>Нажимай на яйца, пока куры их не спрятали. Золотое считается за два.</p>
-      <div class="mg-stats"><span>Яйца: <b id="mgCount">0</b> из ${GOAL}</span><span>Время: <b id="mgTime">${TIME}</b> с</span></div>
-      <div class="bar"><i id="mgBar"></i></div>
-      <div class="row"><button class="btn" id="mgStart" type="button">Начать</button></div>
-    </div>
-    <div class="nests" id="nests">${Array.from({ length: 9 }, (_, i) => `<button class="nest" type="button" data-i="${i}" aria-label="Гнездо ${i + 1}"><span class="egg"></span></button>`).join('')}</div>
-  </div>`);
-  const nests = [...document.querySelectorAll('.nest')];
-  let count = 0, left = TIME, running = false, tick = null, spawnAcc = 0;
-  const life = new Array(9).fill(0);
-
-  const paint = () => {
-    $('mgCount').textContent = Math.min(count, GOAL);
-    $('mgTime').textContent = Math.ceil(left);
-    $('mgBar').style.width = Math.min(100, count / GOAL * 100) + '%';
-  };
-  nests.forEach((n, i) => n.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    if (!running || !n.classList.contains('has')) return;
-    count += n.classList.contains('gold') ? 2 : 1;
-    n.classList.remove('has', 'gold'); life[i] = 0;
-    paint();
-    if (count >= GOAL) finish(true);
-  }));
-
-  function start() {
-    $('mgStart').closest('.row').hidden = true;
-    running = true; count = 0; left = TIME; paint();
-    tick = setInterval(() => {
-      left -= 0.1;
-      const t = 1 - left / TIME;
-      // яйца появляются всё чаще и прячутся быстрее
-      spawnAcc += 100;
-      if (spawnAcc >= 760 - t * 280) {
-        spawnAcc = 0;
-        const free = nests.map((n, i) => i).filter(i => !nests[i].classList.contains('has'));
-        if (free.length) {
-          const i = free[Math.floor(Math.random() * free.length)];
-          nests[i].classList.add('has');
-          if (Math.random() < 0.15) nests[i].classList.add('gold');
-          life[i] = 1300 - t * 450;
-        }
-      }
-      nests.forEach((n, i) => {
-        if (life[i] > 0) { life[i] -= 100; if (life[i] <= 0) n.classList.remove('has', 'gold'); }
-      });
-      paint();
-      if (left <= 0) finish(false);
-    }, 100);
-  }
-  function finish(win) {
-    running = false; clearInterval(tick);
-    if (win) {
-      openModal(`<div class="card"><div class="badge">Получилось</div><h2>Корзина полна!</h2>
-        <p>Восемь яиц собраны. Ольмар будет доволен.</p>
-        <div class="row"><button class="btn" id="mgOk" type="button">Отдать Ольмару</button></div></div>`);
-      $('mgOk').onclick = () => { closeModal(); onWin(Math.max(count, GOAL)); };
-    } else {
-      openModal(`<div class="card"><div class="badge">Почти</div><h2>Собрано ${count} из ${GOAL}</h2>
-        <p>Куры оказались быстрее. Попробуем ещё раз?</p>
-        <div class="row"><button class="btn secondary" id="mgLater" type="button">Позже</button>
-        <button class="btn" id="mgAgain" type="button">Ещё раз</button></div></div>`);
-      $('mgLater').onclick = () => { closeModal(); toast('Ольмар подождёт. Подойди к нему, когда будешь готова', 'info'); };
-      $('mgAgain').onclick = () => { closeModal(); eggGame(onWin); };
-    }
-  }
-  $('mgStart').onclick = start;
-}
-
 // ===================== Сюжет: что происходит при взаимодействии =====================
 function interact(id) {
   const s = state;
@@ -625,6 +550,7 @@ function interact(id) {
   }
   if (id.startsWith('bed')) {
     const i = +id.slice(3);
+    if (VEG_BEDS[i]) return harvestBed(i);
     if (i >= QUEST_BEDS || !s.items.can || s.watered[i]) return testBed(i);   // ВРЕМЕННО: меню теста грядок
     s.watered[i] = true; drawBed(i); splash(BEDS[i].x, BEDS[i].y - 10);
     const n = s.watered.filter(Boolean).length;
@@ -645,23 +571,26 @@ function talkGrandpa() {
     ['grandpa', 'Хозяйство совсем заросло, одному мне не справиться.'],
     ['grandpa', 'Начнём с огорода. Возьми лейку у колодца и полей все три грядки.'],
   ], () => { s.step = 1; progress(); });
-  if (s.step === 3) return showDialog([
-    ['grandpa', 'Ох, какие всходы! Сразу видно, рука лёгкая.'],
-    ['grandpa', 'Держи ключ от калитки. За ней курятник — там хозяйничает Ольмар, младший сын Кетиля.'],
-    ['grandpa', 'Она давно ждёт помощи. Сходи познакомься.'],
-  ], () => { if (s.open.kuryatnik) { s.step = 5; progress(); return; } s.items.key = true; s.step = 4; toast('Получено: ключ от калитки'); progress(); });
+  if (s.step === 3) return showDialog([   // реплики — черновик
+    ['grandpa', 'Ох, какие всходы! Сразу видно — рука лёгкая.'],
+    ['grandpa', 'А теперь сходи представься Змею. Он у нас за порядком следит и должен знать в лицо всех, кто работает на ферме.'],
+    ['grandpa', 'А то, чего доброго, примет тебя за чужую да погонит со двора.'],
+    ['grandpa', 'Ищи его в огороде, внизу слева. Небось опять дремлет под деревом…'],
+    ['grandpa', 'И вот ещё что: как освоишься — с тебя ужин. Готовить на всех теперь будешь ты, а то от моей стряпни уже все разбегаются.'],
+  ], () => { s.step = 31; toast('Новое задание: найди Змея'); progress(); });
   if (s.step === 7) return showDialog([
-    ['grandpa', 'Свежие яйца! Испеку пирог на всю округу.'],
-    ['grandpa', 'А за курятником старый сад. Его хозяин давно не показывался…'],
-    ['grandpa', 'Но это уже совсем другая история.'],
+    ['grandpa', 'Свежие яйца! Вот и славно — будет из чего ужин сварить.'],
+    ['grandpa', 'Похлёбку с капустой и пореем — по-нашему, сытную. Котёл у очага, овощи на грядках слева.'],
+    ['grandpa', 'А за курятником старый сад. Его хозяин давно не показывался… Но это уже совсем другая история.'],
   ], () => { s.step = 8; s.items.eggs = 0; progress(); showFinal(); });
   const idle = {
     1: 'Лейка висит у колодца, слева от грядок.',
     2: 'Полей все три грядки, они совсем пересохли.',
+    31: 'Змей где-то в огороде, внизу слева, под деревом. Буди смелее — он только делает вид, что охраняет.',
     4: 'Калитка справа, в конце дорожки.',
     5: 'Ольмар только с виду важничает. Парень он добрый, сам увидишь.',
     6: 'Ольмар просил помочь с яйцами? Без этого он тебя не отпустит.',
-    8: 'Пирог уже в печи!',
+    8: 'Ужин сам себя не сварит!',
   }[s.step] || 'Как дела? Ферма тебе ещё не надоела?';
   showDialog([['grandpa', idle]]);
 }
@@ -721,11 +650,58 @@ function talkKale() {
 // Змей — главный помощник на ферме: любит подшутить, но становится серьёзным, когда дело касается защиты фермы.
 // Реплики — ЗАГЛУШКА, позже заменим текстом от автора
 function talkZmey() {
+  if (zmeyNapping()) {
+    if (state.step !== 31) return showThought('Кто-то спит под деревом… Не буду будить. Пока.');
+    return wakeZmey();
+  }
   showDialog([
-    ['zmey', 'О, новенькая! Дед говорил, что приедет помощница. Я думал, будет кто-то повыше.'],
-    ['zmey', 'Ладно, шучу. Я Змей, помогаю деду по хозяйству и присматриваю, чтобы на ферму не забредал кто не надо.'],
-    ['zmey', 'Если что-то стрясётся — сразу зови меня.'],
+    ['zmey', 'Всё спокойно, напарница. Ни одного чужака — только куры подозрительно на меня смотрят.'],
   ]);
+}
+// Знакомство со Змеем (реплики — черновик): будим, он шутит, рассказывает о ферме и отдаёт ключ от калитки
+function wakeZmey() {
+  const s = state;
+  if (zmeyZzz) { zmeyZzz.forEach(z => { scene.tweens.killTweensOf(z); z.destroy(); }); zmeyZzz = null; }
+  scene.tweens.add({ targets: zmeyChar, angle: 0, y: ZMEY_NAP.y, duration: 350, ease: 'Back.easeOut' });   // вскакивает
+  zmeyChar.bodyG.scaleX = player.x < zmeyChar.x ? -1 : 1;
+  ANCHORS.zmey.mark = -118;   // встал — значок задания над головой, а не на лице
+  showDialog([
+    ['thought', 'Он что, спит? Прямо посреди дня, на улице?..'],
+    ['hero', 'Эй… Простите! Проснитесь!'],
+    ['zmey', 'М-м… Я не сплю. Я охраняю ферму с закрытыми глазами. Так врагам страшнее.'],
+    ['zmey', 'А ты кто такая? Новенькая? Дед говорил, что приедет помощница. Я думал, будет кто-то повыше.'],
+    ['hero', 'Сверкель сказал, что мне нужно вам представиться.'],
+    ['zmey', 'Мудро. Я Змей. Слежу, чтобы чужие не шастали, коровы не разбегались, а дед не таскал тяжёлое.'],
+    ['zmey', 'Ферма у нас большая. Тут огород, за калиткой — курятник, за ним старый сад, внизу пастбище, а за домом деда — поля.'],
+    ['zmey', 'Кстати, раз уж ты такая бодрая — загляни к Ольмару в курятник. Сдаётся мне, куры взяли его в плен.'],
+    ['zmey', 'Он, конечно, скажет, что у него всё под контролем. Ты сделай вид, что веришь.'],
+    ['zmey', 'Держи ключ от калитки. А я пойду проверю колодец — а то ведро опять кто-то утопил. Не я. Наверное.'],
+  ], () => {
+    if (s.open.kuryatnik) s.step = 5; else { s.items.key = true; s.step = 4; toast('Получено: ключ от калитки'); }
+    progress();
+    placeZmey(true);
+  });
+}
+// Змей на своём месте: дремлет под деревом (до знакомства) или стоит у колодца
+function placeZmey(animate) {
+  const nap = zmeyNapping(), P = nap ? ZMEY_NAP : ZMEY_POST;
+  const put = () => {
+    zmeyChar.setPosition(P.x, P.y).setDepth(P.y).setAngle(nap ? -84 : 0);
+    zmeyChar.bodyG.scaleX = -1;
+    zmeyLabel.setPosition(P.x, nap ? P.y - 46 : P.y - 78).setVisible(!nap);
+    Object.assign(ANCHORS.zmey, { x: P.x, y: P.y, mark: nap ? -60 : -118 });
+    if (zmeyZzz) { zmeyZzz.forEach(z => { scene.tweens.killTweensOf(z); z.destroy(); }); zmeyZzz = null; }
+    if (nap) {   // «Z z z» поднимаются над спящим
+      zmeyZzz = [0, 1, 2].map(i => {
+        const z = scene.add.text(P.x + 14, P.y - 40, 'z', { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: (16 + i * 5) + 'px', color: '#FFFDF4', stroke: '#2E2418', strokeThickness: 4, resolution: 3 }).setOrigin(0.5).setDepth(4000).setAlpha(0);
+        if (!REDUCED) scene.tweens.add({ targets: z, x: P.x + 26 + i * 6, y: P.y - 70 - i * 10, alpha: { from: 0, to: 1 }, duration: 1600, delay: i * 520, repeat: -1, ease: 'Sine.easeOut', onRepeat: () => z.setPosition(P.x + 14, P.y - 40) });
+        else z.setPosition(P.x + 20 + i * 8, P.y - 50 - i * 12).setAlpha(1);
+        return z;
+      });
+    }
+  };
+  if (!animate) return put();
+  scene.tweens.add({ targets: [zmeyChar, zmeyLabel], alpha: 0, duration: 400, onComplete: () => { put(); scene.tweens.add({ targets: [zmeyChar, zmeyLabel], alpha: 1, duration: 500 }); } });
 }
 // Торгель — сын хозяина фермы Кетиля: очень сильный и суровый, но без повода никого не трогает.
 // Реплика — ЗАГЛУШКА, позже заменим текстом от автора
@@ -922,26 +898,133 @@ function goToSleep() {
   }, 5200);
 }
 
+// Ольмар (реплики — черновик): боится кур. Шаг 6 — «Загони кур» (во дворе), шаг 61 — собрать яйца в соломе
 function talkKlara() {
   const s = state;
   if (s.step === 5) return showDialog([
     ['klara', 'А, ты та новенькая. Я Ольмар, сын Кетиля. Курятник — моя забота… пока отец не доверит мне дело поважнее.'],
-    ['klara', 'Куры сегодня разнеслись по всему двору. Я бы и сам собрал, конечно, просто… петух нынче злой. Поможешь?'],
-    ['klara', 'Нужно восемь яиц. Только быстро: куры прячут их обратно!'],
-  ], () => { s.step = 6; progress(); eggGame(winEggs); });
-  if (s.step === 6) return showDialog([['klara', 'Ну что, ещё попытка? А я… постерегу петуха отсюда.']], () => eggGame(winEggs));
-  showDialog([['klara', s.step === 7 ? 'Отнеси корзинку Сверкелю, он давно хотел испечь пирог.' : 'Заходи ещё. Куры к тебе привыкли… да и я, пожалуй, тоже.']]);
+    ['klara', 'Куры… э-э… решили прогуляться. Все шесть. Я их, конечно, сам выпустил. Для разминки.'],
+    ['hero', 'А почему ты тогда стоишь так далеко от них?'],
+    ['klara', 'Я наблюдаю. Стратегически. Загони их в курятник, ладно? Они от тебя убегают — вот и гони их к лесенке.'],
+  ], () => { s.step = 6; progress(); startHerd(); toast('Загони кур в курятник: подходи сзади и гони к лесенке', 'info'); });
+  if (s.step === 6) return showDialog([['klara', 'Слева заходи, слева! …Ну или справа. Главное — не ко мне.']]);
+  if (s.step === 61) return showDialog([['klara', 'Яйца в соломе по всему двору. Я бы и сам собрал, но… кто-то же должен следить за курятником.']]);
+  showDialog([['klara', s.step === 7 ? 'Отнеси яйца Сверкелю — к ужину пригодятся.' : 'Заходи ещё. Куры к тебе привыкли… да и я, пожалуй, тоже.']]);
 }
-function winEggs(n) {
-  showDialog([
-    ['klara', 'Восемь штук! Ловко… Я бы и сам, конечно. Но спасибо. Правда.'],
-    ['klara', 'Отнеси корзинку Сверкелю, он давно хотел испечь пирог.'],
-  ], () => { state.step = 7; state.items.eggs = n; progress(); });
+const herd = { active: false, escT: 0, talkT: 4, squeakT: 0, bubble: null };
+const OLMAR = { x: 940, y: 320 };
+function startHerd() {
+  herd.active = true; herd.escT = 14; herd.talkT = 5;
+  chickens.forEach((c, i) => {
+    scene.tweens.killTweensOf(c);
+    c.setVisible(true).setAlpha(1).setScale(1); c.depthFix = null; c.hNext = null; c.hVisit = false;
+    henPose(c, false); c.legB.angle = c.legF.angle = c.g.angle = 0; c.body.y = c.bodyY0;
+    if (!['herd'].includes(c.mode)) c.setPosition(800 + Math.random() * 480, 300 + Math.random() * 150);
+    Object.assign(c, { mode: 'herd', t: Math.random() * 1500, tx: c.x, ty: c.y });
+  });
 }
-
+function olmarSay(text, jump) {
+  if (herd.bubble) herd.bubble.destroy();
+  herd.bubble = scene.add.text(OLMAR.x, OLMAR.y - 104, text, { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '700', fontSize: '15px', color: '#2E2418',
+    backgroundColor: '#FFFDF4', padding: { x: 8, y: 5 }, wordWrap: { width: 200 }, align: 'center', resolution: 3 }).setOrigin(0.5, 1).setDepth(4100);
+  const b = herd.bubble; scene.time.delayedCall(2600, () => { if (b.active) scene.tweens.add({ targets: b, alpha: 0, duration: 300, onComplete: () => b.destroy() }); });
+  if (jump && klara && !REDUCED) scene.tweens.add({ targets: klara, y: OLMAR.y - 14, duration: 120, yoyo: true, ease: 'Quad.easeOut' });
+}
+const OLMAR_LINES = ['Слева заходи, слева!', 'Осторожно, та рыжая смотрит на меня с подозрением…', 'Ты молодец! Я тоже молодец — я не убежал.',
+  'Медленнее… Нет, быстрее!', 'Они чувствуют страх. Поэтому я стою здесь.', 'Гони к лесенке! К лесенке!'];
+// двор, где бегают куры: сверху — до площадки у курятника, сам курятник обходят
+function henClamp(c) {
+  c.x = Phaser.Math.Clamp(c.x, 770, 1310);
+  c.y = Phaser.Math.Clamp(c.y, c.x > 1030 ? 206 : 262, 462);
+  if (c.x > 1110 && c.x < 1346 && c.y < 200) c.y = 200;
+}
+function herdHen(c, dt) {
+  if (c.mode === 'walk' || c.mode === 'idle' || c.mode === 'peck') { henPose(c, false); c.mode = 'herd'; c.t = 0; }   // вышла из курятника — снова бегает
+  if (c.mode !== 'herd') { updateHenNight(c, dt); return; }
+  const s = dt / 1000, dx = c.x - player.x, dy = c.y - player.y, d = Math.hypot(dx, dy) || 1;
+  let vx = 0, vy = 0;
+  if (d < 95) {                                   // героиня близко — удирает от неё
+    const sp = 55 + (1 - d / 95) * 70; vx = dx / d * sp; vy = dy / d * sp;
+  } else {                                        // спокойно бродит по чуть-чуть
+    if ((c.t -= dt) <= 0) { c.t = 1200 + Math.random() * 2200; c.tx = c.x + (Math.random() - 0.5) * 90; c.ty = c.y + (Math.random() - 0.5) * 60; }
+    const ex = c.tx - c.x, ey = c.ty - c.y, e = Math.hypot(ex, ey);
+    if (e > 4) { vx = ex / e * 22; vy = ey / e * 22; }
+  }
+  c.x += vx * s; c.y += vy * s; henClamp(c);
+  const moving = Math.hypot(vx, vy) > 3;
+  if (moving) {
+    if (Math.abs(vx) > 4) c.g.scaleX = vx < 0 ? -1 : 1;
+    c.phase += dt * (d < 95 ? 0.03 : 0.019); const sw = REDUCED ? 0 : Math.sin(c.phase);
+    c.legB.angle = -sw * 26; c.legF.angle = sw * 26; c.body.y = c.bodyY0 - (REDUCED ? 0 : Math.abs(sw) * 1.4);
+  } else { c.legB.angle = c.legF.angle = 0; c.body.y = c.bodyY0; }
+  const r = henRamp();
+  if (Math.hypot(c.x - r.x, c.y - r.y) < 30) {    // у лесенки — забирается в курятник
+    c.legB.angle = c.legF.angle = 0; c.body.y = c.bodyY0;
+    Object.assign(c, { mode: 'climbing', t: 0, sx: c.x, sy: c.y, depthFix: COOP.y - 10, hVisit: false }); c.g.scaleX = 1;
+  }
+  if (Math.hypot(c.x - OLMAR.x, c.y - OLMAR.y) < 55 && herd.squeakT <= 0) { herd.squeakT = 3.5; olmarSay('Ай! Кыш-кыш!', true); }
+}
+function updateHerd(dt) {
+  if (!herd.active) return;
+  const s = dt / 1000; herd.squeakT -= s; herd.talkT -= s;
+  const inside = chickens.filter(c => c.mode === 'asleep').length;
+  if (herd.talkT <= 0) { herd.talkT = 7 + Math.random() * 4; olmarSay(OLMAR_LINES[Math.floor(Math.random() * OLMAR_LINES.length)]); }
+  // изредка одна курица выскакивает обратно (если загнано уже 2–5)
+  if (inside >= 2 && inside < 6 && (herd.escT -= s) <= 0) {
+    herd.escT = 13 + Math.random() * 7;
+    const c = chickens.find(c => c.mode === 'asleep');
+    if (c) { henExit(c, 0); scene.time.delayedCall(900, () => herd.active && olmarSay('Одна сбежала! Предательница!')); }
+  }
+  if (inside !== herd.inside) { herd.inside = inside; updateHud(); }
+  if (inside >= 6 && chickens.every(c => c.mode === 'asleep')) {
+    herd.active = false;
+    if (herd.bubble) herd.bubble.destroy();
+    showDialog([
+      ['klara', 'Все шесть! Вот это… да. Я бы, конечно, и сам. Просто давал тебе потренироваться.'],
+      ['klara', 'Слушай, раз уж ты такая смелая… Они в соломе яиц нанесли, пока гуляли. Соберёшь? Восемь штук.'],
+    ], () => { state.step = 61; state.items.eggs = 0; progress(); spawnEggs(8); toast('Собери яйца в соломе по двору', 'info'); });
+  }
+}
+// яйца в соломе: героиня подбирает, просто пройдя рядом
+const eggsOnGround = [];
+function eggTex() {
+  if (scene.textures.exists('egg')) return;
+  const t = scene.textures.createCanvas('egg', 40, 44), c = t.getContext();
+  c.fillStyle = 'rgba(200,160,70,0.85)'; for (let i = 0; i < 14; i++) { c.save(); c.translate(20, 36); c.rotate((i / 14) * Math.PI - Math.PI / 2 + (Math.random() - 0.5) * 0.3); c.fillRect(-1, 0, 2, 9 + Math.random() * 7); c.restore(); }   // солома
+  const g = c.createRadialGradient(16, 18, 2, 20, 24, 14); g.addColorStop(0, '#FFFDF4'); g.addColorStop(0.7, '#F3E6CC'); g.addColorStop(1, '#D9C29A');
+  c.fillStyle = g; c.beginPath(); c.ellipse(20, 24, 9, 12, 0, 0, Math.PI * 2); c.fill(); t.refresh();
+}
+function spawnEggs(n) {
+  eggTex(); eggsOnGround.forEach(e => e.destroy()); eggsOnGround.length = 0;
+  for (let i = 0; i < n; i++) {
+    let x, y, k = 0;
+    do { x = 790 + Math.random() * 500; y = 270 + Math.random() * 180; k++; }
+    while (k < 40 && (Math.hypot(x - OLMAR.x, y - OLMAR.y) < 50 || eggsOnGround.some(e => Math.hypot(e.x - x, e.y - y) < 60)));
+    const e = scene.add.image(x, y, 'egg').setOrigin(0.5, 0.8).setScale(0.85).setDepth(y);
+    if (!REDUCED) scene.tweens.add({ targets: e, scale: 0.95, duration: 700 + Math.random() * 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    eggsOnGround.push(e);
+  }
+}
+function updateEggs() {
+  if (state.step !== 61 || !eggsOnGround.length || ui.open) return;
+  for (let i = eggsOnGround.length - 1; i >= 0; i--) {
+    const e = eggsOnGround[i];
+    if (Math.hypot(player.x - e.x, player.y - e.y) < 28) {
+      eggsOnGround.splice(i, 1); scene.tweens.killTweensOf(e);
+      scene.tweens.add({ targets: e, y: e.y - 30, alpha: 0, duration: 350, onComplete: () => e.destroy() });
+      state.items.eggs = (state.items.eggs || 0) + 1; updateHud();
+      if (state.items.eggs >= 8) {
+        showDialog([
+          ['klara', 'Восемь! Ловко… Спасибо. Правда.'],
+          ['klara', 'Отнеси их Сверкелю — к ужину пригодятся. А кур я… выпущу. Попозже. Когда они успокоятся.'],
+        ], () => { state.step = 7; state.items.eggs = 8; progress(); chickens.forEach((c, k) => c.mode === 'asleep' && henExit(c, 600 + k * 900)); });
+      }
+    }
+  }
+}
 function showFinal() {
   openModal(`<div class="card"><div class="badge">Конец прототипа</div><h2>Ферма оживает</h2>
-    <p>Огород полит, курятник открыт, Сверкель печёт пирог. В полной игре дальше откроется Сад и его хозяин.</p>
+    <p>Огород полит, Змей разбужен, куры загнаны, яйца собраны. Дальше — ужин в доме Сверкеля (готовим скоро).</p>
     <div class="row"><button class="btn secondary" id="fStay" type="button">Погулять</button>
     <button class="btn" id="fAgain" type="button">Пройти заново</button></div></div>`);
   $('fStay').onclick = closeModal;
@@ -949,7 +1032,10 @@ function showFinal() {
 }
 
 // ===================== Игровой мир (Phaser) =====================
-let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG;
+let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
+// День 1: пока героиня не представилась, Змей дремлет под ветвистым деревом в левом нижнем углу огорода
+const ZMEY_NAP = { x: -432, y: 932 }, ZMEY_POST = { x: 228, y: 588 };
+const zmeyNapping = () => state.step <= 3 || state.step === 31;
 let saveMs = 0, facing = 1, nearId = null;
 const chickens = [];
 const cows = [], followers = [];
@@ -974,7 +1060,7 @@ function solids() {
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
   list.push([917, 741, 52, 22]);    // Дядя Айро
-  list.push([210, 578, 36, 14]);    // Змей
+  if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([210, 578, 36, 14]);    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
   list.push([-312, 430, 44, 16]);   // Торгель
   list.push([660, -1208, 58, 26]);  // Кейл
@@ -1013,12 +1099,12 @@ function hitTest(x, y) {
   const near = (ax, ay, r) => (x - ax) ** 2 + (y - ay) ** 2 <= r * r;
   if (near(312, 343, 44)) return 'grandpa';
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
-  if (near(228, 553, 40)) return 'zmey';
+  if (near(ANCHORS.zmey.x, ANCHORS.zmey.y - (zmeyNapping() ? 10 : 35), 44)) return 'zmey';
   if (state.nanamin.tools === 2 && near(CHOP_SPOT.x, CHOP_SPOT.y - 14, 42)) return 'chop';
   if (state.nanamin.tools === 4 && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 46)) return 'barn';
   if (near(-290, 396, 48)) return 'torgel';
   if (near(140, 545, 56)) return 'well';
-  for (let i = 0; i < BEDS.length; i++) if (Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
+  for (let i = 0; i < BEDS.length; i++) if ((!VEG_BEDS[i] || canHarvest(i)) && Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(800, 1545, 44)) return 'nanamin';
   if (state.open.sad && near(943, 721, 50)) return 'iro';
@@ -1087,7 +1173,8 @@ function inputVector() {
 function nearest() {
   let best = null, bd = Infinity;
   const nm = state.nanamin;
-  const ids = Object.keys(ANCHORS).concat(cows.filter(c => !c.following && nm.cows[c.idx] !== 2).map(c => 'cow' + c.idx));
+  const ids = Object.keys(ANCHORS).concat(cows.filter(c => !c.following && nm.cows[c.idx] !== 2).map(c => 'cow' + c.idx))
+    .concat(Object.keys(VEG_BEDS).filter(i => canHarvest(+i)).map(i => 'bed' + i));   // левые грядки — только когда можно срывать
   for (const id of ids) {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
@@ -1111,8 +1198,10 @@ function actionLabel(id) {
   if (id === 'barn') return 'Войти в амбар';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
+  if (id.startsWith('bed') && VEG_BEDS[+id.slice(3)]) return 'Сорвать ' + VEG_NAMES[VEG_BEDS[+id.slice(3)]];
   if (id.startsWith('bed')) return +id.slice(3) < QUEST_BEDS && state.items.can && !state.watered[+id.slice(3)] ? 'Полить' : 'Грядка (тест)';
   if (id === 'gate') return 'Открыть';
+  if (id === 'zmey' && zmeyNapping()) return state.step === 31 ? 'Разбудить' : 'Осмотреть';
   return 'Поговорить';
 }
 function updateControls() {
@@ -1839,8 +1928,8 @@ function drawWell() {   // каменный колодец с крышей и в
 }
 // Грядки — рисованные (Magnific), собираются любой длины: верх + N средних кусков (по ряду растений) + низ.
 // Атлас assets/fields/beds.webp: для каждого состояния три куска [x, y, w, h]. Куски кладутся с нахлёстом BED_OV.
-const BED_FRAMES = {"pustaya-top":[0,0,208,50],"pustaya-mid":[0,52,208,155],"pustaya-bot":[0,209,208,34],"rostki-top":[210,0,208,50],"rostki-mid":[210,52,208,156],"rostki-bot":[210,210,208,34],"kapusta-top":[420,0,208,35],"kapusta-mid":[420,37,208,182],"kapusta-bot":[420,221,208,19],"tykva-top":[630,0,241,55],"tykva-mid":[630,57,241,178],"tykva-bot":[630,237,241,34]};
-// состояния: pustaya — пустая, rostki — ростки, kapusta — капуста, tykva — тыква (v2: квадратные клетки без подставки, моркови нет)
+const BED_FRAMES = {"pustaya-top":[0,0,208,50],"pustaya-mid":[0,52,208,155],"pustaya-bot":[0,209,208,34],"rostki-top":[210,0,208,50],"rostki-mid":[210,52,208,156],"rostki-bot":[210,210,208,34],"kapusta-top":[420,0,208,35],"kapusta-mid":[420,37,208,182],"kapusta-bot":[420,221,208,19],"tykva-top":[630,0,241,55],"tykva-mid":[630,57,241,178],"tykva-bot":[630,237,241,34],"luk-top":[873,0,210,72],"luk-mid":[873,74,210,68],"luk-bot":[873,144,210,105]};
+// состояния: pustaya — пустая, rostki — ростки, kapusta — капуста, tykva — тыква, luk — лук-порей (v2: квадратные клетки без подставки, моркови нет)
 const BED_K = 60 / 208;   // единиц карты на пиксель атласа (ширина грядки на карте ≈ 60)
 const BED_OV = 15;        // нахлёст кусков, px атласа
 const BED_PAD = { tykva: [18, 16] };   // у тыквы листья свисают за кромку: сверху 18, снизу 16 px атласа
@@ -1877,13 +1966,28 @@ function testBed(i) {
   const set = crop => () => { (state.bedCrop || (state.bedCrop = []))[i] = crop; drawBed(i); save(); };
   showChoice('test', 'Что вырастить на этой грядке?', [
     ['Отмена', () => {}],
-    ['Взрастить тыкву', set('tykva')], ['Взрастить капусту', set('kapusta')],
+    ['Взрастить тыкву', set('tykva')], ['Взрастить капусту', set('kapusta')], ['Лук-порей', set('luk')],
     ['Ростки', set('rostki')], ['Очистить', set('pustaya')],
   ]);
+}
+// Левые грядки (не для полива) — готовые овощи для готовки: капуста, порей, капуста, порей, всходы.
+// Сорванная грядка пустеет до следующего дня. Срывать можно только во время задания на готовку (canHarvest).
+const VEG_BEDS = { 4: 'kapusta', 5: 'luk', 6: 'kapusta', 7: 'luk', 8: 'rostki' };
+const VEG_NAMES = { kapusta: 'капусту', luk: 'порей' };
+const pickedToday = () => (state.picked && state.picked.day === state.time.day) ? state.picked.beds : [];
+const canHarvest = i => !!state.cookQuest && (VEG_BEDS[i] === 'kapusta' || VEG_BEDS[i] === 'luk') && !pickedToday().includes(i);   // задание на ужин включит state.cookQuest
+function harvestBed(i) {
+  if (!canHarvest(i)) return;
+  if (!state.picked || state.picked.day !== state.time.day) state.picked = { day: state.time.day, beds: [] };
+  state.picked.beds.push(i);
+  const veg = VEG_BEDS[i]; state.items[veg] = (state.items[veg] || 0) + 1;
+  drawBed(i); splash(BEDS[i].x, BEDS[i].y - 10);
+  toast('Сорвано: ' + (veg === 'luk' ? 'лук-порей' : 'капуста')); progress();
 }
 function drawBed(i) {
   const { x, y, len } = BEDS[i];
   if (bedG[i]) bedG[i].destroy();
+  if (VEG_BEDS[i]) { bedG[i] = makeBed(x, y, len, pickedToday().includes(i) ? 'pustaya' : VEG_BEDS[i]); return; }
   // пока по сюжету: не полита — пустая, полита — ростки (капуста, тыква — для будущих заданий)
   let crop = (state.bedCrop || [])[i] || (state.watered[i] ? 'rostki' : 'pustaya');
   if (!BED_FRAMES[crop + '-top']) crop = 'pustaya';   // старые сохранения (морковь убрана)
@@ -2552,7 +2656,7 @@ function henExit(c, delay) {   // курочка появляется в две�
 // Днём иногда (раз в 12–35 с) одна курочка, а порой сразу две, заходят в курятник и через 5–17 с выходят обратно
 let henVisitT = 9000;
 function henVisits(dt) {
-  if (state.time.phase === 'evening' || !chickens.length) return;
+  if (state.time.phase === 'evening' || !chickens.length || herd.active || state.step === 61) return;
   if ((henVisitT -= dt) > 0) return;
   henVisitT = 12000 + Math.random() * 23000;
   const busy = chickens.filter(c => c.hVisit || c.mode === 'inside').length;
@@ -2957,6 +3061,9 @@ class FarmScene extends Phaser.Scene {
     registerHenFrames();
     for (let i = 0; i < 6; i++) chickens.push(makeChicken(800 + i * 95, 300 + (i % 2) * 120, i % 3 === 1 ? 'ginger' : 'white'));
     henTime(state.time.phase === 'evening', true);
+    herd.active = false; eggsOnGround.length = 0;
+    if (state.step === 6) startHerd();
+    if (state.step === 61) { chickens.forEach(c => { c.mode = 'asleep'; c.setVisible(false); }); spawnEggs(8 - (state.items.eggs || 0)); }
 
     // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
     // серо-синяя рубаха на круглом животе, полотенце на шее, руки за спиной
@@ -2972,11 +3079,10 @@ class FarmScene extends Phaser.Scene {
     klara.bodyG.scaleX = -1;
     klaraLabel = nameLabel('Ольмар', 940, 242).setVisible(state.open.kuryatnik);
     // Змей: тёмные волнистые волосы, щетина, туника сливового цвета, серые штаны, высокие сапоги, меч на поясе
-    const zmey = makeChar({ skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
+    const zmey = zmeyChar = makeChar({ skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
       hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true });
-    zmey.setPosition(228, 588).setDepth(588);
-    zmey.bodyG.scaleX = -1;   // смотрит на колодец
-    nameLabel('Змей', 228, 510);
+    zmeyLabel = nameLabel('Змей', 228, 510);
+    placeZmey(false);   // дремлет под деревом или стоит у колодца
     // Торгель: сын Кетиля, крупнее остальных; светлые волосы зачёсаны назад, борода, шрам, тёмно-красная туника с горчичной отделкой, прямой меч
     const torgel = makeChar({ skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
       hair: 'swept', hairColor: 0xE8D27E, jawBeard: true, scar: true, stern: true, noBlush: true, longsword: true, scale: 1.18 });
@@ -3074,7 +3180,8 @@ class FarmScene extends Phaser.Scene {
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
     henVisits(dt);
-    chickens.forEach(c => { updateHen(c, dt); c.setDepth(c.depthFix || c.y); });
+    chickens.forEach(c => { if (herd.active) herdHen(c, dt); else updateHen(c, dt); c.setDepth(c.depthFix || c.y); });
+    updateHerd(dt); updateEggs();
     updateCull(dt);
     updatePasture(dt);
     updateField();
