@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    обновляет все файлы — неизменённые браузер не скачивает заново (сверяет и получает «не изменился»).
-const CACHE = 'farm-v55';
+const CACHE = 'farm-v64';
 const CORE = [
   './',
   './index.html',
@@ -18,7 +18,9 @@ const CORE = [
   './assets/cows/cow-pyatna.png',
   './assets/cows/cow-brown.png',
   './assets/fence/fence.png',
-  './assets/chars/iro.png',
+  ...['pond', 'iro', 'rock-moss-flowers', 'rock-leaning-a', 'rock-leaning-b', 'rock-poppies-a', 'rock-poppies-b', 'rock-flat-daisies', 'rock-long', 'rock-twin',
+      'pebbles-a', 'pebbles-b', 'bush-poppy', 'tuft-clover', 'tuft-cornflower', 'tuft-poppy', 's2-branchy-2', 's2-branchy-3', 's1-oak-1', 's1-grove-1']
+    .map(k => `./assets/garden/${k}.webp`),
   './assets/chars/kale.png',
   ...['dom-deda', 'domik', 'ambar', 'drovnik'].map(k => `./assets/houses/${k}.webp`),
   './assets/fields/wheat-plot.webp',

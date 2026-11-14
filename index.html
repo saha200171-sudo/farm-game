@@ -186,7 +186,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 55;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 64;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -247,7 +247,7 @@ const ANCHORS = {
   door:    { x: 210, y: 320, reach: 62, mark: -140 },   // дверь дома дедушки (вечером — «Лечь спать»)
   fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
   thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
-  iro:     { x: 1036, y: 802, reach: 80, mark: -94 },
+  iro:     { x: 943, y: 757, reach: 84, mark: -102 },
   kale:    { x: 688, y: -1192, reach: 84, mark: -138 },   // Кейл, капитан корабля — на пляже у пристани   // Дядя Айро, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
@@ -875,15 +875,15 @@ function solids() {
     [104, 524, 72, 72],            // колодец
     [1120, 70, 220, 150],          // курятник
     [692, 0, 16, 200], [692, 300, 16, 700],      // забор огорода
-    [700, 488, 300, 16], [1100, 488, OZERO_X - 1100, 16],   // забор сада
+    [700, 488, 330, 16], [1130, 488, OZERO_X - 1130, 16],   // забор сада
     [OZERO_X - 8, 0, 16, 210], [OZERO_X - 8, 290, 16, 710],   // забор озера (проход — у дорожки)
     [WORLD.x, -1016, 548 - WORLD.x, 20], [628, -1016, WORLD.w - 628, 20],     // забор между полем и пляжем (проход — у дорожки)
     [WORLD.x, 984, 604 - WORLD.x, 20], [684, 984, 1790 - 684, 20], [1880, 984, WORLD.w - 1880, 20],   // забор между фермой и пастбищем (проход у дорожки и ворота из сада)
     [WORLD.x, -16, 548 - WORLD.x, 20], [628, -16, WORLD.w - 628, 20],      // забор между фермой и полем (проход у дорожки)
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
-  if (!state.open.sad) list.push([1000, 488, 100, 16]);   // калитка в сад
-  list.push([1012, 782, 48, 24]);   // Дядя Айро
+  if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
+  list.push([917, 741, 52, 22]);    // Дядя Айро
   list.push([210, 578, 36, 14]);    // Змей
   list.push([-312, 430, 44, 16]);   // Торгель
   list.push([660, -1208, 58, 26]);  // Кейл
@@ -892,7 +892,7 @@ function solids() {
 function walkable(x, y) {
   if (x < WORLD.x + 18 || x > WORLD.w - 18 || y < WORLD.top + 30 || y > WORLD.top + WORLD.h - 12) return false;
   if (!state.open[zoneAt(x, y)]) return false;
-  if (inHill(x, y) || inCrag(x, y) || inSea(x, y)) return false;
+  if (inHill(x, y) || inCrag(x, y) || inSea(x, y) || inPond(x, y)) return false;
   const r = 12;
   for (const [sx, sy, sw, sh] of solids()) {
     if (x > sx - r && x < sx + sw + r && y > sy - r && y < sy + sh + r) return false;
@@ -927,7 +927,7 @@ function hitTest(x, y) {
   for (let i = 0; i < BEDS.length; i++) if (Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (near(800, 1545, 44)) return 'nanamin';
-  if (state.open.sad && near(1036, 768, 50)) return 'iro';
+  if (state.open.sad && near(943, 721, 50)) return 'iro';
   if (near(688, -1250, 62)) return 'kale';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
@@ -1202,7 +1202,10 @@ const PATHS = [
   [10, 4, 10, 7],   // вверх к калитке
   [10, 4, 18, 4],   // через калитку к курятнику
   [18, 4, 40, 4],   // от курятника на восток, через проход в заборе — к поляне среди скал
-  [18, 4, 18, 11],  // вниз, к калитке в сад
+  [18, 4, 19, 4],   // поворот к калитке сада
+  [19, 4, 19, 9],   // вниз через калитку сада (калитка 1030–1130: открытая створка слева, проход — ровно по дорожке)
+  [18, 10, 20, 10], // дальше дорожка расширяется к пруду
+  [17, 11, 21, 11],
   [10, 7, 11, 7],   // от поворота у огорода — на клетку вправо
   [11, 7, 11, 22],  // вниз, через проход в заборе — на пастбище
   [11, 22, 21, 22], // по пастбищу на восток, к полям
@@ -1290,9 +1293,6 @@ function drawGround() {
   breakRepetition();
   const g = scene.add.graphics().setDepth(GROUND - 10);
   drawPaths();
-  // пруд в саду
-  g.fillStyle(0x3D7FB5, 1).fillEllipse(1180, 820, 220, 120);
-  g.fillStyle(0x6FB1E0, 1).fillEllipse(1170, 812, 180, 90);
 }
 
 // ===================== Деревня деда: рисованные постройки (Magnific, лист 3), каждую можно двигать =====================
@@ -1452,7 +1452,7 @@ function drawFences() {
   registerFenceFrames();
   for (const l of Object.values(fenceObjs)) { l.length = 0; l.posts = []; }
   const L = fenceObjs.static;
-  fenceH(L, 700, OZERO_X, 500, [[1000, 1100, state.open.sad ? 'gate-open' : 'gate']]);   // забор сада с калиткой
+  fenceH(L, 700, OZERO_X, 500, [[1030, 1130, state.open.sad ? 'gate-open' : 'gate']]);   // забор сада с калиткой
   fenceH(L, WORLD.x, WORLD.w, 1000, [[604, 700, 'pass'], [1790, 1880, 'gate-open']]);   // + открытые ворота из сада на пастбище      // между фермой и пастбищем, проход у дорожки (правый столбик — на углу забора курятника)
   fenceH(L, WORLD.x, WORLD.w, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   fenceV(L, OZERO_X, 0, 1000, [[210, 290, 'pass']]);   // забор озера с проходом у дорожки
@@ -1492,9 +1492,7 @@ const PLANTS = [
   // курятник
   ['s2-grove-1', 800, 150, 0.95], ['bush-2', 1010, 120, 1], ['poplar-2', 1385, 330, 0.9],
   ['s2-branchy-3', 1210, 480, 0.85], ['bush-4', 760, 475, 0.9],
-  // сад
-  ['s2-oak-1', 830, 700, 1], ['s2-grove-2', 760, 995, 1], ['s1-grove-2', 990, 995, 1],
-  ['tree-3', 1230, 640, 0.9], ['s2-oak-2', 1200, 995, 0.95], ['s1-oak-2', 1420, 780, 1],
+  // сад — теперь отдельной сценой GARDEN (по макету «Сад Айро» в Figma)
   // пастбище: деревья по краям и между полями
   ['s2-oak-2', 110, 1190, 0.95], ['s2-branchy-3', 260, 1290, 0.85], ['poplar-1', 740, 1180, 0.95],
   ['bush-3', 820, 1130, 1], ['tree-4', 920, 1110, 0.9], ['s1-grove-2', 1320, 1150, 1],
@@ -1504,14 +1502,6 @@ const PLANTS = [
   // поле: деревья по краям
   ['poplar-2', 28, -470, 0.9], ['tree-2', 2772, -470, 0.95], ['s1-grove-1', 1300, -22, 0.9],
   ['bush-3', 30, -30, 0.9], ['poplar-1', 660, -985, 0.9], ['bush-4', 2780, -985, 0.9],
-  // сад (расширен вправо): много деревьев; дорожка к калитке, пруд и Дядя Айро свободны
-  ['s2-grove-1', 2062, 628, 0.84], ['tree-4', 1926, 950, 0.83], ['tree-2', 1627, 627, 0.92], 
-  ['tree-4', 1914, 753, 0.83], ['bush-3', 1753, 805, 0.88], ['bush-1', 1360, 906, 0.96],
-  ['s1-grove-2', 2151, 829, 0.96], ['s2-oak-1', 890, 881, 0.94], 
-  ['s2-branchy-2', 2173, 980, 0.98], ['s1-grove-2', 1725, 979, 0.97], 
-  ['s2-oak-2', 1568, 762, 0.88], ['tree-1', 970, 702, 0.98], ['s2-oak-1', 1407, 613, 0.86], ['tree-2', 1126, 729, 0.91],
-  ['s2-oak-1', 1769, 602, 0.97], ['tree-4', 1557, 962, 0.95], ['bush-3', 1910, 604, 0.87],
-  
   // курятник (расширен вправо)
   ['poplar-2', 1869, 93, 0.88], 
   ['tree-4', 2206, 119, 0.84], ['poplar-2', 1556, 205, 0.91], ['poplar-1', 1481, 463, 0.83],
@@ -1764,10 +1754,71 @@ function buildKale() {
   scene.add.image(ANCHORS.kale.x, ANCHORS.kale.y, 'kale').setOrigin(0.5, 0.98).setScale(120 / 285).setDepth(ANCHORS.kale.y);
   nameLabel('Кейл', ANCHORS.kale.x, ANCHORS.kale.y - 128);
 }
+// ===================== Сад Дяди Айро: сцена по макету из Figma (страница «Сад Айро») =====================
+// Координаты пересчитаны из макета (масштаб 0.441, забор сада макета вписан в зону сада 700–2000 × 500–1000).
+// [картинка, x, y (левый верхний угол), ширина, высота, глубина, тень (1 — деревья и кусты)]
+// Глубина = основание; мелочи, которые в макете лежат поверх деревьев, чуть приподняты — порядок как в Figma.
+const GARDEN = [
+  ['g-rock-moss-flowers', 1268, 530, 124, 90, 617.82, 0],
+  ['g-rock-leaning-a', 1852, 637, 160, 189, 820.37, 0],
+  ['g-rock-poppies-a', 931, 520, 75, 55, 573.89, 0],
+  ['s2-oak-1', 644, 430, 321, 281, 702.07, 1],
+  ['tree-2', 1048, 556, 176, 186, 735.79, 1],
+  ['g-s2-branchy-3', 1102, 587, 199, 193, 773.95, 1],
+  ['g-bush-poppy', 697, 633, 86, 70, 702.12, 0],
+  ['g-rock-moss-flowers', 727, 648, 112, 82, 727.45, 0],
+  ['tree-4', 674, 697, 141, 148, 840.12, 1],
+  ['bush-2', 784, 703, 72, 62, 774.05, 1],
+  ['g-s2-branchy-2', 834, 566, 195, 194, 774.05, 1],
+  ['bush-4', 825, 727, 50, 43, 774.10, 1],
+  ['tree-3', 1598, 727, 195, 206, 927.01, 1],
+  ['g-bush-poppy', 777, 736, 86, 70, 803.66, 0],
+  ['s2-grove-2', 703, 786, 222, 198, 978.43, 1],
+  ['g-rock-poppies-b', 722, 920, 96, 65, 982.43, 0],
+  ['s1-grove-2', 1823, 737, 206, 208, 938.42, 1],
+  ['g-s2-branchy-2', 1902, 843, 257, 255, 1090.00, 1], // перенесено за сад (пастбище), чтобы не загораживало ворота
+  ['g-tuft-clover', 707, 943, 45, 43, 984.41, 0],
+  ['g-s1-oak-1', 1536, 304, 466, 370, 663.66, 1],
+  ['s1-oak-2', 1160, 348, 422, 299, 638.01, 1],
+  ['g-rock-flat-daisies', 1624, 595, 130, 74, 666.83, 0],
+  ['s2-oak-1', 1371, 387, 395, 345, 721.32, 1],
+  ['bush-4', 1444, 647, 72, 62, 721.37, 1],
+  ['g-rock-leaning-b', 1230, 827, 78, 95, 919.04, 0],
+  ['s2-oak-2', 1192, 768, 363, 265, 1025.35, 1],
+  ['g-rock-poppies-a', 1554, 656, 97, 71, 724.69, 0],
+  ['g-tuft-poppy', 1215, 884, 42, 41, 924.62, 0],
+  ['g-tuft-poppy', 1739, 616, 39, 38, 666.88, 0],
+  ['g-tuft-poppy', 1554, 811, 39, 38, 847.82, 0],
+  ['g-tuft-clover', 1534, 681, 48, 45, 725.45, 0],
+  ['g-tuft-cornflower', 1358, 592, 48, 44, 638.06, 0],
+  ['g-rock-long', 1462, 671, 84, 52, 721.42, 0],
+  ['g-tuft-poppy', 852, 745, 42, 41, 785.10, 0],
+  ['g-tuft-clover', 1271, 739, 45, 43, 781.08, 0],
+  ['g-pebbles-a', 1512, 704, 46, 36, 738.97, 0],
+  ['g-pebbles-a', 1268, 768, 33, 25, 792.65, 0],
+  ['g-pebbles-b', 1211, 914, 36, 23, 936.63, 0],
+  ['g-rock-twin', 1807, 524, 144, 163, 681.78, 0],
+  ['bush-4', 1865, 624, 85, 73, 695.51, 1],
+  ['g-pebbles-a', 1772, 633, 60, 46, 681.83, 0],
+  ['g-tuft-cornflower', 1895, 664, 42, 39, 701.39, 0],
+  ['g-s1-grove-1', 1444, 800, 270, 259, 1278.50, 1], // за садом (пастбище): поднято; большой дуб пастбища (основание 1279) перекрывает его
+  ['s1-oak-2', 1888, 409, 452, 322, 721.99, 1] // за садом (справа)
+];
+const GARDEN_POND = { x: 791, y: 610, w: 583, h: 391, d: 774.00 };   // картинка пруда; глубина — выше деревьев, что в макете стоят за ним
+const POND_WATER = { cx: 1082, cy: 820, rx: 146, ry: 58 };               // вода — туда не зайти
+function inPond(x, y) { return ((x - POND_WATER.cx) / POND_WATER.rx) ** 2 + ((y - POND_WATER.cy) / POND_WATER.ry) ** 2 < 1; }
+function drawGarden() {
+  const p = GARDEN_POND;
+  scene.add.image(p.x, p.y, 'g-pond').setOrigin(0, 0).setDisplaySize(p.w, p.h).setDepth(p.d);
+  for (const [key, x, y, w, h, d, sh] of GARDEN) {
+    scene.add.image(x, y, key).setOrigin(0, 0).setDisplaySize(w, h).setDepth(d);
+    if (sh) scene.add.image(x + w / 2, y + h * 0.97, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(GROUND - 8);
+  }
+}
 // Дядя Айро сидит на берегу пруда в саду
 function buildIro() {
-  const iro = scene.add.image(ANCHORS.iro.x, ANCHORS.iro.y, 'iro').setOrigin(0.5, 0.96).setScale(76 / 240).setDepth(ANCHORS.iro.y);
-  scene.add.ellipse(ANCHORS.iro.x, ANCHORS.iro.y - 1, 78, 16, 0x1d2a12, 0.2).setDepth(ANCHORS.iro.y - 1);
+  // новый Айро в мягком стиле (Magnific), место — из макета сада
+  const iro = scene.add.image(ANCHORS.iro.x, ANCHORS.iro.y, 'g-iro').setOrigin(0.5, 0.97).setDisplaySize(80, 80).setDepth(GARDEN_POND.d + 0.1);   // над прудом, как в макете
   nameLabel('Дядя Айро', ANCHORS.iro.x, ANCHORS.iro.y - 90);
   return iro;
 }
@@ -2203,7 +2254,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowPyatna', 'assets/cows/cow-pyatna.png');
     this.load.image('cowBrown', 'assets/cows/cow-brown.png');
     this.load.image('fence', 'assets/fence/fence.png');
-    this.load.image('iro', 'assets/chars/iro.png');
+    for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', 'g-iro'])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
     this.load.image('kale', 'assets/chars/kale.png');
     for (const k of new Set(BUILDINGS.map(b => b[0]))) this.load.image('h-' + k, 'assets/houses/' + k + '.webp');
     this.load.image('wheatPlot', 'assets/fields/wheat-plot.webp');
@@ -2225,6 +2276,7 @@ class FarmScene extends Phaser.Scene {
     registerBedFrames();
     for (let i = 0; i < BEDS.length; i++) drawBed(i);
     PLANTS.forEach(([key, x, y, s]) => plant(key, x, y, s));
+    drawGarden();
 
     for (let i = 0; i < 5; i++) { const ch = makeChicken(800 + i * 110, 300 + (i % 2) * 120); chickens.push(ch); wander(ch); }
 
