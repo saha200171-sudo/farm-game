@@ -264,7 +264,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 201;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 202;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1149,9 +1149,10 @@ function updateNight(time) {
   const want = state.time.night && !house.active && !barn.active ? 1 : 0;
   nightK += (want - nightK) * Math.min(1, (scene.game.loop.delta || 16) * 0.0009);   // плавно: ~3 с
   if (nightK < 0.01) { nightRT.setVisible(false); nightLights.forEach(([g]) => g.setVisible(false)); if (lanternG) lanternG.setVisible(false); return; }
-  const cam = scene.cameras.main, wv = cam.worldView, w = Math.ceil(cam.width / cam.zoom) + 8, h = Math.ceil(cam.height / cam.zoom) + 8;
+  const M = 120;   // v202: запас по краям — камера сдвигается за героиней уже после этого кадра, без запаса у края мелькала светлая полоска
+  const cam = scene.cameras.main, wv = cam.worldView, w = Math.ceil(cam.width / cam.zoom) + M * 2, h = Math.ceil(cam.height / cam.zoom) + M * 2;
   if (nightRT.width !== w || nightRT.height !== h) nightRT.resize(w, h);
-  nightRT.setPosition(wv.x - 4, wv.y - 4).setVisible(true);
+  nightRT.setPosition(wv.x - M, wv.y - M).setVisible(true);
   nightRT.clear().fill(NIGHT.color, NIGHT.alpha * nightK);
   const lights = [];
   if (campfire) lights.push([campfire.x, campfire.y - 16, 230 + (REDUCED ? 0 : Math.sin(time / 90) * 8 + Math.sin(time / 37) * 4), 'fire']);
