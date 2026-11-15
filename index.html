@@ -264,7 +264,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 199;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 200;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1185,43 +1185,41 @@ function applyTime(instant) {
 }
 // Светлячки: мерцают и медленно летают над травой
 // Появляются плавно, маленькими группками по 4–6 штук, одна группа за другой
+// v200: светлячки только рядом с камерой (~70 штук вместо ~800 по всей карте): движение и мерцание — по формуле, без анимаций-твинов.
+// Улетел за край экрана — тихо загорается в другом месте у экрана. Плотность на экране как раньше; телефон не тормозит.
+const FLY_N = 70, FLY_MARGIN = 260;
+let flyStart = 0;
+function flyBox() { const wv = scene.cameras.main.worldView; return { x: wv.x - FLY_MARGIN, y: wv.y - FLY_MARGIN, w: wv.width + FLY_MARGIN * 2, h: wv.height + FLY_MARGIN * 2 }; }
+function flyPlace(f, b, born) {
+  f.x0 = b.x + Math.random() * b.w; f.y0 = b.y + Math.random() * b.h; f.born = born;
+  f.ax = 25 + Math.random() * 30; f.ay = 18 + Math.random() * 22; f.sx = 0.0003 + Math.random() * 0.0004; f.sy = 0.0004 + Math.random() * 0.0004;
+  f.p = Math.random() * 6.28; f.bl = 0.0018 + Math.random() * 0.0018;
+}
 function spawnFireflies() {
-  if (fireflies.length) return;
-  const rnd = mulberry32(99);
-  // карта делится на участки (5 по ширине, по одному ряду на ~285 точек высоты), в каждом — своя группка
-  const COLS = Math.round(WW / 280), ROWS = Math.round(WORLD.h / 285), cw = WW / COLS, ch = WORLD.h / ROWS;
-  const cells = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) cells.push([c, r]);
-  for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
-  for (let g = 0; g < cells.length; g++) {
-    const [c, r] = cells[g];
-    const gx = WORLD.x + (c + 0.15 + rnd() * 0.7) * cw, gy = WORLD.top + (r + 0.15 + rnd() * 0.7) * ch;
-    const groupDelay = 600 + g * 75 + rnd() * 200;        // группы зажигаются по очереди, в случайном порядке; v188: вся карта ~15 с (было ~65 с)
-    const n = 3 + Math.floor(rnd() * 3);
-    for (let i = 0; i < n; i++) {
-      const f = scene.add.image(gx + (rnd() - 0.5) * 140, gy + (rnd() - 0.5) * 100, 'firefly')
-        .setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale((0.28 + rnd() * 0.22) * 0.9).setAlpha(0);   // v188: мельче (было ×1.2)
-      fireflies.push(f);
-      const drift = () => {
-        if (!f.active) return;
-        scene.tweens.add({ targets: f, x: f.x + (Math.random() - 0.5) * 100, y: f.y + (Math.random() - 0.5) * 70,
-          duration: 2800 + Math.random() * 3200, ease: 'Sine.easeInOut', onComplete: drift });
-      };
-      drift();
-      // плавно загорается, потом мягко мерцает
-      scene.tweens.add({
-        targets: f, alpha: 1, duration: 1300, delay: groupDelay + i * 150, ease: 'Sine.easeInOut',
-        onComplete: () => {
-          if (!f.active) return;
-          scene.tweens.add({ targets: f, alpha: { from: 1, to: 0.27 }, duration: 900 + Math.random() * 900,
-            yoyo: true, repeat: -1, hold: 300 + Math.random() * 700, repeatDelay: Math.random() * 1200, ease: 'Sine.easeInOut' });
-        },
-      });
+  if (fireflies.length || !scene) return;
+  const b = flyBox(), now = scene.time.now; flyStart = now;
+  for (let i = 0; i < FLY_N; i++) {
+    const f = scene.add.image(0, 0, 'firefly').setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale((0.28 + Math.random() * 0.22) * 0.9).setAlpha(0);
+    flyPlace(f, b, now + 600 + Math.random() * 9000);   // загораются по одному за ~10 с
+    fireflies.push(f);
+  }
+}
+function updateFireflies(time) {
+  if (!fireflies.length) return;
+  const b = flyBox();
+  for (const f of fireflies) {
+    let x = f.x0 + Math.sin(time * f.sx + f.p) * f.ax, y = f.y0 + Math.cos(time * f.sy + f.p * 1.3) * f.ay;
+    if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) {   // улетел далеко — новое место у экрана, загорается заново
+      flyPlace(f, b, time + Math.random() * 1500);
+      x = f.x0; y = f.y0;
     }
+    const fade = Math.max(0, Math.min(1, (time - f.born) / 1300));
+    const blink = REDUCED ? 1 : 0.63 + 0.37 * Math.sin(time * f.bl + f.p);
+    f.setPosition(x, y).setAlpha(fade * blink);
   }
 }
 function clearFireflies() {
-  fireflies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); });
+  fireflies.forEach(f => f.destroy());
   fireflies = [];
 }
 function startEvening() {
@@ -5229,8 +5227,9 @@ class FarmScene extends Phaser.Scene {
     updateRide(dt);
     updateDay4(dt);
     updateNight(time);
+    updateFireflies(time);
     updateHunt(dt);
-    $('lampBtn').hidden = !(state.time.night && state.items.lantern && player.visible && !ui.open && !house.active);
+    { const h = !(state.time.night && state.items.lantern && player.visible && !ui.open && !house.active), el = $('lampBtn'); if (el.hidden !== h) el.hidden = h; }   // DOM — только при изменении
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
