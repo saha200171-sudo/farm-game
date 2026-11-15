@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 182;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 183;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -3409,8 +3409,8 @@ function endRide() {
   cam.zoomTo(r.z0, 600, 'Sine.easeInOut');
   ui.open = false;
   // ЗАГЛУШКИ: реплики — черновик
-  if (r.first) showDialog([['zmey', 'Приехали! Быстрее ветра. Кетиль вон, у дома — иди. А я буду ждать у поля, в начале дорожки.']],
-    () => scene.time.delayedCall(400, () => startDrive('solo')));   // Змей сам уезжает к своей стоянке у поля
+  // v183: после первой поездки Змей ждёт во дворе; как героиня пойдёт обратно — поедет следом (и встанет у поля)
+  if (r.first) showDialog([['zmey', 'Приехали! Быстрее ветра. Кетиль вон, у дома — иди. Пойдёшь обратно — я следом.']]);
   else showDialog([['zmey', r.to === 'yard' ? 'Двор Кетиля, как заказывали!' : 'Поле! Обращайся — Змей-извозчик всегда на месте.']]);
 }
 // Едет следом: сначала быстро догоняет героиню, потом держится чуть позади с её скоростью.
@@ -3424,12 +3424,13 @@ function escortSpeed(r, sec) {
     if (d < best) { best = d; sh = acc + t * r.seg[i]; }
     acc += r.seg[i];
   }
-  if (best > 380 || sh > r.L - 160) {   // ушла с дороги или уже у цели
-    if (sh > r.L - 160 && best <= 380) return 240;
+  const atGoal = (sh > r.L - 400 && best <= 380) || (r.to === 'yard' && player.y < -985 && player.x > KETIL_YARD.x);
+  if (atGoal) return 240;   // героиня уже у цели — доезжает и встаёт на стоянку
+  const gap = sh - 150 - r.s;   // держится чуть позади: морда лошадки — в полутора шагах от героини
+  if (best > 380 || gap < -60) {   // ушла с дороги или повернула назад — ждёт, через 10 с едет к остановке сам
     r.wait += sec; return r.wait > 10 ? 200 : 0;
   }
   r.wait = 0;
-  const gap = sh - 150 - r.s;   // держится чуть позади: морда лошадки — в полутора шагах от героини
   if (gap > 120) return 430;    // догоняет
   return Math.max(0, Math.min(240, gap * 3));
 }
@@ -3441,9 +3442,12 @@ function checkEscort() {
   const sp = cartSpot(); if (!sp) return;
   const dist = Math.hypot(player.x - sp.x, player.y - sp.y);
   if (d3.cartAt === 'cow') return;
-  if (dist < 600 || (d3.cartAt === 'field' && player.y > -20)) { ride.armed = true; return; }   // у поля: «взводится» и когда героиня на ферме
+  // «взводится», когда героиня рядом; у поля — и когда она на ферме; у Кетиля — когда она во дворе (даже не подходя к Змею)
+  const inYard = player.y < -985 && player.x > KETIL_YARD.x;
+  if (dist < 600 || (d3.cartAt === 'yard' && inYard) || (d3.cartAt === 'field' && player.y > -20)) ride.armed = true;
   if (!ride.armed) return;
-  if (d3.cartAt === 'yard' ? player.y > -985 : (player.x > 700 && player.y < -380 && player.y > -560)) startDrive('escort');   // у поля — пошла по дорожке к Кетилю
+  if (d3.cartAt === 'yard') { if (!inYard && player.y > -975 && dist > 200) startDrive('escort'); }   // вышла со двора — едет следом
+  else if (player.x > 700 && player.y < -380 && player.y > -560) startDrive('escort');                // у поля — пошла по дорожке к Кетилю
 }
 // ===================== Торфинн: сторож поля =====================
 // Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
