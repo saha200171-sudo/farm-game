@@ -212,6 +212,10 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .push-beat .dot{position:absolute;left:50%;top:50%;width:70px;height:70px;border-radius:50%;background:#86C46F;transform:translate(-50%,-50%) scale(.3)}
 .push-beat .word{position:absolute;left:0;right:0;bottom:-6px;text-align:center;font-family:var(--display);font-weight:600;font-size:20px;color:var(--ink)}
 .push-beat .word.go{color:#C9472F}
+#fishCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
+.fish-bar{position:relative;height:22px;border:3px solid var(--wood);border-radius:999px;background:#EADFC8;overflow:hidden}
+.fish-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:#86C46F;transition:background .15s}
+.fish-bar.strain i{background:#E0553A}
 #polishCv{display:block;margin:0 auto;width:min(240px,60vw);touch-action:none;background:#EADFC8;border-radius:14px;border:3px solid var(--wood)}
 .chop-msg{min-height:1.45em;font-family:var(--display);font-weight:600;font-size:19px}
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
@@ -230,7 +234,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button>
       </div><div class="bag" id="bag"></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -258,7 +262,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 191;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 193;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -368,7 +372,9 @@ const freshState = () => ({
   day4: { stage: 0 },   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }],
     // v190: «Обед для жнецов» (после жатвы, stage 6): хлеб у Сверкеля, вода из колодца, травяной отвар у Арнхейнд → раздать каждому жнецу его кружку
-    lunch: { on: false, bread: false, water: false, asked: false, herbs: [false, false, false], brew: false, served: [], done: false } },
+    lunch: { on: false, bread: false, water: false, asked: false, herbs: [false, false, false], brew: false, served: [], done: false },
+    // v192: рыбалка со Змеем на мостках (после обеда): stage 0 — нет, 1 — Змей ждёт на мостках, 2 — готово (Лейф подарил ракушку)
+    fish: { stage: 0, caught: 0 } },
 });
 function loadState() {
   try {
@@ -426,7 +432,9 @@ function questTarget() {
       if (!L.brew) return L.asked && L.herbs.some(h => !h) ? null : 'iro';   // травы в саду ищем сами
       const i = REAPERS.findIndex((r, k) => r.c && !L.served.includes(k));
       return i >= 0 ? 'reaper' + i : 'ketil';
-    } }
+    }
+    if (state.day2.stage === 6 && L.done && state.day2.fish.stage === 1 && state.time.day === 2) return 'zmey';   // рыбалка
+  }
   if (state.day2.stage === 3 || ((state.day2.stage === 4 || state.day2.stage === 5) && !reap.active)) return 'ketil';   // день 2: к Кетилю в лагерь
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
@@ -476,7 +484,9 @@ function updateHud() {
     if (L.on && !L.done && L.water && L.served.length < LUNCH_CUPS.length) chips.push(['Кувшин воды', '#4DA3D9']);
     if (L.on && !L.brew && L.asked) chips.push([`Травы × ${L.herbs.filter(Boolean).length}`, '#7FA85A']);
     if (L.brew && L.served.length < LUNCH_CUPS.length) chips.push([`Кружки отвара × ${LUNCH_CUPS.length - L.served.length}`, '#B07A3A']);
-    if (state.items.net) chips.push(['Старая сеть', '#8C7A5C']); }
+    if (state.items.net) chips.push(['Старая сеть', '#8C7A5C']);
+    if (state.items.fish) chips.push([`Рыба × ${state.items.fish}`, '#6E9FB8']);
+    if (state.items.shell) chips.push(['Ракушка из Винланда', '#E8C9B0']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
   if (state.time.day > 1 || state.time.phase !== 'day') {
@@ -649,7 +659,7 @@ function devJump(day) {
     s.day2.stage = 1;   // утро: дед попросил помочь в поле
     s.pos = { x: ANCHORS.door.x, y: ANCHORS.door.y + 30 };
   }
-  if (day === 2.5) {   // ВРЕМЕННО: сразу к «Обеду для жнецов» — жатва и копны готовы, Кетиль в лагере
+  if (day === 2.5 || day === 2.7) {   // ВРЕМЕННО: сразу к «Обеду для жнецов» — жатва и копны готовы, Кетиль в лагере
     Object.assign(s.day2, { stage: 6, visitedField: true, plot: 1 });
     s.day2.plots = REAP_PLOTS.map((q, k) => {
       const N = reap.P[k].bushes.length, n = Math.ceil(N / SHEAF_EVERY);
@@ -657,11 +667,16 @@ function devJump(day) {
     });
     s.pos = { x: KETIL_CAMP.x - 90, y: KETIL_CAMP.y + 20 };
   }
+  if (day === 2.7) {   // ВРЕМЕННО: сразу к рыбалке — обед раздан, сеть у героини, Змей на мостках
+    s.day2.lunch = { on: true, bread: true, water: true, asked: true, herbs: [true, true, true], brew: true, served: [0, 1, 2, 3, 4], done: true };
+    s.items.net = true; s.day2.fish = { stage: 1, caught: 0 };
+    s.pos = { x: 384, y: -1210 };
+  }
   if (day >= 3) {   // день 2 пройден: оба участка сжаты, копны сложены
     s.time = { day: 3, phase: 'day' };
     Object.assign(s.day2, { stage: 6, visitedField: true, plot: 1 });
     s.day2.lunch = { on: true, bread: true, water: true, asked: true, herbs: [true, true, true], brew: true, served: [0, 1, 2, 3, 4], done: true };
-    s.items.net = true;
+    s.items.net = true; s.day2.fish = { stage: 2, caught: 5 }; s.items.shell = true;
     s.day2.plots = REAP_PLOTS.map((q, k) => {
       const N = reap.P[k].bushes.length, n = Math.ceil(N / SHEAF_EVERY);
       return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
@@ -673,6 +688,7 @@ function devJump(day) {
   state = s; try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}   // save() перезаписал бы позицию текущей
   scene.scene.restart();
   if (day === 2.5) { setTimeout(startLunch, 700); }
+  else if (day === 2.7) setTimeout(() => toast('Рыбалка: Змей ждёт на мостках', 'info'), 600);
   else if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startDay4, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
 function resetGame() {
@@ -823,7 +839,7 @@ const LEIF_TALES = [
   'Торфинна я знаю с малых лет. Он слушал про Винланд, раскрыв рот… Эх, разучился он мечтать.',
   'Туман на море бывает такой густой, что на него можно повесить шапку. Я так однажды шапку и потерял.',
 ];
-let leifTalks = 0;
+let leifTalks = 0, leifChar = null, leifLabel = null;
 function talkKale() {
   if (!leifTalks++) return showDialog([
     ['kale', 'О, новое лицо на моём берегу! Я Лейф. Когда-то я ходил за край моря, а теперь вот — сижу у реки да чиню лодку.'],
@@ -838,6 +854,10 @@ function talkKale() {
 function talkZmey() {
   if (ride.active) return;
   const d3 = state.day3.stage;
+  if (!d3 && state.time.day === 2 && state.day2.fish.stage === 1) return showDialog([   // ЗАГЛУШКА: реплики — черновик
+    ['zmey', 'А вот и рыбачка! Сеть принесла? Отлично. Видишь тени под водой? Это обед на завтра.'],
+    ['zmey', 'Тяни назад и отпускай — сеть полетит. А как вытаскивать — покажу. Главное — не рви, когда рыба бьётся.'],
+  ], startFishing);
   // ЗАГЛУШКИ: реплики Змея в день 3 — черновик
   if (d3 === 1) return showDialog([
     ['zmey', 'О, напарница! Нашла меня. Я тут телегу чиню — колесо скрипело, как Торфинн на жнецов.'],
@@ -887,7 +907,8 @@ function wakeZmey() {
 // Змей на своём месте: дремлет под деревом (до знакомства) или стоит у колодца
 function placeZmey(animate) {
   const d3 = state.day3.stage, nap = zmeyNapping() && !d3, at = state.day3.cartAt;
-  const P = d3 ? (at === 'yard' ? ZMEY_YARD : at === 'field' ? ZMEY_FIELD : ZMEY_COW) : nap ? ZMEY_NAP : ZMEY_POST;
+  const fishing = !d3 && state.time.day === 2 && state.day2.fish.stage === 1;
+  const P = d3 ? (at === 'yard' ? ZMEY_YARD : at === 'field' ? ZMEY_FIELD : ZMEY_COW) : fishing ? ZMEY_JETTY : nap ? ZMEY_NAP : ZMEY_POST;
   const put = () => {
     zmeyChar.setPosition(P.x, P.y).setDepth(nap ? 990 : P.y).setAngle(nap ? -84 : 0);   // спит на корнях дуба — поверх них
     zmeyChar.bodyG.scaleX = P === ZMEY_YARD || P === ZMEY_POST ? -1 : 1;
@@ -1086,6 +1107,7 @@ function goToSleep() {
   setTimeout(() => {
     state.time.day += 1;
     state.time.phase = 'morning';
+    if (campfire) { if (campfire.sparks) campfire.sparks.remove(); campfire.destroy(); campfire = null; }   // костёр догорел за ночь
     player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1;
     scene.cameras.main.centerOn(player.x, player.y);
     applyTime(true);
@@ -1283,7 +1305,10 @@ const LUNCH_WRONG = [
 ];
 function lunchText() {
   const L = state.day2.lunch;
-  if (L.done && state.time.day === 2) return 'Обед удался! Вечереет — пора домой';
+  if (L.done && state.time.day === 2) {
+    const F = state.day2.fish;
+    return F.stage === 1 ? 'Рыбалка: Змей ждёт на мостках у реки' : 'Вечереет — пора домой';
+  }
   if (!L.on || L.done) return '';
   if (!L.bread || !L.water || !L.brew) {
     const m = v => v ? '✓' : '—';
@@ -1752,6 +1777,189 @@ function startPolishGame() {
   window.__polishRub = rub;   // для теста
   draw();
 }
+// ===================== День 2: рыбалка со Змеем (v192, схематично) =====================
+// 3 заброса: тянешь палец назад, как рогатку, и отпускаешь — сеть летит; накрыть кругом тени рыб.
+// Потом вытягивание: держишь — тянешь; когда рыба бьётся (полоска красная) — отпусти, иначе одна рыба уйдёт.
+// ЗАГЛУШКИ: реплики Змея и Лейфа — черновик
+const FISH_CASTS = 3;
+const LEIF_FISH_LINES = ['Лейф с берега: «Мелочь! Вот в Винланде рыба была с лодку!»',
+  'Лейф: «Сапог? В Винланде и сапоги ловились — с серебряными пряжками!»',
+  'Лейф: «Неплохо! Почти как у меня в молодости… почти»'];
+function startFishing() {
+  if (ui.open) return;
+  openModal(`<div class="card mg chop" id="fishCard"><div class="badge">Мини-игра</div><h2>Рыбалка</h2>
+    <canvas id="fishCv" width="300" height="340"></canvas>
+    <div class="fish-bar" id="fishBar"><i></i></div>
+    <div class="chop-msg" id="fishMsg">Тяни палец назад от сети и отпускай</div>
+    <div class="mg-stats"><span id="fishCast">Заброс 1 из ${FISH_CASTS}</span><span id="fishN">Рыба: 0</span></div></div>`);
+  const cv = $('fishCv'), ctx = cv.getContext('2d'), W = 300, H = 340, O = { x: 150, y: 318 }, R = 46;
+  const F = { phase: 'aim', cast: 0, total: 0, net: null, drag: null, fishes: [], inNet: 0, boot: false, prog: 0, strain: 0, hold: false, thrash: false, tt: 1.4, t: 0, raf: 0, last: 0, done: false };
+  window.__fish = F;
+  const msg = t => { $('fishMsg').textContent = t; };
+  const spawn = () => { F.fishes = Array.from({ length: 6 }, () => ({ x: 30 + Math.random() * 240, y: 30 + Math.random() * 190, a: Math.random() * 6.28, v: 14 + Math.random() * 14 })); };
+  spawn();
+  const pos = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
+  const target = d => ({ x: Math.max(R, Math.min(W - R, O.x - (d.x - O.x) * 2.2)), y: Math.max(R, Math.min(250, O.y - (d.y - O.y) * 2.2 - 40)) });
+  function draw() {
+    ctx.fillStyle = '#5E93A8'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'; for (let i = 0; i < 7; i++) ctx.fillRect(0, 20 + i * 44 + Math.sin(F.t + i) * 3, W, 3);
+    ctx.fillStyle = '#8A6A44'; ctx.fillRect(110, 290, 80, 50); ctx.fillStyle = '#6E5236'; for (let i = 0; i < 4; i++) ctx.fillRect(110, 296 + i * 12, 80, 2);   // мостки
+    ctx.fillStyle = 'rgba(25,45,60,0.45)';
+    for (const f of F.fishes) { ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a); ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(-19, -5); ctx.lineTo(-19, 5); ctx.fill(); ctx.restore(); }
+    if (F.phase === 'aim' && F.drag) {   // прицел
+      const tg = target(F.drag);
+      ctx.setLineDash([5, 6]); ctx.strokeStyle = 'rgba(255,253,244,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(tg.x, tg.y); ctx.stroke(); ctx.beginPath(); ctx.arc(tg.x, tg.y, R, 0, 6.28); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = '#3A2A1E'; ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(F.drag.x, F.drag.y); ctx.stroke();
+    }
+    if (F.net) {   // сеть
+      const sh = F.thrash && F.phase === 'pull' ? Math.sin(F.t * 40) * 3 : 0, n = F.net;
+      ctx.strokeStyle = 'rgba(240,232,210,0.95)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(n.x + sh, n.y, n.r, 0, 6.28); ctx.stroke();
+      for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(n.x + sh + k * n.r / 3, n.y - n.r * 0.94); ctx.lineTo(n.x + sh + k * n.r / 3, n.y + n.r * 0.94); ctx.stroke(); ctx.beginPath(); ctx.moveTo(n.x + sh - n.r * 0.94, n.y + k * n.r / 3); ctx.lineTo(n.x + sh + n.r * 0.94, n.y + k * n.r / 3); ctx.stroke(); }
+      if (F.phase === 'pull') { ctx.strokeStyle = '#3A2A1E'; ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(n.x, n.y + n.r); ctx.stroke(); }
+    }
+    ctx.fillStyle = '#5B7FA6'; ctx.beginPath(); ctx.arc(O.x, O.y, 7, 0, 6.28); ctx.fill();   // героиня на краю мостков
+  }
+  function bar() { const b = $('fishBar'); b.firstChild.style.width = Math.round(F.prog * 100) + '%'; b.classList.toggle('strain', F.thrash); }
+  function tick(now) {
+    if (F.done) return;
+    const dt = Math.min(0.12, (now - (F.last || now)) / 1000); F.last = now; F.t += dt;
+    for (const f of F.fishes) { f.a += (Math.random() - 0.5) * dt * 2; f.x += Math.cos(f.a) * f.v * dt; f.y += Math.sin(f.a) * f.v * dt;
+      if (f.x < 20 || f.x > W - 20) f.a = Math.PI - f.a; if (f.y < 20 || f.y > 240) f.a = -f.a; f.x = Math.max(20, Math.min(W - 20, f.x)); f.y = Math.max(20, Math.min(240, f.y)); }
+    if (F.phase === 'pull') pullStep(dt);
+    draw(); F.raf = requestAnimationFrame(tick);
+  }
+  function pullStep(dt) {
+    if ((F.tt -= dt) <= 0) { F.thrash = !F.thrash; F.tt = F.thrash ? 0.8 + Math.random() * 0.5 : 1.1 + Math.random() * 0.9; }
+    if (F.hold && !F.thrash) F.prog += dt * 0.33;
+    if (F.hold && F.thrash) F.strain += dt * 1.6; else F.strain = Math.max(0, F.strain - dt * 0.8);
+    if (F.strain >= 1) {   // сорвалась одна рыба
+      F.strain = 0; if (F.inNet > 0) { F.inNet--; msg('Ой! Одна рыба ушла — отпускай, когда сеть дёргается!'); } else msg('Осторожно — сеть чуть не порвалась!');
+    } else msg(F.thrash ? 'Рыба бьётся — отпусти!' : (F.hold ? 'Тяни, тяни…' : 'Держи палец — тяни сеть'));
+    const n = F.net; n.x += (O.x - n.x) * dt * F.prog * 0.9; n.y = n.y0 + (O.y - 40 - n.y0) * Math.min(1, F.prog);
+    for (const f of F.netFish) { f.x = n.x + f.dx; f.y = n.y + f.dy; }
+    bar();
+    if (F.prog >= 1) finishCast();
+  }
+  function cast(tg) {
+    F.phase = 'fly'; F.net = { x: O.x, y: O.y, r: 10 };
+    const t0 = performance.now();
+    const fly = () => {
+      const k = Math.min(1, (performance.now() - t0) / 420);
+      F.net.x = O.x + (tg.x - O.x) * k; F.net.y = O.y + (tg.y - O.y) * k - Math.sin(k * Math.PI) * 40; F.net.r = 10 + (R - 10) * k;
+      if (k < 1) return requestAnimationFrame(fly);
+      const caught = F.fishes.filter(f => Math.hypot(f.x - tg.x, f.y - tg.y) < R);
+      if (!caught.length) {   // мимо — заброс не считается
+        msg('Пусто! Змей: «Рыба над тобой смеётся. Целься в тени!»'); F.net = null; F.phase = 'aim'; return;
+      }
+      F.fishes = F.fishes.filter(f => !caught.includes(f));
+      F.netFish = caught.map(f => ({ ...f, dx: f.x - tg.x, dy: f.y - tg.y }));
+      F.inNet = caught.length; F.boot = F.cast === 1;   // на втором забросе — старый сапог
+      Object.assign(F, { phase: 'pull', prog: 0, strain: 0, thrash: false, tt: 1.2 }); F.net.y0 = F.net.y;
+      msg(`В сети ${caught.length}! Держи палец — тяни сеть`);
+    };
+    fly();
+  }
+  function finishCast() {
+    F.phase = 'show'; F.cast++; F.total += F.inNet; F.net = null; F.netFish = [];
+    $('fishN').textContent = `Рыба: ${F.total}`; F.prog = 0; F.thrash = false; bar();
+    msg((F.boot ? `+${F.inNet} и… старый сапог! Змей: «Это мой! Год его искал». ` : `+${F.inNet}. `) + LEIF_FISH_LINES[F.cast - 1]);
+    if (F.cast >= FISH_CASTS) {
+      F.done = true; cancelAnimationFrame(F.raf);
+      setTimeout(() => { closeModal(); afterFishing(F.total); }, 1800);
+      return;
+    }
+    setTimeout(() => { if (F.fishes.length < 4) spawn(); F.phase = 'aim'; $('fishCast').textContent = `Заброс ${F.cast + 1} из ${FISH_CASTS}`; msg('Тяни палец назад от сети и отпускай'); }, 1800);
+  }
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    if (F.phase === 'aim') F.drag = pos(e);
+    if (F.phase === 'pull') F.hold = true;
+  });
+  cv.addEventListener('pointermove', e => { if (F.phase === 'aim' && F.drag) F.drag = pos(e); });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => {
+    F.hold = false;
+    if (F.phase === 'aim' && F.drag) { const d = F.drag; F.drag = null; if (Math.hypot(d.x - O.x, d.y - O.y) > 14) cast(target(d)); }
+  }));
+  window.__fishCast = (x, y) => cast({ x, y });   // для теста
+  F.raf = requestAnimationFrame(tick);
+}
+function afterFishing(n) {
+  const F = state.day2.fish;
+  state.items.fish = (state.items.fish || 0) + n; F.caught = n;
+  showDialog([
+    ['zmey', `${n} рыбин! Да на такой улов полфермы накормить можно. Ну, и сапог — мне.`],
+    ['kale', 'Неплохо, неплохо! Для сухопутной — так и вовсе отлично. Пойдёмте-ка к костру — расскажу кое-что.'],
+  ], () => campfireScene(n));
+}
+// ===================== Посиделки у костра (v193): угол поля у реки — под большим дубом, у камней =====================
+// Героиня сидит под дубом, Лейф — на плоском валуне, Змей валяется на земле; костёр посередине.
+const CAMPFIRE = { x: -212, y: -862 }, CAMP_HERO = { x: -262, y: -904 }, CAMP_LEIF = { x: -100, y: -918 }, CAMP_ZMEY = { x: -232, y: -812 };
+let campfire = null;
+function buildCampfire() {   // костёр: поленья, пламя подрагивает, свечение и искры
+  if (campfire) return;
+  const { x, y } = CAMPFIRE, c = scene.add.container(x, y).setDepth(y);
+  const g = scene.add.graphics();
+  g.fillStyle(0x000000, 0.22).fillEllipse(0, 4, 54, 16);
+  g.fillStyle(0x7A7468, 1); for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; g.fillEllipse(Math.cos(a) * 24, Math.sin(a) * 9 + 1, 11, 8); }   // камни кругом
+  g.fillStyle(0x5A3A22, 1).fillRoundedRect(-17, -4, 34, 7, 3); g.fillStyle(0x6E4A2C, 1).fillRoundedRect(-14, -8, 28, 6, 3);   // поленья
+  const glow = scene.add.image(0, -8, 'firefly').setTint(0xFFA040).setScale(2.6).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD);
+  const fl = [[0, -3, 16, 32, 0xE0553A], [-6, -3, 10, 20, 0xF29A3A], [6, -3, 10, 19, 0xF29A3A], [0, -3, 8, 15, 0xFFE08A]].map(([fx, fy, w, h, col]) => {   // языки пламени растут вверх от поленьев
+    const e = scene.add.graphics().setPosition(fx, fy);
+    e.fillStyle(col, 1).fillEllipse(0, -h * 0.32, w, h * 0.64).fillTriangle(-w * 0.42, -h * 0.4, w * 0.42, -h * 0.4, 0, -h);
+    return e;
+  });
+  c.add([glow, g, ...fl]);
+  if (!REDUCED) {
+    fl.forEach((f, i) => scene.tweens.add({ targets: f, scaleY: { from: 0.85, to: 1.2 }, scaleX: { from: 1.05, to: 0.9 }, duration: 160 + i * 45, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' }));
+    scene.tweens.add({ targets: glow, alpha: { from: 0.45, to: 0.65 }, scale: { from: 2.4, to: 2.8 }, duration: 380, yoyo: true, repeat: -1 });
+    c.sparks = scene.time.addEvent({ delay: 260, loop: true, callback: () => {
+      const sp = scene.add.circle(x + (Math.random() - 0.5) * 12, y - 18, 1.6, 0xFFD27A, 1).setDepth(y + 1);
+      scene.tweens.add({ targets: sp, y: sp.y - 30 - Math.random() * 25, x: sp.x + (Math.random() - 0.5) * 16, alpha: 0, duration: 900, onComplete: () => sp.destroy() });
+    } });
+  }
+  campfire = c;
+}
+function campfireScene(n) {
+  const fade = $('fade'), text = $('fadeText'), cam = scene.cameras.main, F = state.day2.fish;
+  ui.open = true; stopWalking();
+  text.textContent = 'Вечером у костра…'; text.style.opacity = ''; fade.classList.add('show');
+  let tmp = [];
+  setTimeout(() => {   // под затемнением: вечер, костёр, все рассаживаются
+    state.time.phase = 'evening'; applyTime(true);
+    campfire = null; buildCampfire();
+    player.setVisible(false); player.setPosition(CAMP_HERO.x - 40, CAMP_HERO.y + 60);   // встаёт левее костра
+    zmeyChar.setVisible(false); zmeyLabel.setVisible(false); if (leifChar) leifChar.setVisible(false); if (leifLabel) leifLabel.setVisible(false);
+    const h = makeChar({ ...HERO_LOOK, sit: 'ground' }); h.setPosition(CAMP_HERO.x, CAMP_HERO.y).setDepth(CAMP_HERO.y); h.bodyG.scaleX = 1;
+    const l = makeChar({ ...LEIF_LOOK, sit: 'rock' }); l.setPosition(CAMP_LEIF.x, CAMP_LEIF.y).setDepth(CAMP_LEIF.y + 20); l.bodyG.scaleX = -1; l.list[0].setVisible(false);
+    const z = makeChar(ZMEY_LOOK); z.setPosition(CAMP_ZMEY.x, CAMP_ZMEY.y).setDepth(CAMP_ZMEY.y).setAngle(-84); z.list[0].setVisible(false);
+    const zs = scene.add.ellipse(CAMP_ZMEY.x - 34, CAMP_ZMEY.y + 14, 92, 18, 0x1d2a12, 0.22).setDepth(CAMP_ZMEY.y - 1);
+    tmp = [h, l, z, zs];
+    cam.stopFollow(); cam.centerOn(CAMPFIRE.x, CAMPFIRE.y - 30); campfireScene.z0 = cam.zoom; cam.setZoom(cam.zoom * 1.15);
+    updateCull(0, true);
+  }, 1400);
+  setTimeout(() => { text.style.opacity = 0; fade.classList.remove('show'); }, 2600);
+  setTimeout(() => showDialog([   // ЗАГЛУШКИ: реплики — черновик. Лейф объявляет плавание и дарит ракушку
+    ['kale', 'Знаешь, однажды у берегов Винланда меня неделю провожала стая китов. Я им пел — они подпевали. Честное слово!'],
+    ['zmey', 'Ага. А я однажды Торгеля в борьбе победил.'],
+    ['kale', 'Ну… может, кит был один. И пел в основном я. Но берег — берег был настоящий. Зелёный, тёплый, и никто там никому не хозяин.'],
+    ['kale', 'Я не просто так чиню лодку. После праздника урожая я уплываю — искать Винланд снова.'],
+    ['kale', 'Тебя бы взял с собой: ты работы не боишься, а за морем нужны именно такие.'],
+    ['kale', 'И в лодке найдётся место ещё для одного. Подумай, с кем хочешь начать новую жизнь. Время есть — до конца праздника.'],
+    ['kale', 'Держи. Эту ракушку я привёз с берегов Винланда. Отдашь её тому, кого позовёшь с собой.'],
+    ['zmey', 'В Винланд? Я бы поплыл… Шучу. Или нет.'],
+    ['thought', 'Винланд… Новая земля за морем. С кем бы я хотела туда уплыть?'],
+  ], () => {
+    tmp.forEach(o => o.destroy());
+    player.setVisible(true); facing = 1;
+    zmeyChar.setVisible(true); zmeyLabel.setVisible(true); if (leifChar) leifChar.setVisible(true); if (leifLabel) leifLabel.setVisible(true);
+    state.items.shell = true; F.stage = 2; placeZmey(false);
+    cam.setZoom(campfireScene.z0 || cam.zoom); cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y);
+    progress(); updateCull(0, true);
+    toast('Получено: ракушка из Винланда');
+  }), 3300);
+}
 function afterPolish() {
   showDialog([
     ['nanamin', 'Она… прекрасна. Спасибо вам. Правда.'],
@@ -1858,7 +2066,7 @@ function startUnveil() {
 // ===================== Игровой мир (Phaser) =====================
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
 // День 1: пока героиня не представилась, Змей дремлет на корнях большого дуба в левом нижнем углу огорода
-const ZMEY_NAP = { x: -468, y: 903 }, ZMEY_POST = { x: 228, y: 588 };
+const ZMEY_NAP = { x: -468, y: 903 }, ZMEY_POST = { x: 228, y: 588 }, ZMEY_JETTY = { x: 420, y: -1290 };   // v192: на мостках — рыбалка
 const ZMEY_COW = { x: 48, y: 1562 }, ZMEY_YARD = { x: 3292, y: -1126 }, ZMEY_FIELD = { x: 40, y: -394 };   // + у поля: начало поперечной дорожки   // день 3: у коровника с телегой → во дворе Кетиля
 const zmeyNapping = () => !state.day3.stage && (state.step <= 3 || state.step === 31);
 let saveMs = 0, facing = 1, nearId = null;
@@ -2085,8 +2293,16 @@ function makeChar(look) {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 36, 30).fillRoundedRect(-18, -56, 36, 30, 8);
     b.fillTriangle(-18, -28, -12, -28, -16, -21).fillTriangle(12, -28, 18, -28, 16, -21);
   }
-  b.fillStyle(look.legs || 0x4a3424, 1).fillRoundedRect(-8, -14, 6, 14, 2).fillRoundedRect(2, -14, 6, 14, 2);
-  if (look.boots) b.fillStyle(look.boots, 1).fillRoundedRect(-9, -8, 8, 9, 2).fillRoundedRect(1, -8, 8, 9, 2);
+  if (look.sit === 'ground') {   // v193: сидит на земле — колени вперёд, ступни в стороны
+    b.fillStyle(look.legs || 0x4a3424, 1).fillEllipse(-7, -7, 17, 10).fillEllipse(7, -7, 17, 10);
+    b.fillStyle(look.boots || look.legs || 0x4a3424, 1).fillEllipse(-15, -4, 9, 7).fillEllipse(15, -4, 9, 7);
+  } else if (look.sit === 'rock') {   // v193: сидит на камне — согнутые ноги свисают
+    b.fillStyle(look.legs || 0x4a3424, 1).fillEllipse(-5, -12, 10, 8).fillEllipse(5, -12, 10, 8).fillRoundedRect(-9, -12, 6, 10, 2).fillRoundedRect(3, -12, 6, 10, 2);
+    if (look.boots) b.fillStyle(look.boots, 1).fillRoundedRect(-10, -6, 8, 7, 2).fillRoundedRect(2, -6, 8, 7, 2);
+  } else {
+    b.fillStyle(look.legs || 0x4a3424, 1).fillRoundedRect(-8, -14, 6, 14, 2).fillRoundedRect(2, -14, 6, 14, 2);
+    if (look.boots) b.fillStyle(look.boots, 1).fillRoundedRect(-9, -8, 8, 9, 2).fillRoundedRect(1, -8, 8, 9, 2);
+  }
   if (look.scale) c.setScale(look.scale);   // крупнее остальных (Торгель)
   if (look.sleeves) b.fillStyle(look.sleeves, 1).fillRoundedRect(-19, -39, 7, 13, 3).fillRoundedRect(12, -39, 7, 13, 3);   // рукава рубахи из-под туники
   if (!look.handsBehind) b.fillStyle(look.skin, 1).fillCircle(-15, -25, 4.5).fillCircle(15, -25, 4.5);
@@ -2257,6 +2473,7 @@ function makeChar(look) {
     b.fillStyle(0x000000, 0.12).fillRect(-0.6, -47.5, 1.2, 4);
   }
   if (look.glasses) b.lineStyle(1.5, 0x2e2418, 1).strokeCircle(-5, -51, 4.5).strokeCircle(5, -51, 4.5);
+  if (look.sit === 'ground') b.y = 9;   // сидя — ниже
   c.add([shadow, b]);
   c.bodyG = b;
   return c;
@@ -3454,9 +3671,9 @@ function drawHill() {
 }
 // Лейф стоит на берегу реки, у своей лодки (v191: схематичный персонаж вместо картинки Кейла)
 function buildKale() {
-  const k = makeChar(LEIF_LOOK); k.setPosition(ANCHORS.kale.x, ANCHORS.kale.y).setDepth(ANCHORS.kale.y); k.bodyG.scaleX = 1;
+  const k = leifChar = makeChar(LEIF_LOOK); k.setPosition(ANCHORS.kale.x, ANCHORS.kale.y).setDepth(ANCHORS.kale.y); k.bodyG.scaleX = 1;
   scene.npcs.push(k);
-  nameLabel('Лейф', ANCHORS.kale.x, ANCHORS.kale.y - 92);
+  leifLabel = nameLabel('Лейф', ANCHORS.kale.x, ANCHORS.kale.y - 92);
 }
 // ===================== Сад Арнхейнд: сцена по макету из Figma (страница «Сад Айро») =====================
 // Координаты пересчитаны из макета (масштаб 0.441, забор сада макета вписан в зону сада 700–2000 × 500–1000).
@@ -4183,7 +4400,8 @@ function talkKetil() {
       ['ketil', 'Все сыты, все довольны — даже Арне не ворчит! Спасибо тебе.'],
       ['ketil', 'Держи, это моя старая сеть. Мне она уже ни к чему, а тебе на реке пригодится — рыбу ловить.'],
       ['hero', 'Ой, спасибо! Обязательно попробую.'],
-    ], () => { L.done = true; state.items.net = true; progress(); toast('Получено: старая сеть'); scene.time.delayedCall(800, startEvening); });
+      ['ketil', 'Кстати, Змей собирался на реку. Сходи с ним — заодно сеть опробуешь.'],
+    ], () => { L.done = true; state.items.net = true; d2.fish.stage = 1; placeZmey(false); progress(); toast('Новое задание: рыбалка со Змеем'); });
     if (!L.done) return showDialog([['ketil', !L.brew ? 'Хлеб у отца, вода в колодце, а отвар — у Арнхейнд в саду, у пруда.' : 'Раздай кружки ребятам — каждому свою, они у нас разборчивые.']]);
   }
   if (d2.stage === 6) return showDialog([['ketil', 'Славно поработали! Теперь и отдохнуть не грех.']]);
@@ -4716,6 +4934,7 @@ class FarmScene extends Phaser.Scene {
     if (state.step === 6) startHerd();
     if (state.step === 61) { chickens.forEach(c => { c.mode = 'asleep'; c.setVisible(false); }); spawnEggs(8 - (state.items.eggs || 0)); }
     spawnHerbs();   // v190: травы для отвара Арнхейнд (если она уже попросила)
+    campfire = null; if (state.time.day === 2 && state.day2.fish.stage === 2) buildCampfire();   // v193: костёр догорает до утра
 
     // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
     // серо-синяя рубаха на круглом животе, полотенце на шее, руки за спиной
