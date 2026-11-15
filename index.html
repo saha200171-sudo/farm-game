@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 160;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 161;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1353,6 +1353,7 @@ function solids() {
     [WORLD.x, -1016, 548 - WORLD.x, 20], [628, -1016, WORLD.w - 628, 20],     // забор между полем и пляжем (проход — у дорожки)
     [WORLD.x, 984, 604 - WORLD.x, 20], [684, 984, 1790 - 684, 20], [1880, 984, WORLD.w - 1880, 20],   // забор между фермой и пастбищем (проход у дорожки и ворота из сада)
     [WORLD.x, -16, 548 - WORLD.x, 20], [628, -16, WORLD.w - 628, 20],      // забор между фермой и полем (проход у дорожки)
+    ...FIELD_FENCES.map(y => [680, y - 10, 660, 14]),   // заборы вдоль поперечной дорожки в поле
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
@@ -2442,6 +2443,7 @@ function drawGate() {
   clearFence(fenceObjs.coop);
   fenceV(fenceObjs.coop, 700, 0, 1000, [[196, 304, state.open.kuryatnik ? 'gate-open' : 'gate']]);
 }
+const FIELD_FENCES = [-556, -398];   // под верхним и над нижним участком пшеницы (WHEAT[1], WHEAT[3]), x 680–1340
 function drawFences() {
   registerFenceFrames();
   for (const l of Object.values(fenceObjs)) { l.length = 0; l.posts = []; }
@@ -2451,6 +2453,7 @@ function drawFences() {
   fenceH(L, WORLD.x, WORLD.w, 0, [[548, 628, 'pass']]);         // между фермой и полем, проход у дорожки
   fenceV(L, OZERO_X, 0, 1000, [[210, 290, 'pass']]);   // забор озера с проходом у дорожки
   fenceH(L, WORLD.x, WORLD.w, -1000, [[548, 628, 'pass']]);   // между полем и пляжем, проход у дорожки
+  for (const y of FIELD_FENCES) fenceH(L, 680, 1340, y);   // вдоль поперечной дорожки в поле — чтобы не забредать в пшеницу
   drawGate();
 }
 // Курятник — рисованный (Magnific, с фильтрами из Figma «Сад Айро»), основание ножек на y 215
@@ -3211,7 +3214,7 @@ const CAMP = [   // [кадр атласа амбара, центр x, низ y,
 const CAMP_SOLIDS = CAMP.map(([k, x, b, w]) => [x - w * 0.42, b - 18, w * 0.84, 18]);
 // Жнецы ходят вдоль края участков (по траве у дорожки) и жнут: останавливаются и машут серпом
 const REAPERS = [
-  { x0: 110, x1: 470, y: -548 }, { x0: 720, x1: 1290, y: -404 }, { x0: 1460, x1: 1980, y: -548 },
+  { x0: 110, x1: 470, y: -548 }, { x0: 110, x1: 470, y: -404 }, { x0: 1460, x1: 1980, y: -548 },   // Сигрид — у левого нижнего участка (у среднего теперь забор)
   { x0: 1470, x1: 1990, y: -404 }, { x0: 2130, x1: 2460, y: -404 },
 ];
 const REAPER_LINES = [
