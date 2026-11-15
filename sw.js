@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    заново скачивает все файлы с меткой версии — гарантированно свежие.
-const CACHE = 'farm-v174';
+const CACHE = 'farm-v179';
 const CORE = [
   './',
   './index.html',
@@ -44,6 +44,7 @@ const CORE = [
   './assets/river/river-0.webp',
   './assets/river/river-1.webp',
   './assets/props/well.webp',
+  './assets/props/field-sign.webp',
   './assets/props/chop-block.webp',
   './assets/fields/beds.webp',
   ...['tree-1', 'tree-2', 'tree-3', 'tree-4', 'poplar-1', 'poplar-2', 'bush-1', 'bush-2', 'bush-3', 'bush-4',

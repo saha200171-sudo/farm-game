@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 174;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 179;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -3023,6 +3023,17 @@ function showStook(animate) {
   const sc = 82 / k.height; k.setScale(sc);
   if (animate && !REDUCED) { k.setScale(sc * 0.85, sc * 0.7); scene.tweens.add({ targets: k, scaleX: sc, scaleY: sc, duration: 420, ease: 'Back.easeOut' }); }
 }
+// Табличка-мем в пшенице у поста Торфинна (Magnific, ровная доска); надпись — текстом поверх
+const FIELD_SIGN = { x: 774, y: -559, w: 80 };   // v177: на втором столбике забора (низ — обрубок столбика на его верхушке)
+const NL = String.fromCharCode(10);   // перенос строки в надписях   // низ столбика; ширина таблички на карте
+function drawFieldSign() {
+  const S = FIELD_SIGN, img = scene.add.image(S.x, S.y, 'fieldSign').setOrigin(0.5, 1).setDepth(-513);   // поверх забора
+  img.setScale(S.w / img.width);
+  const h = img.displayHeight, cy = S.y - h * (1 - (34 + 288) / 2 / 340);   // середина доски (доска — строки 34–288 из 340, ниже — ножка до столбика)
+  scene.add.text(S.x, cy, 'КТО НАСТУПИТ' + NL + 'НА ГРЯДКИ' + NL + 'ТОМУ НАСТУПЛЮ' + NL + 'НА ЕБАЛО', {
+    fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '900', fontSize: '54px', color: '#3A2210', align: 'center', lineSpacing: 12,
+  }).setOrigin(0.5).setScale(0.25 * S.w / 150).setAlpha(0.92).setDepth(-512.9);
+}
 // ===================== Жатва (день 2): серп по колосьям прямо на поле =====================
 // Камера наезжает на участок у лагеря, джойстик прячется: ведёшь пальцем — серп срезает кусты,
 // на их месте остаётся стерня, а жнецы вяжут срезанное в снопы. Сжатый участок так и остаётся на карте.
@@ -4060,6 +4071,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('wheatStubble', 'assets/fields/wheat-stubble.webp');
     this.load.image('sheaf', 'assets/fields/sheaf.webp');
     this.load.image('sickle', 'assets/fields/sickle.webp');
+    this.load.image('fieldSign', 'assets/props/field-sign.webp');
     this.load.image('stook', 'assets/fields/stook.webp');
     this.load.image('fieldMouse', 'assets/fields/mouse.webp');
     this.load.image('prop-well', 'assets/props/well.webp');
@@ -4133,6 +4145,7 @@ class FarmScene extends Phaser.Scene {
     nanaminChar = null;
     buildPasture();
     drawWheat();
+    drawFieldSign();
     buildThorfinn();
     buildFieldCamp();
     buildIro();
