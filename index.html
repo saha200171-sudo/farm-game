@@ -233,7 +233,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 140;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 141;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -3399,7 +3399,7 @@ class FarmScene extends Phaser.Scene {
       }
     }
 
-    player.setDepth(playerDepth(player.x, player.y));
+    player.setDepth(house.active ? HY + HH + 100 : playerDepth(player.x, player.y));   // в доме героиня всегда перед мебелью (мебель стоит у стены), но за размытым передним планом
     player.bodyG.scaleX = facing;
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
