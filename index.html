@@ -234,7 +234,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 148;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 150;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -262,6 +262,10 @@ const SPEAKERS = {
   klara: { name: 'Ольмар',         letter: 'О', color: '#3E5A86' },   // Ольмар — второй сын Кетиля (раньше здесь была Клара)
   nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
   thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
+  ketil: { name: 'Кетиль', letter: 'К', color: '#4F6B3E' },
+  reaper0: { name: 'Бьорн', letter: 'Б', color: '#A08A5E' }, reaper1: { name: 'Сигрид', letter: 'С', color: '#B5523B' },
+  reaper2: { name: 'Арне', letter: 'А', color: '#8A6A4A' }, reaper3: { name: 'Гудрун', letter: 'Г', color: '#5F6F8A' },
+  reaper4: { name: 'Лейф', letter: 'Л', color: '#C8642E' },
   iro:     { name: 'Дядя Айро',    letter: 'А', color: '#7A8B3A' },
   kale:    { name: 'Кейл',         letter: 'К', color: '#3E8C8C' },
   zmey:    { name: 'Змей',         letter: 'З', color: '#6E4D66' },
@@ -298,6 +302,7 @@ const ANCHORS = {
   nanamin: { x: 800, y: 1580, reach: 72, mark: -118 },   // справа от загона
   door:    { x: 210, y: 320, reach: 62, mark: -140 },   // дверь дома дедушки (вечером — «Лечь спать»)
   fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
+  ketil:   { x: 2640, y: -510, reach: 78, mark: -128 },  // Кетиль в полевом лагере — в конце поперечной дорожки (день 2)
   thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
   kale:    { x: 688, y: -1192, reach: 84, mark: -138 },   // Кейл, капитан корабля — на пляже у пристани   // Дядя Айро, чайный мастер — у пруда в саду
@@ -314,6 +319,7 @@ function anchorOf(id) {
     return { x: b.x, y, reach: 56, mark: top - y - 10 };
   }
   if (id === 'thorfinn' && thorfinnChar) return { x: thorfinnChar.x, y: thorfinnChar.y, reach: 72, mark: -118 };
+  if (id && id.startsWith('reaper')) { const r = REAPERS[+id.slice(6)]; return { x: r.c.x, y: r.c.y, reach: 64, mark: -100 }; }
   return ANCHORS[id];
 }
 
@@ -364,6 +370,7 @@ function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
+  if (state.day2.stage === 3) return 'ketil';          // день 2: к Кетилю в лагерь
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
@@ -393,7 +400,9 @@ function updateHud() {
   const d2 = state.day2.stage;
   $('questLabel').textContent = d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
   $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
-    : d2 === 2 ? 'Найди в поле людей, которым нужна помощь' : questText();
+    : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
+    : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
+    : d2 === 4 ? 'Помоги жнецам сжать пшеницу (мини-игра — скоро)' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
@@ -566,6 +575,8 @@ function interact(id) {
   if (id === 'torgel') return talkTorgel();
   if (id === 'door') return state.time.phase === 'evening' ? goToSleep() : enterHouse();
   if (id.startsWith('h:')) return cookAction(id);
+  if (id === 'ketil') return talkKetil();
+  if (id.startsWith('reaper')) return talkReaper(+id.slice(6));
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
     ['thorfinn', 'Я Торфинн, слежу за полем. Ходи только по дорожкам — и мы поладим.'],
@@ -1072,6 +1083,19 @@ function showFinal() {
 // Расстановка — по макету пользователя (Figma «Дом Сверкеля», раздел 6). Координаты — в точках комнаты 1283×456.
 // Слой: 0 — на полу (глубина по низу), 1 — передний план (размыт, движется чуть быстрее камеры — объём).
 const HX = 6000, HY = 200, HW = 1283, HH = 456;
+// Кетиль — хозяин поля, сын Сверкеля, отец Торгеля и Ольмара. Крепкий, светлые волосы зачёсаны назад до плеч,
+// короткая борода с усами, зелёная рубаха с охристым воротом, ремень; вариант — коричневый плащ с застёжкой
+const KETIL_LOOK = { skin: 0xE2A880, dress: 0x4F6B3E, tunic: true, vtrim: 0xB98A3E, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0x6B5A44, boots: 0x5A4030,
+  hair: 'swept', hairColor: 0xD9BC5A, jawBeard: true, mustache: true, brows: true, heavyLids: true, calm: true, noBlush: true, scale: 1.14 };
+const KETIL_CLOAK = { ...KETIL_LOOK, cloak: 0x6E4030 };
+// Жнецы — работники Кетиля (схематичные, с серпами)
+const REAPER_LOOKS = [
+  { skin: 0xE7B48E, dress: 0xCBB48A, tunic: true, belt: 0x6B4A2E, legs: 0x7A6A55, hairColor: 0x9A6A3A, hat: 0xE2C77A, sickle: true, calm: true },
+  { skin: 0xF0C6A2, dress: 0x7D8B5A, apron: 0xE5DCC8, legs: 0x5A4A3A, hair: 'scarf', hairColor: 0xB5523B, sickle: true },
+  { skin: 0xD9A57A, dress: 0x8A6A4A, tunic: true, belt: 0x3A2A20, legs: 0xBDB39A, hair: 'wavy', hairColor: 0x5A3A22, stubble: true, brows: true, noBlush: true, sickle: true },
+  { skin: 0xEAB896, dress: 0x5F6F8A, apron: 0xE5DCC8, legs: 0x4A4A55, hair: 'bun', hairColor: 0xB8B2A6, glasses: false, calm: true, sickle: true },
+  { skin: 0xF2CBA8, dress: 0xB0583E, suspenders: 0x6B4A2E, legs: 0x6B6250, hairColor: 0xC8642E, hat: 0xD9BE70, sickle: true },
+];
 const GRANDPA_LOOK = { skin: 0xE6B38C, dress: 0x667083, belly: true, belt: 0x2E2A28, buckle: 0x55504A, legs: 0x4E5560, scarf: 0xBDB8A2,
   hair: 'bald', hairColor: 0xC4C0B6, goatee: true, heavyLids: true, handsBehind: true, noBlush: true, calm: true };
 const HOUSE_FRAMES = {"h31":[0,0,108,912],"h33":[110,0,108,912],"hcold":[220,0,356,305],"h8":[578,0,356,305],"h1":[936,0,364,266],"h29":[1302,0,120,262],"h30":[1424,0,124,260],"h17":[1550,0,106,238],"h6":[1658,0,208,234],"h26":[0,914,260,226],"h28":[262,914,146,224],"h35":[410,914,382,220],"h24":[794,914,338,214],"h25":[1134,914,100,194],"h20":[1236,914,308,188],"h12":[1546,914,328,183],"h32":[0,1142,256,182],"h4":[258,1142,144,180],"h23":[404,1142,216,170],"h27":[622,1142,226,158],"h2":[850,1142,260,152],"h21":[1112,1142,308,144],"h22":[1422,1142,100,144],"h34":[1524,1142,188,144],"h14":[1714,1142,160,112],"h36":[1876,1142,104,104],"h18":[0,1326,276,76],"h7":[278,1326,339,49],"h19":[619,1326,172,44],"h15":[793,1326,335,41],"h5":[1130,1326,198,38],"h11":[1330,1326,312,34],"h9":[1644,1326,312,30],"h10":[0,1404,312,30],"h3":[314,1404,137,29],"h16":[453,1404,95,28],"h0":[550,1404,266,25],"h13":[818,1404,149,18]};
@@ -1282,6 +1306,7 @@ function solids() {
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
   list.push([-312, 430, 44, 16]);   // Торгель
   list.push([660, -1208, 58, 26]);  // Кейл
+  list.push(...CAMP_SOLIDS, [ANCHORS.ketil.x - 20, ANCHORS.ketil.y - 12, 40, 16]);   // полевой лагерь и Кетиль
   return list;
 }
 function walkable(x, y) {
@@ -1330,6 +1355,8 @@ function hitTest(x, y) {
   if (state.open.sad && near(943, 721, 50)) return 'iro';
   if (near(688, -1250, 62)) return 'kale';
   if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
+  if (near(ANCHORS.ketil.x, ANCHORS.ketil.y - 40, 48)) return 'ketil';
+  for (let i = 0; i < REAPERS.length; i++) if (REAPERS[i].c && near(REAPERS[i].c.x, REAPERS[i].c.y - 35, 42)) return 'reaper' + i;
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
   for (const c of cows) if (!c.following && state.nanamin.cows[c.idx] !== 2 && near(c.x, c.y - 30, 50)) return 'cow' + c.idx;
   return null;
@@ -1397,7 +1424,8 @@ function nearest() {
   let best = null, bd = Infinity;
   const nm = state.nanamin;
   const ids = Object.keys(ANCHORS).concat(cows.filter(c => !c.following && nm.cows[c.idx] !== 2).map(c => 'cow' + c.idx))
-    .concat(Object.keys(VEG_BEDS).filter(i => canHarvest(+i)).map(i => 'bed' + i));   // левые грядки — только когда можно срывать
+    .concat(Object.keys(VEG_BEDS).filter(i => canHarvest(+i)).map(i => 'bed' + i))   // левые грядки — только когда можно срывать
+    .concat(REAPERS.filter(r => r.c).map((r, i) => 'reaper' + i));
   for (const id of ids) {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
@@ -1453,6 +1481,7 @@ function makeChar(look) {
   const shadow = scene.add.graphics();
   shadow.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 36, 12);
   const b = scene.add.graphics();
+  if (look.cloak) b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -42, 36, 38, { tl: 12, tr: 12, bl: 4, br: 4 });   // плащ сзади, до колен
   b.fillStyle(look.legs || 0x4a3424, 1).fillRoundedRect(-8, -14, 6, 14, 2).fillRoundedRect(2, -14, 6, 14, 2);
   if (look.boots) b.fillStyle(look.boots, 1).fillRoundedRect(-9, -8, 8, 9, 2).fillRoundedRect(1, -8, 8, 9, 2);
   if (look.scale) c.setScale(look.scale);   // крупнее остальных (Торгель)
@@ -1464,6 +1493,7 @@ function makeChar(look) {
   if (look.apron) b.fillStyle(look.apron, 1).fillRoundedRect(-8, -30, 16, 18, 4);
   if (look.suspenders) b.fillStyle(look.suspenders, 1).fillRect(-8, -39, 4, 28).fillRect(4, -39, 4, 28);
   if (look.hair === 'pony') { b.fillStyle(look.hairColor, 1).fillCircle(14, -58, 7).fillCircle(18, -49, 6); }
+  if (look.hair === 'scarf') b.fillStyle(look.hairColor, 1).fillTriangle(9, -56, 24, -46, 19, -60).fillTriangle(11, -55, 18, -42, 22, -50);   // концы платка торчат сзади, за головой
   if (look.hair === 'bun')  { b.fillStyle(look.hairColor, 1).fillCircle(0, -70, 8); }
   if (look.hair === 'wavy') {   // тёмные волнистые волосы до плеч: сзади — волнами
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 32, 26).fillRoundedRect(-17, -54, 7, 18, 3).fillRoundedRect(10, -54, 7, 18, 3);
@@ -1487,6 +1517,19 @@ function makeChar(look) {
   if (look.trim) {   // горчичная отделка: ворот и манжеты
     b.fillStyle(look.trim, 1).fillRoundedRect(-7, -41, 14, 5, 2).fillRoundedRect(-19, -31, 8, 4, 1.5).fillRoundedRect(11, -31, 8, 4, 1.5);
   }
+  if (look.vtrim) {   // широкий ворот с вырезом и манжеты (кант)
+    b.fillStyle(look.vtrim, 1).fillRoundedRect(-11, -42, 22, 6, 3).fillTriangle(-4, -37, 4, -37, 0, -31).fillRoundedRect(-19, -29, 8, 4, 1.5).fillRoundedRect(11, -29, 8, 4, 1.5);
+    b.fillStyle(look.skin, 1).fillTriangle(-2, -38, 2, -38, 0, -33);
+  }
+  if (look.cloak) {   // плащ спереди: тяжёлый воротник-накидка на плечах и круглая застёжка
+    b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -44, 36, 12, 6).fillTriangle(-18, -36, -6, -36, -15, -26).fillTriangle(18, -36, 6, -36, 15, -26);
+    b.fillStyle(0x000000, 0.14).fillRect(-14, -35, 28, 1.5);
+    b.fillStyle(0xBFC3C6, 1).fillCircle(-8, -37, 3).fillStyle(0x6E7378, 1).fillCircle(-8, -37, 1.3);
+  }
+  if (look.sickle) {   // серп в правой руке
+    b.lineStyle(2.5, 0x6B4A2E, 1).lineBetween(15, -24, 19, -14);
+    b.lineStyle(2.2, 0xC9CED2, 1).beginPath().arc(23, -16, 6.5, 0.9 * Math.PI, 2.05 * Math.PI).strokePath();
+  }
   if (look.longsword) {   // прямой меч в тёмно-синих ножнах на поясе (левый бок), рукоять над поясом
     b.lineStyle(4.5, look.scabbard || 0x2F3A5C, 1).lineBetween(-12, -22, -15, -1);
     b.fillStyle(0xC9A040, 1).fillRect(-17.5, -4, 5, 4);                       // золотой наконечник ножен
@@ -1502,7 +1545,7 @@ function makeChar(look) {
   }
   b.fillStyle(look.skin, 1).fillCircle(0, -52, 14);
   if (look.hair === 'scarf') {
-    b.fillStyle(look.hairColor, 1).fillEllipse(0, -60, 34, 20).fillTriangle(10, -52, 20, -44, 18, -56);
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -60, 34, 20);
     b.fillStyle(0xffffff, 0.6).fillCircle(-6, -63, 2).fillCircle(4, -66, 2).fillCircle(10, -60, 2);
   } else if (look.hair === 'long') {
     // светлая чёлка и пряди по бокам лица до плеч
@@ -1529,6 +1572,10 @@ function makeChar(look) {
   } else {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -61, 30, 15).fillEllipse(-10, -56, 10, 12);
   }
+  if (look.hat) {   // соломенная шляпа с широкими полями
+    b.fillStyle(look.hat, 1).fillEllipse(0, -61, 42, 10).fillEllipse(0, -66, 22, 14);
+    b.fillStyle(0x8A6A3A, 0.55).fillRect(-11, -63.5, 22, 2.5);
+  }
   b.fillStyle(0x2e2418, 1).fillCircle(-5, -51, 2).fillCircle(5, -51, 2);
   if (!look.noBlush) b.fillStyle(0xF28B82, 0.6).fillCircle(-8, -46, 2.8).fillCircle(8, -46, 2.8);
   if (look.stubble) b.fillStyle(look.hairColor, 0.16).fillEllipse(0, -40, 15, 6).fillStyle(look.hairColor, 0.3).fillEllipse(0, -39.5, 4, 3);   // щетина и бородка
@@ -1541,6 +1588,7 @@ function makeChar(look) {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -39.5, 20, 11).fillRect(-13, -50, 3.5, 10).fillRect(9.5, -50, 3.5, 10);
     b.fillTriangle(-13, -41, -9, -44, -6, -36).fillTriangle(13, -41, 9, -44, 6, -36);
   }
+  if (look.mustache) b.fillStyle(look.hairColor, 1).fillEllipse(-3.5, -44.5, 8, 4).fillEllipse(3.5, -44.5, 8, 4);   // усы, сливаются с бородой
   if (look.scar) b.lineStyle(1.4, 0x9A5F48, 0.9).lineBetween(8, -56, 10, -47);   // шрам на щеке
   if (look.stern) b.lineStyle(2.2, 0x2e2418, 1).lineBetween(-10, -58, -2, -55).lineBetween(10, -58, 2, -55);   // сведённые брови
   if (look.brows) b.lineStyle(2, 0x2e2418, 1).lineBetween(-9, -56, -2, -55.5).lineBetween(9, -56, 2, -55.5);   // прямые густые брови
@@ -2731,7 +2779,7 @@ function buildIro() {
 // Поле с пшеницей: участки заполняются рядами кустов пшеницы во весь рост (Magnific, вариант 1) —
 // задние ряды выглядывают из-за передних, глубина у каждого куста своя, поэтому в поле можно «зайти»
 const WHEAT = [[60, -960, 460, 390], [680, -960, 660, 390], [60, -390, 460, 320], [680, -390, 660, 320],
-  [1420, -960, 600, 390], [2100, -960, 640, 390], [1420, -390, 600, 320], [2100, -390, 640, 320]];   // справа — новые участки
+  [1420, -960, 600, 390], [2100, -960, 400, 390], [1420, -390, 600, 320], [2100, -390, 400, 320]];   // справа — новые участки
 const WHEAT_W = 80;                    // ширина одного куста на карте
 const WHEAT_H = WHEAT_W * 226 / 240;   // его высота (картинка 240×226)
 function drawWheat() {
@@ -2825,6 +2873,88 @@ function updateThorfinn(dt) {
   }
   thorfinnChar.setDepth(thorfinnChar.y);
   thorfinnLabel.setPosition(thorfinnChar.x, thorfinnChar.y - 78).setDepth(4000);
+}
+
+// ===================== Полевой лагерь Кетиля и жнецы (день 2) =====================
+// Лагерь — в конце поперечной дорожки, на расчищенном краю поля. Телега, стог и бочки — пока из реквизита амбара.
+const CAMP = [   // [кадр атласа амбара, центр x, низ y, ширина, отразить]
+  ['haystack', 2585, -548, 120, 0], ['barrels', 2745, -540, 64, 0], ['bucket1', 2700, -528, 26, 0],
+  ['cart', 2660, -350, 150, 1], ['sacks1', 2560, -372, 50, 0],
+];
+const CAMP_SOLIDS = CAMP.map(([k, x, b, w]) => [x - w * 0.42, b - 18, w * 0.84, 18]);
+// Жнецы ходят вдоль края участков (по траве у дорожки) и жнут: останавливаются и машут серпом
+const REAPERS = [
+  { x0: 110, x1: 470, y: -548 }, { x0: 720, x1: 1290, y: -404 }, { x0: 1460, x1: 1980, y: -548 },
+  { x0: 1470, x1: 1990, y: -404 }, { x0: 2130, x1: 2460, y: -404 },
+];
+const REAPER_LINES = [
+  ['Жара, а работы — непочатый край. Ничего, к вечеру управимся.', 'Хорошая пшеница в этом году. Колос к колосу!'],
+  ['Ой, новенькая? Я Сигрид. Не стой на солнце, напечёт!', 'Устанешь — приходи к бочке в лагере, там вода холодная.'],
+  ['Серп тупится быстрее, чем я успеваю его точить…', 'Торфинн опять кого-то с поля гонял? Он у нас строгий.'],
+  ['В мои годы уже тяжело нагибаться, но урожай сам себя не соберёт.', 'Я на этом поле жну дольше, чем Кетиль на свете живёт.'],
+  ['Я самый быстрый жнец! Ну… почти самый.', 'Спорим, я дожну свой ряд раньше Бьорна?'],
+];
+function buildFieldCamp() {
+  const tx = scene.textures.get('barn');
+  for (const [k, f] of Object.entries(BARN_FRAMES)) if (!tx.has(k)) tx.add(k, 0, ...f);
+  shadowTex();
+  for (const [k, x, b, w, flip] of CAMP) {
+    const img = scene.add.image(x, b, 'barn', k).setOrigin(0.5, 1).setScale(w / BARN_FRAMES[k][2]).setFlipX(!!flip).setDepth(b);
+    scene.add.image(x, b - 3, 'coopShadow').setDisplaySize(w * 1.05, img.displayHeight * 0.22).setDepth(GROUND - 8);
+  }
+  const k = makeChar(KETIL_CLOAK); k.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); k.bodyG.scaleX = -1;
+  scene.npcs.push(k);
+  nameLabel('Кетиль', ANCHORS.ketil.x, ANCHORS.ketil.y - 92);
+  const rnd = mulberry32(7);
+  REAPERS.forEach((r, i) => {
+    r.c = makeChar(REAPER_LOOKS[i]);
+    r.c.setPosition(r.x0 + rnd() * (r.x1 - r.x0), r.y);
+    r.dir = rnd() < 0.5 ? -1 : 1; r.wait = 1500 + rnd() * 3000; r.walk = 0; r.talks = 0;
+    scene.npcs.push(r.c);
+  });
+}
+function updateReapers(dt) {
+  const ms = Math.min(dt, 50);
+  REAPERS.forEach((r, i) => {
+    const c = r.c; if (!c || !c.active) return;
+    if (r.talking) { c.bodyG.angle = 0; c.bodyG.y = 0; if (!ui.open) r.talking = false; return; }   // разговаривает — стоит
+    if (r.wait > 0) {   // жнёт: покачивается, машет серпом
+      r.wait -= ms;
+      c.bodyG.angle = REDUCED ? 0 : Math.sin(scene.time.now / 160 + i * 2) * 7;
+      c.bodyG.y = 0;
+      if (r.wait <= 0) { r.walk = 1200 + Math.random() * 2200; c.bodyG.angle = 0; }
+    } else {
+      c.x += r.dir * 28 * ms / 1000; c.bodyG.scaleX = r.dir;
+      c.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 110)) * 2;
+      if (c.x < r.x0 || c.x > r.x1) { r.dir *= -1; c.x = Phaser.Math.Clamp(c.x, r.x0, r.x1); }
+      if ((r.walk -= ms) <= 0) r.wait = 2500 + Math.random() * 3500;
+    }
+    c.setDepth(c.y);
+  });
+}
+function talkReaper(i) {
+  const r = REAPERS[i], who = 'reaper' + i, d2 = state.day2;
+  r.talking = true; r.c.bodyG.scaleX = player.x < r.c.x ? -1 : 1;
+  const line = REAPER_LINES[i][r.talks++ % 2];
+  // ЗАГЛУШКИ: реплики жнецов — черновик, заменим на твои
+  if (d2.stage === 2) return showDialog([[who, line],
+    [who, 'Помочь хочешь? Тогда тебе к Кетилю — это его поле. Лагерь на дальнем краю, в самом конце дорожки.']],
+    () => { d2.stage = 3; progress(); toast('Новое задание: найди Кетиля'); });
+  if (d2.stage === 3) return showDialog([[who, line], [who, 'Кетиль в лагере, в конце дорожки. Иди-иди, он ждёт помощников!']]);
+  showDialog([[who, line]]);
+}
+function talkKetil() {
+  const d2 = state.day2;
+  // ЗАГЛУШКИ: реплики Кетиля — черновик, заменим на твои
+  if (d2.stage === 2 || d2.stage === 3) return showDialog([
+    ['ketil', 'А, ты, должно быть, та самая, что живёт у отца. Я Кетиль, это поле — моё.'],
+    ['ketil', 'Отец говорил, что ты не боишься работы. Это кстати.'],
+    ['ketil', 'Урожай в этом году богатый, а рук не хватает: двое работников слегли с простудой.'],
+    ['ketil', 'Возьми серп и помоги сжать участок у лагеря. Только по колосьям не топчись — Торфинн не простит.'],
+    ['hero', 'Хорошо, попробую!'],
+  ], () => { d2.stage = 4; progress(); toast('Новое задание: помоги жать пшеницу'); });
+  if (d2.stage === 4) return showDialog([['ketil', 'Серп лежит у телеги. Жатву сделаем чуть позже — эта часть ещё в работе.']]);
+  showDialog([['ketil', 'Я Кетиль, хозяин этого поля. Будет время — заходи, работы на всех хватит.']]);
 }
 
 // Первый приход в поле
@@ -3364,6 +3494,7 @@ class FarmScene extends Phaser.Scene {
     buildPasture();
     drawWheat();
     buildThorfinn();
+    buildFieldCamp();
     buildIro();
     drawRocks();
     drawSea();
@@ -3457,6 +3588,7 @@ class FarmScene extends Phaser.Scene {
     updatePasture(dt);
     updateField();
     updateThorfinn(dt);
+    updateReapers(dt);
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
