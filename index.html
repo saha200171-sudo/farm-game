@@ -230,7 +230,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button>
       </div><div class="bag" id="bag"></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -258,7 +258,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 189;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 190;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -331,7 +331,7 @@ const ANCHORS = {
   thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
   d4:      { x: 0, y: 0, reach: 80, mark: -112 },   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
-  kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Арнхейнд, чайный мастер — у пруда в саду
+  kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Арнхейнд, знаток трав — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -345,6 +345,7 @@ function anchorOf(id) {
     return { x: b.x, y, reach: 56, mark: top - y - 10 };
   }
   if (id === 'thorfinn' && thorfinnChar) return { x: thorfinnChar.x, y: thorfinnChar.y, reach: 72, mark: -118 };
+  if (id && id.startsWith('herb')) { const h = HERB_SPOTS[+id.slice(4)]; return { x: h.x, y: h.y, reach: 60, mark: -40 }; }
   if (id && id.startsWith('reaper')) { const r = REAPERS[+id.slice(6)]; return { x: r.c.x, y: r.c.y, reach: 64, mark: -100 }; }
   return ANCHORS[id];
 }
@@ -365,7 +366,9 @@ const freshState = () => ({
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
   day3: { stage: 0, cartAt: 'cow' },
   day4: { stage: 0 },   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
-  day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }] },
+  day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }],
+    // v190: «Обед для жнецов» (после жатвы, stage 6): хлеб у Сверкеля, вода из колодца, травяной отвар у Арнхейнд → раздать каждому жнецу его кружку
+    lunch: { on: false, bread: false, water: false, asked: false, herbs: [false, false, false], brew: false, served: [], done: false } },
 });
 function loadState() {
   try {
@@ -416,6 +419,14 @@ function questTarget() {
   if (state.day3.stage === 1) return null;             // день 3: Змея ищем сами (или спрашиваем)
   if (state.day3.stage === 2) return 'ketil';          // день 3: Кетиль у своего дома
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
+  { const L = state.day2.lunch;                        // день 2: обед для жнецов
+    if (state.day2.stage === 6 && L.on && !L.done) {
+      if (!L.bread) return 'grandpa';
+      if (!L.water) return 'well';
+      if (!L.brew) return L.asked && L.herbs.some(h => !h) ? null : 'iro';   // травы в саду ищем сами
+      const i = REAPERS.findIndex((r, k) => r.c && !L.served.includes(k));
+      return i >= 0 ? 'reaper' + i : 'ketil';
+    } }
   if (state.day2.stage === 3 || ((state.day2.stage === 4 || state.day2.stage === 5) && !reap.active)) return 'ketil';   // день 2: к Кетилю в лагерь
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
@@ -455,11 +466,17 @@ function updateHud() {
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
     : d2 === 4 ? (reap.active ? `Участок ${reap.k + 1}/2: сожни ${reap.n} из ${reap.bushes.length}` : (state.day2.plot ? 'Остался верхний участок: поговори с Кетилем' : 'Помоги жнецам: поговори с Кетилем в лагере'))
     : d2 === 5 ? (reap.active ? `Участок ${reap.k + 1}/2: копна ${D2().stook.length} из ${reap.sheafs.length}` : 'Сложи снопы в копну: поговори с Кетилем')
-    : d2 === 6 ? (day3 ? 'Задания третьего дня — скоро' : 'Жатва окончена! (продолжение скоро)') : questText();
+    : d2 === 6 ? (day3 ? 'Задания третьего дня — скоро' : lunchText() || 'Жатва окончена! (продолжение скоро)') : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
   if (state.items.horseshoe) chips.push(['Подкова на удачу', '#C9A040']);
+  { const L = state.day2.lunch;
+    if (L.on && !L.done && L.bread && L.served.length < LUNCH_CUPS.length) chips.push(['Хлеб', '#C98A4A']);
+    if (L.on && !L.done && L.water && L.served.length < LUNCH_CUPS.length) chips.push(['Кувшин воды', '#4DA3D9']);
+    if (L.on && !L.brew && L.asked) chips.push([`Травы × ${L.herbs.filter(Boolean).length}`, '#7FA85A']);
+    if (L.brew && L.served.length < LUNCH_CUPS.length) chips.push([`Кружки отвара × ${LUNCH_CUPS.length - L.served.length}`, '#B07A3A']);
+    if (state.items.net) chips.push(['Старая сеть', '#8C7A5C']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
   if (state.time.day > 1 || state.time.phase !== 'day') {
@@ -528,7 +545,7 @@ function showThought(text, onEnd) { showDialog([['thought', text]], onEnd); }
 // Выбор: о чём спросить персонажа. options = [[текст кнопки, функция], …]
 const actionsEl = document.querySelector('#sheet .actions');
 const actionsHTML = actionsEl.innerHTML;
-function showChoice(who, prompt, options) {
+function showChoice(who, prompt, options, sec = 0) {   // sec — какая кнопка светлая (второстепенная)
   ui.open = true; stopWalking();
   const s = SPEAKERS[who];
   $('sheet').hidden = false; $('sheet').classList.remove('thought');
@@ -536,7 +553,7 @@ function showChoice(who, prompt, options) {
   $('who').textContent = s.name; $('line').textContent = prompt;
   dlg.choice = true;
   actionsEl.classList.add('choices');
-  actionsEl.innerHTML = options.map(([label], i) => `<button class="btn${i ? '' : ' secondary'}" type="button" data-i="${i}">${label}</button>`).join('');
+  actionsEl.innerHTML = options.map(([label], i) => `<button class="btn${i === sec ? ' secondary' : ''}" type="button" data-i="${i}">${label}</button>`).join('');
   actionsEl.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
     e.stopPropagation();
     dlg.choice = false;
@@ -632,9 +649,19 @@ function devJump(day) {
     s.day2.stage = 1;   // утро: дед попросил помочь в поле
     s.pos = { x: ANCHORS.door.x, y: ANCHORS.door.y + 30 };
   }
+  if (day === 2.5) {   // ВРЕМЕННО: сразу к «Обеду для жнецов» — жатва и копны готовы, Кетиль в лагере
+    Object.assign(s.day2, { stage: 6, visitedField: true, plot: 1 });
+    s.day2.plots = REAP_PLOTS.map((q, k) => {
+      const N = reap.P[k].bushes.length, n = Math.ceil(N / SHEAF_EVERY);
+      return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
+    });
+    s.pos = { x: KETIL_CAMP.x - 90, y: KETIL_CAMP.y + 20 };
+  }
   if (day >= 3) {   // день 2 пройден: оба участка сжаты, копны сложены
     s.time = { day: 3, phase: 'day' };
     Object.assign(s.day2, { stage: 6, visitedField: true, plot: 1 });
+    s.day2.lunch = { on: true, bread: true, water: true, asked: true, herbs: [true, true, true], brew: true, served: [0, 1, 2, 3, 4], done: true };
+    s.items.net = true;
     s.day2.plots = REAP_PLOTS.map((q, k) => {
       const N = reap.P[k].bushes.length, n = Math.ceil(N / SHEAF_EVERY);
       return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
@@ -645,7 +672,8 @@ function devJump(day) {
   }
   state = s; try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}   // save() перезаписал бы позицию текущей
   scene.scene.restart();
-  if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startDay4, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
+  if (day === 2.5) { setTimeout(startLunch, 700); }
+  else if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startDay4, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
 function resetGame() {
   closeModal();
@@ -670,6 +698,7 @@ function interact(id) {
   if (id === 'ketil') return talkKetil();
   if (id.startsWith('reaper')) return talkReaper(+id.slice(6));
   if (id === 'd4') return day4Act();
+  if (id.startsWith('herb')) return pickHerb(+id.slice(4));
   if (id === 'thorfinn' && state.day4.stage === 2) return day4Thorfinn();
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
@@ -678,6 +707,7 @@ function interact(id) {
   if (id.startsWith('pen')) return repairPen(+id[3]);
   if (id.startsWith('cow')) return callCow(+id.slice(3));
   if (id === 'well') {
+    if (s.day2.lunch.on && !s.day2.lunch.water && !s.day2.lunch.done) { s.day2.lunch.water = true; splash(140, 545); toast('Кувшин полон холодной воды'); progress(); return; }
     if (s.step === 1) { s.items.can = true; s.step = 2; splash(140, 545); toast('Получено: лейка'); progress(); scene.wellG && scene.wellG.clear(); }
     else toast(s.items.can ? 'Вода в колодце ледяная и чистая' : 'Это колодец. Рядом висит старая лейка', 'info');
     return;
@@ -731,7 +761,11 @@ function talkGrandpa() {
 
 // Если героиня уже видела грустного Эйнара, у дедушки можно спросить о нём
 function askGrandpa() {
-  const nm = state.nanamin;
+  const nm = state.nanamin, L = state.day2.lunch;
+  if (L.on && !L.bread && !L.done) return showDialog([   // ЗАГЛУШКА: реплики — черновик
+    ['grandpa', 'Обед для жнецов? Вот это дело! С утра в поле — и ни крошки, знаю я Кетиля.'],
+    ['grandpa', 'Держи каравай, утром испёк. Да не урони по дороге!'],
+  ], () => { L.bread = true; progress(); toast('Получено: хлеб'); });
   if (state.day3.stage === 1) return showDialog([['grandpa', 'Змей? С утра крутился у курятника. Спроси у Ольмара — он всё видит.']]);   // ЗАГЛУШКА
   if (nm.stage === 1 && (nm.tools === 1 || nm.tools === 3)) return toolsTalk();
   if (nm.stage === 1 && (nm.tools === 2 || nm.tools === 4) && ![0, 3, 7].includes(state.step)) return toolsTalk();
@@ -768,12 +802,15 @@ function askAboutNanamin() {
 }
 
 // ===================== Пастбище: Эйнар, загон, коровы =====================
-// Арнхейнд — чайный мастер у пруда. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
+// Арнхейнд — знаток трав, у пруда в своём саду (v190: вместо чая — травяной отвар). Реплики — ЗАГЛУШКА, позже заменим текстом от автора
 function talkIro() {
   if (state.day4.stage === 6) return day4Distract();
+  const L = state.day2.lunch;
+  if (state.day2.stage === 6 && L.on && !L.brew && !L.done) return lunchArnheid();
+  if (L.brew && L.served.length < LUNCH_CUPS.length) return showDialog([['iro', 'Отнеси кружки, пока отвар холодный. Не перепутай, кому какая!']]);
   showDialog([
     ['iro', 'Ой, здравствуй! Ты, должно быть, новенькая у Сверкеля? Я Арнхейнд, это мой сад.'],
-    ['iro', 'Присаживайся, я как раз заварила чай. Здесь, у пруда, так спокойно — заходи, когда устанешь.'],
+    ['iro', 'Присаживайся, у меня как раз остывает травяной отвар. Здесь, у пруда, так спокойно — заходи, когда устанешь.'],
   ]);
 }
 // Кейл — капитан корабля: уверенный, дружелюбный, харизматичный. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
@@ -1196,6 +1233,118 @@ function updateEggs() {
       }
     }
   }
+}
+// ===================== День 2: «Обед для жнецов» (v190, схематично) =====================
+// Кетиль: работники с утра без еды. Хлеб — у Сверкеля, вода — из колодца, травяной отвар — у Арнхейнд (сад впервые).
+// Арнхейнд просит три травы из сада и делает каждому жнецу кружку по вкусу; раздать нужно правильно — подсказки в репликах жнецов.
+const HERB_SPOTS = [
+  { x: 1163, y: 935, name: 'мята', leaf: 0x7CC27A, flower: null },        // у воды, ниже пруда
+  { x: 1036, y: 562, name: 'ромашка', leaf: 0x6E9E4A, flower: 0xFFFFFF },  // наверху, у дорожки
+  { x: 1782, y: 655, name: 'чабрец', leaf: 0x6F8A52, flower: 0xA77BC9 },   // среди камней, справа
+];
+const herbs = [];
+// кружки отвара; LUNCH_FOR[i] — какая кружка нужна жнецу i (0 Бьорн, 1 Сигрид, 2 Арне, 3 Гудрун, 4 Лейф)
+const LUNCH_CUPS = ['С мятой', 'С мёдом', 'С чабрецом', 'С ромашкой', 'Мята с мёдом'];
+const LUNCH_FOR = [0, 1, 2, 3, 4];
+// ЗАГЛУШКИ: реплики — черновик
+const LUNCH_WANT = [
+  'Ух, жара… Мне бы чего-нибудь холодящего, свежего.',
+  'Я бы сейчас что-нибудь сладенькое… Сладкое — моя слабость!',
+  'Мне покрепче, с горчинкой — чтоб до вечера бодрым быть.',
+  'Спина ноет… Мне бы что-нибудь мягкое, успокаивающее.',
+  'Мне — как Бьорну, только послаще! Тогда точно его обгоню.',
+];
+const LUNCH_THANKS = [
+  'Ох, холодненький, с мятой — сразу полегчало!',
+  'С мёдом! Ты прелесть. Спасибо!',
+  'Крепкий… Хорош. Так и быть, ворчать не буду. До вечера.',
+  'Ромашка… Спасибо, детка. Сразу спине легче.',
+  'Мята с мёдом! Ну всё, Бьорн, держись!',
+];
+const LUNCH_WRONG = [
+  'Нет, это не то… Мне бы что-нибудь холодящее.',
+  'Хм, не сладко. Может, отдай кому-нибудь другому?',
+  'Слабовато. Мне бы покрепче, с горчинкой.',
+  'Нет, милая, это не для моей спины.',
+  'Не-е, мне как Бьорну, но слаще!',
+];
+function lunchText() {
+  const L = state.day2.lunch;
+  if (L.done && state.time.day === 2) return 'Обед удался! Вечереет — пора домой';
+  if (!L.on || L.done) return '';
+  if (!L.bread || !L.water || !L.brew) {
+    const m = v => v ? '✓' : '—';
+    return `Обед для жнецов: хлеб ${m(L.bread)} · вода ${m(L.water)} · отвар ${m(L.brew)}` +
+      (L.asked && !L.brew ? `. Травы для Арнхейнд: ${L.herbs.filter(Boolean).length} из 3` : '');
+  }
+  if (L.served.length < LUNCH_CUPS.length) return `Раздай обед жнецам — каждому его кружку: ${L.served.length} из ${LUNCH_CUPS.length}`;
+  return 'Все сыты! Вернись к Кетилю';
+}
+function startLunch() {
+  const L = state.day2.lunch;
+  if (L.on) return;
+  showDialog([   // ЗАГЛУШКА: реплики — черновик
+    ['ketil', 'Постой-ка… Ребята ведь с утра ничего не ели. Я со своей жатвой совсем забыл про обед.'],
+    ['ketil', 'Выручишь? Хлеб возьми у отца, воды набери в колодце.'],
+    ['ketil', 'А в саду, у пруда, живёт Арнхейнд — она знает травы. Попроси у неё отвара: в такую жару он лучше всякой воды.'],
+    ['hero', 'Сейчас всё принесу!'],
+  ], () => { L.on = true; progress(); toast('Новое задание: обед для жнецов'); });
+}
+function lunchArnheid() {
+  const L = state.day2.lunch;
+  if (!L.asked) return showDialog([   // ЗАГЛУШКА: реплики — черновик. Первая встреча: сад открывается здесь
+    ['iro', 'Ой, здравствуй! Ты, должно быть, новенькая у Сверкеля? Я Арнхейнд, это мой сад.'],
+    ['hero', 'Кетиль просил отвара для жнецов. Они с утра в поле, жара…'],
+    ['iro', 'Конечно, сделаю! Только свежих трав у меня не осталось. Поможешь собрать?'],
+    ['iro', 'Мята растёт у воды, пониже пруда. Ромашка — белые цветочки, наверху у дорожки. А чабрец — лиловый, любит камни, ищи справа.'],
+  ], () => { L.asked = true; progress(); spawnHerbs(); toast('Найди в саду мяту, ромашку и чабрец', 'info'); });
+  if (L.herbs.some(h => !h)) return showDialog([['iro', 'Мята — у воды, ниже пруда. Ромашка — наверху у дорожки. Чабрец — среди камней справа.']]);
+  showDialog([
+    ['iro', 'Какие душистые! Спасибо. Подожди минутку…'],
+    ['iro', 'Готово. Я сделала пять кружек — каждому по вкусу: с мятой, с мёдом, с чабрецом, с ромашкой и мяту с мёдом.'],
+    ['iro', 'Гудрун, помнится, любит ромашку — у неё спина болит. А кто что ещё любит — спроси у них сама. Только не перепутай!'],
+  ], () => { L.brew = true; progress(); toast('Получено: кружки с отваром'); });
+}
+function spawnHerbs() {
+  herbs.forEach(h => h && h.destroy()); herbs.length = 0;
+  const L = state.day2.lunch;
+  if (!(state.day2.stage === 6 && L.on && L.asked && !L.brew)) return;
+  HERB_SPOTS.forEach((h, i) => {
+    if (L.herbs[i]) { herbs.push(null); return; }
+    // ЗАГЛУШКА: схематичный кустик травы (позже — картинка)
+    const g = scene.add.graphics().setPosition(h.x, h.y).setDepth(h.y);
+    g.fillStyle(0x000000, 0.18).fillEllipse(0, 2, 40, 12);
+    for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 + (k - 3) * 0.32; g.fillStyle(h.leaf, 1).fillEllipse(Math.cos(a) * 11, -8 + Math.sin(a) * 11, 9, 18); }
+    if (h.flower !== null) for (let k = 0; k < 6; k++) {
+      const fx = -12 + k * 5 + (k % 2) * 2, fy = -22 - (k % 3) * 5;
+      g.fillStyle(h.flower, 1).fillCircle(fx, fy, h.name === 'ромашка' ? 3.6 : 2.6);
+      if (h.name === 'ромашка') g.fillStyle(0xF2C230, 1).fillCircle(fx, fy, 1.4);
+    }
+    if (!REDUCED) scene.tweens.add({ targets: g, scaleY: 1.06, duration: 900 + i * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    herbs.push(g);
+  });
+}
+function pickHerb(i) {
+  const L = state.day2.lunch, g = herbs[i];
+  if (!g || L.herbs[i]) return;
+  L.herbs[i] = true; herbs[i] = null;
+  scene.tweens.killTweensOf(g);
+  scene.tweens.add({ targets: g, y: g.y - 26, alpha: 0, duration: 350, onComplete: () => g.destroy() });
+  const n = L.herbs.filter(Boolean).length, nm = HERB_SPOTS[i].name;
+  progress();
+  toast(n === 3 ? `Сорвана ${nm}. Все травы собраны — неси Арнхейнд!` : `Сорвана ${nm}: ${n} из 3`, n === 3 ? undefined : 'info');
+}
+function serveReaper(i) {
+  const L = state.day2.lunch, who = 'reaper' + i;
+  const left = LUNCH_CUPS.map((c, k) => k).filter(k => !L.served.some(j => LUNCH_FOR[j] === k));
+  showChoice(who, 'Обед! Наконец-то. ' + LUNCH_WANT[i], [
+    ...left.map(k => [LUNCH_CUPS[k], () => {
+      if (LUNCH_FOR[i] !== k) return showDialog([[who, LUNCH_WRONG[i]]]);
+      L.served.push(i); progress();
+      showDialog([[who, LUNCH_THANKS[i]]], () => toast(L.served.length >= LUNCH_CUPS.length ? 'Все накормлены! Вернись к Кетилю' : `Накормлены: ${L.served.length} из ${LUNCH_CUPS.length}`, 'info'));
+    }]),
+    ['Потом', () => {}],
+  ], left.length);   // светлая — «Потом», кружки одинаковые
 }
 function showFinal() {
   openModal(`<div class="card"><div class="badge">Конец прототипа</div><h2>Ферма оживает</h2>
@@ -1642,7 +1791,7 @@ function day4Distract() {
   const say = (who, t, next) => showDialog([[who, t]], next);
   showChoice('iro', 'О, ты в гости? А я как раз собиралась полить цветы у пруда.', [
     ['Расскажи про свои цветы', () => say('iro', 'Вот эти — мои любимые. Они цветут, даже когда холодает. Упрямые, как Эйнар!', r2)],
-    ['Можно мне чаю?', () => say('iro', 'Конечно! Садись, сейчас заварю — с мятой из сада.', r2)],
+    ['Угостишь отваром?', () => say('iro', 'Конечно! Садись, сейчас заварю — с мятой из сада.', r2)],
   ]);
   function r2() {
     showChoice('iro', 'Слышишь? Будто кто-то за деревьями возится… и шепчется.', [
@@ -1857,7 +2006,8 @@ function nearest() {
   const nm = state.nanamin;
   const ids = Object.keys(ANCHORS).concat(cows.filter(c => !c.following && nm.cows[c.idx] !== 2).map(c => 'cow' + c.idx))
     .concat(Object.keys(VEG_BEDS).filter(i => canHarvest(+i)).map(i => 'bed' + i))   // левые грядки — только когда можно срывать
-    .concat(REAPERS.filter(r => r.c).map((r, i) => 'reaper' + i));
+    .concat(REAPERS.filter(r => r.c).map((r, i) => 'reaper' + i))
+    .concat(herbs.map((h, i) => h && h.active ? 'herb' + i : null).filter(Boolean));
   for (const id of ids) {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
@@ -1883,10 +2033,12 @@ function actionLabel(id) {
   if (id === 'chop') return 'Колоть дрова';
   if (id === 'barn') return 'Войти в амбар';
   if (id.startsWith('cow')) return state.nanamin.stage === 2 ? 'Позвать' : 'Осмотреть';
+  if (id === 'well' && state.day2.lunch.on && !state.day2.lunch.water && !state.day2.lunch.done) return 'Набрать воды';
   if (id === 'well') return state.step === 1 ? 'Взять лейку' : 'Осмотреть';
   if (id.startsWith('bed') && VEG_BEDS[+id.slice(3)]) return 'Сорвать ' + VEG_NAMES[VEG_BEDS[+id.slice(3)]];
   if (id.startsWith('bed')) return +id.slice(3) < QUEST_BEDS && state.items.can && !state.watered[+id.slice(3)] ? 'Полить' : 'Грядка (тест)';
   if (id === 'gate') return 'Открыть';
+  if (id.startsWith('herb')) return 'Сорвать';
   if (id === 'zmey' && zmeyNapping()) return state.step === 31 ? 'Разбудить' : 'Осмотреть';
   return 'Поговорить';
 }
@@ -3524,6 +3676,7 @@ function finishGather() {
         });
       }
       state.day2.stage = 6; progress(); endReaping(false, true); toast('Жатва окончена!');
+      if (state.time.day === 2) scene.time.delayedCall(700, startLunch);
     });
   });
 }
@@ -3971,6 +4124,12 @@ function talkReaper(i) {
     [who, 'Помочь хочешь? Тогда тебе к Кетилю — это его поле. Лагерь на дальнем краю, в самом конце дорожки.']],
     () => { d2.stage = 3; progress(); toast('Новое задание: найди Кетиля'); });
   if (d2.stage === 3) return showDialog([[who, line], [who, 'Кетиль в лагере, в конце дорожки. Иди-иди, он ждёт помощников!']]);
+  const L = d2.lunch;
+  if (d2.stage === 6 && L.on && !L.done && !L.served.includes(i)) {
+    if (!L.brew) return showDialog([[who, 'Обед? Ох, скорей бы! ' + LUNCH_WANT[i]]]);
+    return serveReaper(i);
+  }
+  if (d2.stage === 6 && L.served.includes(i)) return showDialog([[who, LUNCH_THANKS[i]]]);
   showDialog([[who, line]]);
 }
 function talkKetil() {
@@ -3992,6 +4151,16 @@ function talkKetil() {
   if (d2.stage === 4 && d2.plot === 1 && !d2.plots[1].cut.length) return showDialog([['ketil', 'Нижний участок готов — осталась верхняя полоса, за дорожкой. Справишься?']], startReaping);
   if (d2.stage === 4) return showDialog([['ketil', d2.plots[d2.plot].cut.length ? 'Отдохнула? Тогда за дело — колосья сами себя не сожнут.' : 'Серп у тебя? Тогда начинай с участка у лагеря.']], startReaping);
   if (d2.stage === 5) return showDialog([['ketil', d2.plots[d2.plot].stook.length ? 'Копну почти сложили — давай закончим.' : 'Снопы сами в копну не встанут. Пойдём, покажу куда.']], startReaping);
+  if (d2.stage === 6 && state.time.day === 2) {
+    const L = d2.lunch;
+    if (!L.on) return startLunch();
+    if (!L.done && L.served.length >= LUNCH_CUPS.length) return showDialog([   // ЗАГЛУШКА: реплики — черновик
+      ['ketil', 'Все сыты, все довольны — даже Арне не ворчит! Спасибо тебе.'],
+      ['ketil', 'Держи, это моя старая сеть. Мне она уже ни к чему, а тебе на реке пригодится — рыбу ловить.'],
+      ['hero', 'Ой, спасибо! Обязательно попробую.'],
+    ], () => { L.done = true; state.items.net = true; progress(); toast('Получено: старая сеть'); scene.time.delayedCall(800, startEvening); });
+    if (!L.done) return showDialog([['ketil', !L.brew ? 'Хлеб у отца, вода в колодце, а отвар — у Арнхейнд в саду, у пруда.' : 'Раздай кружки ребятам — каждому свою, они у нас разборчивые.']]);
+  }
   if (d2.stage === 6) return showDialog([['ketil', 'Славно поработали! Теперь и отдохнуть не грех.']]);
   showDialog([['ketil', 'Я Кетиль, хозяин этого поля. Будет время — заходи, работы на всех хватит.']]);
 }
@@ -4436,7 +4605,7 @@ function updateGuide() {
   const el = $('guide');
   const id = questTarget();
   if (!id || ui.open) { el.hidden = true; return; }
-  const a = ANCHORS[id], cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
+  const a = id.startsWith('reaper') ? anchorOf(id) : ANCHORS[id], cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;   // v190: жнецы ходят — берём их текущее место
   const sx = (a.x - wv.x) * z, sy = (a.y - 40 - wv.y) * z;
   // стрелка нужна, только если цель за краем экрана; держим её ниже карточки задания
   const W = app.clientWidth, H = app.clientHeight, m = 34, top = 140;
@@ -4522,6 +4691,7 @@ class FarmScene extends Phaser.Scene {
     herd.active = false; eggsOnGround.length = 0;
     if (state.step === 6) startHerd();
     if (state.step === 61) { chickens.forEach(c => { c.mode = 'asleep'; c.setVisible(false); }); spawnEggs(8 - (state.items.eggs || 0)); }
+    spawnHerbs();   // v190: травы для отвара Арнхейнд (если она уже попросила)
 
     // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
     // серо-синяя рубаха на круглом животе, полотенце на шее, руки за спиной
@@ -4657,7 +4827,7 @@ class FarmScene extends Phaser.Scene {
 
     const id = questTarget();
     if (id && id !== nearId) { // когда над целью облачко, «!» прячем
-      const a = ANCHORS[id];
+      const a = id.startsWith('reaper') ? anchorOf(id) : ANCHORS[id];
       marker.setVisible(true).setPosition(a.x, a.y + a.mark + (REDUCED ? 0 : Math.sin(time / 220) * 5));
     } else marker.setVisible(false);
 
