@@ -207,7 +207,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
     <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
-    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><div class="bag" id="bag"></div></div>
+    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><div class="bag" id="bag"></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
   <div class="shelf" id="shelf" hidden></div>
@@ -233,7 +233,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 137;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 139;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -520,6 +520,15 @@ $('barnBtn').addEventListener('click', () => {
 });
 // ВРЕМЕННО: переключить вечер ↔ день прямо на месте (без сна и смены дня) — чтобы посмотреть на курочек
 $('houseExit').addEventListener('click', () => { if (!ui.open && house.active) leaveHouse(); });
+// ВРЕМЕННО для тестов: сразу в дом Сверкеля к готовке похлёбки — с нуля, с капустой, пореем и яйцами в сумке
+$('houseBtn').addEventListener('click', () => {
+  if (ui.open || barn.active || house.active) return;
+  const s = state;
+  if (s.time.phase === 'evening') s.time.phase = 'day';
+  s.step = 71; s.cookQuest = true; s.cook = { stage: 0 };
+  s.items.kapusta = Math.max(1, s.items.kapusta || 0); s.items.luk = Math.max(1, s.items.luk || 0); s.items.eggs = Math.max(8, s.items.eggs || 0);
+  progress(); applyTime(true); enterHouse();
+});
 $('timeBtn').addEventListener('click', () => {
   if (ui.open || barn.active) return;
   state.time.phase = state.time.phase === 'evening' ? 'day' : 'evening';
@@ -3222,6 +3231,8 @@ class FarmScene extends Phaser.Scene {
     // все картинки — с меткой версии игры: так новая версия страницы никогда не возьмёт старую картинку из хранилища
     const loadImg = this.load.image.bind(this.load);
     this.load.image = (k, u) => loadImg(k, u + '?v=' + GAME_VERSION);
+    // картинка не загрузилась (плохая сеть) — пробуем ещё раз, иначе Phaser рисует вместо неё зелёную сетку
+    this.load.on('loaderror', file => { if (file.type === 'image' && !file.retried) { const u = String(file.url).split('?')[0]; loadImg(file.key, u + '?v=' + GAME_VERSION + '&r=' + Date.now()); this.load.list.entries.forEach(f => { if (f.key === file.key) f.retried = true; }); this.load.start(); } });
     this.load.image('grass', 'assets/ground/grass.jpg');
     this.load.image('cowWhite', 'assets/cows/cow-white.png');
     this.load.image('cowPyatna', 'assets/cows/cow-pyatna.png');
