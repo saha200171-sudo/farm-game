@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    заново скачивает все файлы с меткой версии — гарантированно свежие.
-const CACHE = 'farm-v161';
+const CACHE = 'farm-v169';
 const CORE = [
   './',
   './index.html',
@@ -32,13 +32,16 @@ const CORE = [
       'pebbles-a', 'pebbles-b', 'bush-poppy', 'tuft-clover', 'tuft-cornflower', 'tuft-poppy']
     .map(k => `./assets/garden/${k}.webp`),
   './assets/chars/kale.png',
-  ...['dom-deda', 'domik', 'ambar', 'drovnik', 'kuryatnik', 'korovnik'].map(k => `./assets/houses/${k}.webp`),
+  ...['dom-deda', 'domik', 'ambar', 'drovnik', 'kuryatnik', 'korovnik', 'ketil-dom'].map(k => `./assets/houses/${k}.webp`),
   './assets/fields/wheat-plot.webp',
   './assets/fields/wheat-stubble.webp',
   './assets/fields/sheaf.webp',
   './assets/fields/sickle.webp',
   './assets/fields/stook.webp',
   './assets/fields/mouse.webp',
+  './assets/river/water.webp',
+  './assets/river/river-0.webp',
+  './assets/river/river-1.webp',
   './assets/props/well.webp',
   './assets/props/chop-block.webp',
   './assets/fields/beds.webp',
