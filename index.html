@@ -234,7 +234,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 146;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 147;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2195,20 +2195,28 @@ function makeBed(x, cy, len, state) {
   const [pt, pb] = BED_PAD[state] || [0, 0];   // листья, свисающие за кромку грядки сверху/снизу (px атласа)
   const n = Math.max(0, Math.round((len / BED_K + pt + pb - H('top') - H('bot') + 2 * BED_OV) / (H('mid') - BED_OV)));
   // Куски склеиваются в одну картинку заранее (на телефоне с mipmap отдельные куски давали щели-полоски на стыках)
-  const key = 'bedc-' + state + '-' + n;
+  // Склейку сразу уменьшаем до размера на экране (плавно, по половинке) — иначе видеокарта сжимает её в 2–3 раза и грядка мылится
+  const sc = Math.min(1, Math.round(scene.cameras.main.zoom * BED_K * 100) / 100);
+  const key = 'bedc-' + state + '-' + n + '-' + sc;
+  const parts = ['top', ...Array(n).fill('mid'), 'bot'].map(k => BED_FRAMES[state + '-' + k]);
+  const total = parts.reduce((sum, f) => sum + f[3], 0) - BED_OV * (parts.length - 1);
   if (!scene.textures.exists(key)) {
-    const parts = ['top', ...Array(n).fill('mid'), 'bot'].map(k => BED_FRAMES[state + '-' + k]);
     const w = Math.max(...parts.map(f => f[2]));
-    const total = parts.reduce((sum, f) => sum + f[3], 0) - BED_OV * (parts.length - 1);
-    const src = scene.textures.get('beds').getSourceImage();
-    const t = scene.textures.createCanvas(key, w, total), ctx = t.getContext();
-    let y = 0;
+    let c = document.createElement('canvas'); c.width = w; c.height = total;
+    let ctx = c.getContext('2d'), y = 0;
     for (const f of parts) { ctx.drawImage(src, f[0], f[1], f[2], f[3], Math.round((w - f[2]) / 2), y, f[2], f[3]); y += f[3] - BED_OV; }
-    t.refresh();
+    let cw = w, chh = total; const tw = Math.max(1, Math.round(w * sc)), th = Math.max(1, Math.round(total * sc));
+    while (cw !== tw || chh !== th) {
+      const nw = Math.max(tw, Math.round(cw / 2)), nh = Math.max(th, Math.round(chh / 2));
+      const d = document.createElement('canvas'); d.width = nw; d.height = nh;
+      const dc = d.getContext('2d'); dc.imageSmoothingEnabled = true; dc.imageSmoothingQuality = 'high'; dc.drawImage(c, 0, 0, nw, nh);
+      c = d; cw = nw; chh = nh;
+    }
+    scene.textures.addCanvas(key, c);
   }
   // длина len — это сама земля грядки; свисающие листья (у тыквы) выходят за неё, а не сжимают грядку
-  const img = scene.add.image(x, cy, key), soil = img.height - pt - pb;
-  img.setOrigin(0.5, (pt + soil / 2) / img.height).setScale(BED_K, len / soil);
+  const img = scene.add.image(x, cy, key), soil = total - pt - pb, ky = img.height / total, kx = img.width / Math.max(...parts.map(f => f[2]));
+  img.setOrigin(0.5, (pt + soil / 2) / total).setScale(BED_K / kx, len / (soil * ky));
   img.setDepth(GROUND - 8);   // грядка плоская — лежит на земле, персонажи всегда поверх
   return img;
 }
@@ -3234,6 +3242,9 @@ function fitCamera() {
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WW, H / WORLD.h);
   cam.setZoom(DPR * Math.max(base, cover));
+  // грядки склеены под масштаб камеры — если масштаб поменялся (первый запуск, поворот экрана), пересобираем их
+  const sc = Math.min(1, Math.round(cam.zoom * BED_K * 100) / 100);
+  if (typeof bedG !== 'undefined' && bedG.length && sc !== fitCamera.bedSc) { fitCamera.bedSc = sc; for (let i = 0; i < BEDS.length; i++) drawBed(i); }
 }
 function resizeGame() {
   if (stick.id === null) idleStick();
