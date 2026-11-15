@@ -258,7 +258,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 190;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 191;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -290,9 +290,9 @@ const SPEAKERS = {
   ketil: { name: 'Кетиль', letter: 'К', color: '#4F6B3E' },
   reaper0: { name: 'Бьорн', letter: 'Б', color: '#A08A5E' }, reaper1: { name: 'Сигрид', letter: 'С', color: '#B5523B' },
   reaper2: { name: 'Арне', letter: 'А', color: '#8A6A4A' }, reaper3: { name: 'Гудрун', letter: 'Г', color: '#5F6F8A' },
-  reaper4: { name: 'Лейф', letter: 'Л', color: '#C8642E' },
+  reaper4: { name: 'Ульф', letter: 'У', color: '#C8642E' },   // v191: был Лейф — имя отдали мореходу
   iro:     { name: 'Арнхейнд',     letter: 'А', color: '#A65E52' },   // v185: Арнхейнд вместо Арнхейнд
-  kale:    { name: 'Кейл',         letter: 'К', color: '#3E8C8C' },
+  kale:    { name: 'Лейф',         letter: 'Л', color: '#7A5A3A' },   // v191: Лейф вместо Кейла (внутреннее имя 'kale' оставлено — для сохранений)
   zmey:    { name: 'Змей',         letter: 'З', color: '#6E4D66' },
   torgel:  { name: 'Торгель',      letter: 'Т', color: '#8A3430' },
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
@@ -331,7 +331,7 @@ const ANCHORS = {
   thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
   d4:      { x: 0, y: 0, reach: 80, mark: -112 },   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
-  kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Арнхейнд, знаток трав — у пруда в саду
+  kale:    { x: 215, y: -1140, reach: 84, mark: -112 },   // v162: на берегу реки, перед своей лодкой   // Лейф, старый мореход (был Кейл)   // Арнхейнд, знаток трав — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -813,12 +813,25 @@ function talkIro() {
     ['iro', 'Присаживайся, у меня как раз остывает травяной отвар. Здесь, у пруда, так спокойно — заходи, когда устанешь.'],
   ]);
 }
-// Кейл — капитан корабля: уверенный, дружелюбный, харизматичный. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
+// Лейф (v191, вместо Кейла) — старый мореход, доплывал до Винланда. Добрый, по-отцовски тёплый; обожает рассказывать истории
+// и немного их приукрашивает. Знает Торфинна с детства. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
+const LEIF_LOOK = { skin: 0xE2B088, dress: 0x5E6B3A, tunic: true, cloak: 0x7A5A3A, sleeves: 0x8A6A44, belt: 0x3A2A20, buckle: 0x8C7A5A,
+  legs: 0x6B5A44, boots: 0x5A4232, hair: 'bald', hairColor: 0xA8A396, walrus: 0xBDB7A8, brows: true, browColor: 0x7A7468, noBlush: true };
+const LEIF_TALES = [
+  'Однажды кит принял мою лодку за подругу и три дня плыл рядом. Пришлось петь ему песни, чтобы отстал!',
+  'В Винланде трава такая высокая, что коровы в ней терялись. Неделю искали! Ну… может, полдня.',
+  'Торфинна я знаю с малых лет. Он слушал про Винланд, раскрыв рот… Эх, разучился он мечтать.',
+  'Туман на море бывает такой густой, что на него можно повесить шапку. Я так однажды шапку и потерял.',
+];
+let leifTalks = 0;
 function talkKale() {
-  showDialog([
-    ['kale', 'О, новое лицо на моём берегу! Добро пожаловать. Я Кейл — лодочник, вон та красавица у мостков — моя.'],
-    ['kale', 'Река сегодня спокойная, течение ровное. Хочешь когда-нибудь прокатиться — только скажи, для друзей место всегда найдётся.'],
+  if (!leifTalks++) return showDialog([
+    ['kale', 'О, новое лицо на моём берегу! Я Лейф. Когда-то я ходил за край моря, а теперь вот — сижу у реки да чиню лодку.'],
+    ['kale', 'Знаешь, за морем есть земля — Винланд. Виноград там растёт прямо на деревьях, а лосось такой огромный, что одним можно накормить всю деревню!'],
+    ['hero', 'Правда?'],
+    ['kale', 'Ну… почти. Может, лосось был чуть поменьше. Заходи ещё — у меня историй на целую зиму.'],
   ]);
+  showDialog([['kale', LEIF_TALES[(leifTalks - 2) % LEIF_TALES.length]]]);
 }
 // Змей — главный помощник на ферме: любит подшутить, но становится серьёзным, когда дело касается защиты фермы.
 // Реплики — ЗАГЛУШКА, позже заменим текстом от автора
@@ -1879,7 +1892,7 @@ function solids() {
   if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 150, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
   list.push([-312, 430, 44, 16]);   // Торгель
-  list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Кейл
+  list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Лейф
   list.push(...CAMP_SOLIDS, [ANCHORS.ketil.x - 20, ANCHORS.ketil.y - 12, 40, 16]);   // полевой лагерь и Кетиль
   return list;
 }
@@ -1929,7 +1942,7 @@ function hitTest(x, y) {
   if (nanaminChar && nanaminChar.visible && near(800, 1545, 44)) return 'nanamin';
   if (d4Spot() && near(ANCHORS.d4.x, ANCHORS.d4.y - 35, 48)) return 'd4';
   if (state.open.sad && near(943, 721, 50)) return 'iro';
-  if (near(ANCHORS.kale.x, ANCHORS.kale.y - 58, 62)) return 'kale';
+  if (near(ANCHORS.kale.x, ANCHORS.kale.y - 35, 48)) return 'kale';
   if (thorfinnChar && thorfinnChar.visible && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (near(ANCHORS.ketil.x, ANCHORS.ketil.y - 40, 48)) return 'ketil';
   for (let i = 0; i < REAPERS.length; i++) if (REAPERS[i].c && near(REAPERS[i].c.x, REAPERS[i].c.y - 35, 42)) return 'reaper' + i;
@@ -2101,6 +2114,7 @@ function makeChar(look) {
   if (look.hair === 'swept') {   // длинные волосы, зачёсанные назад: сзади до плеч
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 34, 28).fillRoundedRect(-18, -54, 8, 22, 4).fillRoundedRect(10, -54, 8, 22, 4);
   }
+  if (look.hood) b.fillStyle(look.hood, 1).fillEllipse(0, -44, 34, 16);   // откинутый капюшон за плечами
   if (look.hair === 'braid') b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30);   // коса: сзади — объём волос
   if (look.hair === 'shag') b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 36, 30);   // взлохмаченные до ушей
   if (look.hair === 'long') {   // длинные волосы сзади: до плеч, слегка расходятся
@@ -2119,6 +2133,10 @@ function makeChar(look) {
     b.fillStyle(look.vtrim, 1).fillRoundedRect(-11, -42, 22, 6, 3).fillTriangle(-4, -37, 4, -37, 0, -31);
     if (!look.noCuffs) b.fillRoundedRect(-19, -29, 8, 4, 1.5).fillRoundedRect(11, -29, 8, 4, 1.5);
     b.fillStyle(look.skin, 1).fillTriangle(-2, -38, 2, -38, 0, -33);
+  }
+  if (look.hood) {   // v191: капюшон, опущенный на плечи: мягкий ворот вокруг шеи со складкой
+    b.fillStyle(look.hood, 1).fillRoundedRect(-17, -45, 34, 11, 5).fillTriangle(-9, -36, 9, -36, 0, -29);
+    b.fillStyle(0x000000, 0.16).fillRoundedRect(-12, -38, 24, 2, 1).fillTriangle(-3, -35, 3, -35, 0, -31);
   }
   if (look.cloak) {   // плащ спереди: тяжёлый воротник-накидка на плечах и круглая застёжка
     b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -44, 36, 12, 6).fillTriangle(-18, -36, -6, -36, -15, -26).fillTriangle(18, -36, 6, -36, 15, -26);
@@ -2207,7 +2225,7 @@ function makeChar(look) {
   if (look.mustache) b.fillStyle(look.hairColor, 1).fillEllipse(-3.5, -44.5, 8, 4).fillEllipse(3.5, -44.5, 8, 4);   // усы, сливаются с бородой
   if (look.scar) b.lineStyle(1.4, 0x9A5F48, 0.9).lineBetween(8, -56, 10, -47);   // шрам на щеке
   if (look.stern) b.lineStyle(2.2, 0x2e2418, 1).lineBetween(-10, -58, -2, -55).lineBetween(10, -58, 2, -55);   // сведённые брови
-  if (look.brows) b.lineStyle(2, 0x2e2418, 1).lineBetween(-9, -56, -2, -55.5).lineBetween(9, -56, 2, -55.5);   // прямые густые брови
+  if (look.brows) b.lineStyle(look.browColor ? 2.6 : 2, look.browColor || 0x2e2418, 1).lineBetween(-9, -56, -2, -55.5).lineBetween(9, -56, 2, -55.5);   // прямые густые брови
   if (look.worried) b.lineStyle(2, 0x5A3A26, 1).lineBetween(-9, -55, -2, -57.5).lineBetween(9, -55, 2, -57.5);   // брови «домиком» — немного озабоченный
   if (look.beard) {
     // седая борода и усы вместо рта
@@ -2229,7 +2247,14 @@ function makeChar(look) {
     b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.2 * Math.PI, 1.8 * Math.PI).strokePath();
     b.lineStyle(1.6, 0x2e2418, 1).lineBetween(-8, -55, -3, -57).lineBetween(8, -55, 3, -57);
   } else {
-    b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, -46, 3.5, 0.15 * Math.PI, 0.85 * Math.PI).strokePath();
+    b.lineStyle(1.6, 0x2e2418, 1).beginPath().arc(0, look.walrus ? -43.5 : -46, 3.5, 0.15 * Math.PI, 0.85 * Math.PI).strokePath();
+  }
+  if (look.walrus) {   // v191: пышные седые усы, концы торчат в стороны пучками
+    const w = look.walrus;
+    b.fillStyle(w, 1).fillEllipse(-4.5, -45.5, 10, 5.5).fillEllipse(4.5, -45.5, 10, 5.5);
+    b.fillTriangle(-8, -47.5, -16, -45, -8, -43).fillTriangle(8, -47.5, 16, -45, 8, -43);
+    b.fillTriangle(-9, -45, -15, -41.5, -7, -43.5).fillTriangle(9, -45, 15, -41.5, 7, -43.5);
+    b.fillStyle(0x000000, 0.12).fillRect(-0.6, -47.5, 1.2, 4);
   }
   if (look.glasses) b.lineStyle(1.5, 0x2e2418, 1).strokeCircle(-5, -51, 4.5).strokeCircle(5, -51, 4.5);
   c.add([shadow, b]);
@@ -3427,11 +3452,11 @@ function drawHill() {
   }
   for (const [x, y, r] of [[2560, 1080, 30], [2600, 1110, 20], [2700, 1050, 36], [2760, 1210, 26], [2650, 1250, 22], [2540, 1180, 16]]) boulder(x, y, r, GROUND - 6);
 }
-// Кейл стоит на пляже у пристани
+// Лейф стоит на берегу реки, у своей лодки (v191: схематичный персонаж вместо картинки Кейла)
 function buildKale() {
-  scene.add.ellipse(ANCHORS.kale.x, ANCHORS.kale.y - 1, 80, 17, 0x1d2a12, 0.22).setDepth(ANCHORS.kale.y - 1);
-  scene.add.image(ANCHORS.kale.x, ANCHORS.kale.y, 'kale').setOrigin(0.5, 0.98).setScale(120 / 285).setDepth(ANCHORS.kale.y);
-  nameLabel('Кейл', ANCHORS.kale.x, ANCHORS.kale.y - 128);
+  const k = makeChar(LEIF_LOOK); k.setPosition(ANCHORS.kale.x, ANCHORS.kale.y).setDepth(ANCHORS.kale.y); k.bodyG.scaleX = 1;
+  scene.npcs.push(k);
+  nameLabel('Лейф', ANCHORS.kale.x, ANCHORS.kale.y - 92);
 }
 // ===================== Сад Арнхейнд: сцена по макету из Figma (страница «Сад Айро») =====================
 // Координаты пересчитаны из макета (масштаб 0.441, забор сада макета вписан в зону сада 700–2000 × 500–1000).
@@ -4637,7 +4662,6 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowPalevaya', 'assets/cows/cow-palevaya.png');
     this.load.image('fence', 'assets/fence/fence.png');
     for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', ...DECOR_KINDS.map(d => d[0])])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
-    this.load.image('kale', 'assets/chars/kale.png');
     this.load.image('river-water', 'assets/river/water.webp');
     this.load.image('river-0', 'assets/river/river-0.webp');
     this.load.image('river-1', 'assets/river/river-1.webp');
