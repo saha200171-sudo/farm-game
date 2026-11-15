@@ -237,7 +237,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 152;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 154;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -340,7 +340,7 @@ const freshState = () => ({
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
-  day2: { stage: 0, visitedField: false, cut: [], sheaves: [] },
+  day2: { stage: 0, visitedField: false, cut: [], sheaves: [], stook: [] },
 });
 function loadState() {
   try {
@@ -373,7 +373,7 @@ function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
-  if (state.day2.stage === 3 || (state.day2.stage === 4 && !reap.active)) return 'ketil';   // день 2: к Кетилю в лагерь
+  if (state.day2.stage === 3 || ((state.day2.stage === 4 || state.day2.stage === 5) && !reap.active)) return 'ketil';   // день 2: к Кетилю в лагерь
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
@@ -406,7 +406,8 @@ function updateHud() {
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
     : d2 === 4 ? (reap.active ? `Сожни участок серпом: ${reap.n} из ${reap.bushes.length}` : 'Помоги жнецам: поговори с Кетилем в лагере')
-    : d2 === 5 ? 'Жатва окончена! (продолжение скоро)' : questText();
+    : d2 === 5 ? (reap.active ? `Сложи снопы в копну: ${state.day2.stook.length} из ${reap.sheafs.length}` : 'Сложи снопы в копну: поговори с Кетилем')
+    : d2 === 6 ? 'Жатва окончена! (продолжение скоро)' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
@@ -1404,7 +1405,7 @@ zone.addEventListener('pointermove', e => {
   if (d < 6) { move.x = move.y = 0; } else { move.x = dx / STICK_R; move.y = dy / STICK_R; }
 });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
-  zone.addEventListener(t, e => { if (reap.down === e.pointerId) { reap.down = null; reap.last = null; } if (house.walk && house.walk.hold === e.pointerId) house.walk.hold = null; if (e.pointerId === stick.id) releaseStick(); }));
+  zone.addEventListener(t, e => { if (reap.down === e.pointerId) { reap.down = null; reap.last = null; if (reap.active && reap.mode === 'gather') gatherRelease(); } if (house.walk && house.walk.hold === e.pointerId) house.walk.hold = null; if (e.pointerId === stick.id) releaseStick(); }));
 
 // клавиатура на компьютере: стрелки/WASD — ходьба, пробел/E/Enter — действие
 const KEYMAP = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
@@ -2810,6 +2811,15 @@ function drawWheat() {
   }
   reap.n = reap.bushes.filter(b => b.cut).length;
   for (const [sx, sy] of state.day2.sheaves) addSheaf(sx, sy, false);
+  state.day2.stook.forEach((i, k) => reap.sheafs[i] && placeInStook(reap.sheafs[i], k, false));
+  if (reap.sheafs.length && state.day2.stook.length === reap.sheafs.length) showStook(false);
+}
+// готовая копна — одной картинкой (отдельные снопы рядом сливаются в комок)
+function showStook(animate) {
+  reap.sheafs.forEach(q => q.img.setVisible(false));
+  const k = scene.add.image(STOOK.x, STOOK.y + 6, 'stook').setOrigin(0.5, 0.95).setDepth(STOOK.y + 47);
+  const sc = 100 / k.height; k.setScale(sc);
+  if (animate && !REDUCED) { k.setScale(sc * 0.85, sc * 0.7); scene.tweens.add({ targets: k, scaleX: sc, scaleY: sc, duration: 420, ease: 'Back.easeOut' }); }
 }
 // ===================== Жатва (день 2): серп по колосьям прямо на поле =====================
 // Камера наезжает на участок у лагеря, джойстик прячется: ведёшь пальцем — серп срезает кусты,
@@ -2817,7 +2827,10 @@ function drawWheat() {
 const REAP_PLOT = 7;          // участок под лагерем Кетиля (WHEAT[7])
 const REAP_SPOT = { x: 2300, y: -412 };   // где стоит героиня — на дорожке над участком
 const SHEAF_EVERY = 9;        // каждые 9 срезанных кустов — новый сноп
-var reap = { active: false, bushes: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null };
+var reap = { active: false, mode: 'cut', bushes: [], sheafs: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null, drag: null, ring: null, wiggle: [] };
+// Копна: снопы перетаскивают пальцем к отметке посреди участка; каждый встаёт в своё место, наклонясь к остальным
+const STOOK = { x: 2300, y: -206 };
+const STOOK_SLOTS = [[0, -10, 0], [-19, -6, 15], [19, -6, -15], [-33, 1, 26], [33, 1, -26], [0, 9, 0], [-12, 7, 9], [12, 7, -9]];   // dx, dy, наклон
 function reapView(animate) {
   const cam = scene.cameras.main, W = app.clientWidth, H = app.clientHeight, top = 130;
   const [x, y, w, h] = WHEAT[REAP_PLOT], bx0 = x - 20, by0 = y - 70, bw = w + 40, bh = h + 90;
@@ -2841,31 +2854,99 @@ function startReaping() {
     reap.sickle.setScale(64 / reap.sickle.width);
     reap.trailG = scene.add.graphics().setDepth(4999);
   }
+  reap.mode = state.day2.stage === 5 ? 'gather' : 'cut';
+  if (reap.mode === 'gather') return startGather();
   const [x, y, w, h] = WHEAT[REAP_PLOT];
   reap.sickle.setVisible(true).setPosition(x + w / 2, y + h / 2).setAngle(0);
   if (!REDUCED) reap.idleTw = scene.tweens.add({ targets: reap.sickle, x: x + w / 2 + 70, angle: 18, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });   // подсказка: «води вот так»
   updateHud();
   toast('Проведи серпом по колосьям');
 }
-function endReaping(done) {
+function startGather() {
+  reap.mode = 'gather'; reap.drag = null;
+  reap.sickle.setVisible(false); reap.trailG.clear();
+  if (!reap.ring) {   // отметка, куда складывать копну
+    reap.ring = scene.add.graphics().setDepth(STOOK.y + 30);   // поверх рядов стерни, но под снопами копны
+    reap.ring.fillStyle(0xFFF6D8, 0.3).fillEllipse(STOOK.x, STOOK.y, 96, 34).lineStyle(4, 0xFFFDF4, 0.95).strokeEllipse(STOOK.x, STOOK.y, 96, 34);
+  }
+  reap.ring.setVisible(true).setAlpha(1);
+  if (!REDUCED) reap.ringTw = scene.tweens.add({ targets: reap.ring, alpha: 0.35, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  wiggleSheafs(true);
+  updateHud();
+  toast('Перетащи снопы пальцем к отметке — сложи копну');
+}
+function wiggleSheafs(on) {   // несложенные снопы чуть покачиваются: «возьми меня»
+  reap.wiggle.forEach(t => t.stop()); reap.wiggle = [];
+  if (!on || REDUCED) return;
+  reap.sheafs.forEach((q, i) => { if (!q.placed) { q.img.setAngle(-3); reap.wiggle.push(scene.tweens.add({ targets: q.img, angle: 3, duration: 520, delay: i * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })); } });
+}
+function gatherPointer(wx, wy, start, pressed) {
+  if (start) {
+    let best = null;   // берём сноп под пальцем (передний — тот, что ниже на экране)
+    for (const q of reap.sheafs) if (!q.placed && Math.abs(wx - q.img.x) < 34 && wy > q.img.y - 66 && wy < q.img.y + 10 && (!best || q.img.y > best.img.y)) best = q;
+    if (!best) return;
+    wiggleSheafs(false);
+    reap.drag = { q: best, ox: best.img.x - wx, oy: best.img.y - wy };
+    best.img.setAngle(0).setDepth(5000); scene.tweens.add({ targets: best.img, scale: best.sc * 1.15, duration: 120 });
+    return;
+  }
+  if (reap.drag && pressed) reap.drag.q.img.setPosition(wx + reap.drag.ox, wy + reap.drag.oy);
+}
+function gatherRelease() {
+  const d = reap.drag; if (!d) return; reap.drag = null;
+  const q = d.q;
+  if (Math.hypot(q.img.x - STOOK.x, q.img.y - STOOK.y) < 80) {
+    const k = state.day2.stook.length; state.day2.stook.push(reap.sheafs.indexOf(q));
+    placeInStook(q, k, true); updateHud(); save();
+    if (state.day2.stook.length === reap.sheafs.length) return finishGather();
+  } else scene.tweens.add({ targets: q.img, x: q.x, y: q.y, scale: q.sc, duration: 260, ease: 'Quad.easeOut', onComplete: () => q.img.setDepth(q.y + 1) });
+  wiggleSheafs(true);
+}
+function placeInStook(q, k, animate) {
+  const [dx, dy, a] = STOOK_SLOTS[k % STOOK_SLOTS.length], tx = STOOK.x + dx, ty = STOOK.y + dy;
+  q.placed = true; q.img.setDepth(ty + 41);
+  if (animate && !REDUCED) scene.tweens.add({ targets: q.img, x: tx, y: ty, angle: a, scale: q.sc, duration: 260, ease: 'Back.easeOut' });
+  else q.img.setPosition(tx, ty).setAngle(a).setScale(q.sc);
+}
+function finishGather() {
+  wiggleSheafs(false);
+  if (reap.ringTw) { reap.ringTw.stop(); reap.ringTw = null; } reap.ring.setVisible(false);
+  ui.open = true;
+  scene.time.delayedCall(320, () => showStook(true));   // снопы сменяются готовой копной
+  scene.time.delayedCall(900, () => {
+    ui.open = false;
+    // ЗАГЛУШКА: реплики — черновик, заменим на твои
+    showDialog([
+      ['ketil', 'Вот это копна! Ровная, крепкая — никакой ветер не повалит.'],
+      ['ketil', 'Пусть сохнет. А ты отдохни — заслужила.'],
+    ], () => { state.day2.stage = 6; progress(); endReaping(false, true); toast('Жатва окончена!'); });
+  });
+}
+function endReaping(done, quiet) {
   const cam = scene.cameras.main;
+  if (done) {   // всё сжато — Кетиль просит сложить копну, камера остаётся на поле
+    // ЗАГЛУШКА: реплики — черновик, заменим на твои
+    reap.sickle.setVisible(false); reap.trailG.clear();
+    return showDialog([
+      ['ketil', 'Вот это да! Весь участок — и ни одного колоска не потоптала. Отец не зря тебя хвалил.'],
+      ['ketil', 'Теперь снопы — в копну, пусть сохнут. Ставь их вон туда, посередине, колосьями друг к другу.'],
+    ], () => { state.day2.stage = 5; progress(); startGather(); });
+  }
+  if (reap.drag) { const q = reap.drag.q; reap.drag = null; q.img.setPosition(q.x, q.y).setScale(q.sc).setDepth(q.y + 1); }
+  wiggleSheafs(false);
+  if (reap.ringTw) { reap.ringTw.stop(); reap.ringTw = null; } if (reap.ring) reap.ring.setVisible(false);
   reap.active = false; reap.down = null; reap.last = null; reap.trail = [];
   if (reap.idleTw) { reap.idleTw.stop(); reap.idleTw = null; }
   reap.sickle.setVisible(false); reap.trailG.clear();
   document.body.classList.remove('reaping'); $('reapExit').hidden = true;
   cam.setBounds(WORLD.x, WORLD.top, WW, WORLD.h); fitCamera();
   cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y);
-  if (done) {
-    // ЗАГЛУШКА: реплики — черновик, заменим на твои
-    showDialog([
-      ['ketil', 'Вот это да! Весь участок — и ни одного колоска не потоптала. Отец не зря тебя хвалил.'],
-      ['ketil', 'Снопы жнецы сами отвезут. Держи, заслужила отдых.'],
-    ], () => { state.day2.stage = 5; progress(); toast('Жатва окончена!'); });
-  } else { progress(); toast('Можно вернуться к Кетилю и продолжить'); }
+  progress(); if (!quiet) toast('Можно вернуться к Кетилю и продолжить');
 }
 $('reapExit').addEventListener('click', () => { if (reap.active && !ui.open) endReaping(false); });
 function reapPointer(px, py, start, pressed) {
   const cam = scene.cameras.main, z = cam.zoom / DPR, wx = cam.worldView.x + px / z, wy = cam.worldView.y + py / z;
+  if (reap.mode === 'gather') return gatherPointer(wx, wy, start, pressed);
   if (reap.idleTw) { reap.idleTw.stop(); reap.idleTw = null; }
   const sk = reap.sickle, dx = wx - sk.x;
   sk.setPosition(wx, wy);
@@ -2913,6 +2994,7 @@ function cutBush(i, dir) {
 function addSheaf(x, y, animate) {
   const s = scene.add.image(x, y, 'sheaf').setOrigin(0.5, 0.95).setDepth(y + 1);
   const sc = 62 / s.height; s.setScale(sc);
+  reap.sheafs.push({ img: s, x, y, sc, placed: false });
   if (animate && !REDUCED) { s.setScale(0); scene.tweens.add({ targets: s, scale: sc, duration: 380, ease: 'Back.easeOut' }); }
 }
 function updateReap(dt) {
@@ -3089,7 +3171,8 @@ function talkKetil() {
     ['hero', 'Хорошо, попробую!'],
   ], () => { d2.stage = 4; progress(); startReaping(); });
   if (d2.stage === 4) return showDialog([['ketil', d2.cut.length ? 'Отдохнула? Тогда за дело — колосья сами себя не сожнут.' : 'Серп у тебя? Тогда начинай с участка у лагеря.']], startReaping);
-  if (d2.stage === 5) return showDialog([['ketil', 'Славно поработали! Теперь и отдохнуть не грех.']]);
+  if (d2.stage === 5) return showDialog([['ketil', d2.stook.length ? 'Копну почти сложили — давай закончим.' : 'Снопы сами в копну не встанут. Пойдём, покажу куда.']], startReaping);
+  if (d2.stage === 6) return showDialog([['ketil', 'Славно поработали! Теперь и отдохнуть не грех.']]);
   showDialog([['ketil', 'Я Кетиль, хозяин этого поля. Будет время — заходи, работы на всех хватит.']]);
 }
 
@@ -3564,6 +3647,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('wheatStubble', 'assets/fields/wheat-stubble.webp');
     this.load.image('sheaf', 'assets/fields/sheaf.webp');
     this.load.image('sickle', 'assets/fields/sickle.webp');
+    this.load.image('stook', 'assets/fields/stook.webp');
     this.load.image('prop-well', 'assets/props/well.webp');
     this.load.image('prop-chop', 'assets/props/chop-block.webp');
     this.load.image('beds', 'assets/fields/beds.webp');
