@@ -258,7 +258,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 188;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 189;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3051,6 +3051,7 @@ function cullStatic() {   // после постройки сцены: все н
 // Один раз «запекаем» их в картинки кусками ≤1024 точек карты (в 1.5 раза чётче карты) — дальше рисуется только готовая картинка.
 function bakeBigGraphics() {
   if (OVERVIEW) return;
+  for (let i = BAKED.length - 1; i >= 0; i--) if (!BAKED[i][0].active) BAKED.splice(i, 1);   // после «Заново» старые картинки уже удалены
   const R = 1.5, T = 1024;
   for (let i = CULL.length - 1; i >= 0; i--) {
     const [o, x1, y1, x2, y2] = CULL[i];
@@ -3062,10 +3063,19 @@ function bakeBigGraphics() {
       const rt = scene.add.renderTexture(tx, ty, Math.ceil(w * R), Math.ceil(h * R)).setOrigin(0, 0).setScale(1 / R).setDepth(o.depth);
       rt.draw(o, -tx * R, -ty * R);
       CULL.push([rt, tx, ty, tx + w, ty + h]);
+      BAKED.push([rt, o, tx * R, ty * R]);
     }
-    o.destroy();
+    o.removeFromDisplayList();   // v189: исходный рисунок не удаляем — он нужен, чтобы перерисовать картинку после сброса WebGL
+  }
+  if (!bakeRestoreHooked) {   // телефон выгрузил графику (свернули игру, заблокировали экран) — запечённые картинки стали чёрными: рисуем заново
+    bakeRestoreHooked = true;
+    scene.game.renderer.on && scene.game.renderer.on('restorewebgl', () => {
+      for (const [rt, o, ox, oy] of BAKED) if (rt.active && o.active) { rt.clear(); rt.draw(o, -ox, -oy); }
+    });
   }
 }
+const BAKED = [];   // [картинка, исходный рисунок, сдвиг x, y]
+let bakeRestoreHooked = false;
 let cullTimer = 0;
 function updateCull(dt, force) {
   if (OVERVIEW || !player) return;
