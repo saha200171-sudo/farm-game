@@ -264,7 +264,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 198;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 199;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -418,7 +418,7 @@ const ui = { open: false };
 function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
-  if (state.day3.wake === 'cowshed' && !state.day3.stage) return 'grandpa';   // v197: проснулась в коровнике
+  if (state.wake === 'cowshed') return 'grandpa';   // v197–199: проснулась в коровнике
   const d4 = state.day4.stage;                         // день 4: подарок для Арнхейнд
   if (d4 === 1) return 'nanamin';
   if (d4 === 2) return 'thorfinn';
@@ -469,7 +469,7 @@ function updateHud() {
   const d3 = state.day3.stage, day3 = d3 > 0 || (state.time.day >= 3 && d2 >= 6), d4 = state.day4.stage;
   $('questLabel').textContent = d4 ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
   $('questText').textContent = hunt.active ? 'Проберись домой — не попадись Торгелю'
-    : state.day3.wake === 'cowshed' && !d3 ? 'Ночь в коровнике… Сходи к Сверкелю'
+    : state.wake === 'cowshed' ? 'Ночь в коровнике… Сходи к Сверкелю'
     : d4 ? D4_TEXT[d4] || ''
     : d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
     : d3 === 2 ? 'Поговори с Кетилем у его дома'
@@ -682,7 +682,7 @@ function devJump(day) {
     s.time = { day: 3, phase: 'day' };
     Object.assign(s.day2, { stage: 6, visitedField: true, plot: 1 });
     s.day2.lunch = { on: true, bread: true, water: true, asked: true, herbs: [true, true, true], brew: true, served: [0, 1, 2, 3, 4], done: true };
-    s.items.net = true; s.day2.fish = { stage: 2, caught: 5 }; s.items.shell = true;
+    s.items.net = true; s.day2.fish = { stage: 2, caught: 5 }; s.items.shell = true; s.items.lantern = true;
     s.day2.plots = REAP_PLOTS.map((q, k) => {
       const N = reap.P[k].bushes.length, n = Math.ceil(N / SHEAF_EVERY);
       return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
@@ -794,10 +794,13 @@ function talkGrandpa() {
 // Если героиня уже видела грустного Эйнара, у дедушки можно спросить о нём
 function askGrandpa() {
   const nm = state.nanamin, L = state.day2.lunch;
-  if (state.day3.wake === 'cowshed' && !state.day3.stage) return showDialog([   // ЗАГЛУШКА: шутка Сверкеля после ночи в коровнике
-    ['grandpa', 'О, а вот и ты! Что-то от тебя коровой пахнет… Ты что, в коровнике ночевала?'],
-    ['grandpa', 'Ха! Ну, зато выспалась на свежем сене. Ладно, не дуйся — у меня для тебя новость.'],
-  ], () => { state.day3.wake = null; startDay3(); });
+  if (state.wake === 'cowshed') {   // ЗАГЛУШКА: шутка Сверкеля после ночи в коровнике
+    const d3 = state.time.day === 3 && !state.day3.stage;
+    return showDialog([
+      ['grandpa', 'О, а вот и ты! Что-то от тебя коровой пахнет… Ты что, в коровнике ночевала?'],
+      ['grandpa', d3 ? 'Ха! Ну, зато выспалась на свежем сене. Ладно, не дуйся — у меня для тебя новость.' : 'Ха! Ну, зато выспалась на свежем сене. Иди-ка умойся — и за дело.'],
+    ], () => { state.wake = null; progress(); if (d3) startDay3(); });
+  }
   if (L.on && !L.bread && !L.done) return showDialog([   // ЗАГЛУШКА: реплики — черновик
     ['grandpa', 'Обед для жнецов? Вот это дело! С утра в поле — и ни крошки, знаю я Кетиля.'],
     ['grandpa', 'Держи каравай, утром испёк. Да не урони по дороге!'],
@@ -1136,7 +1139,7 @@ $('lampBtn').addEventListener('click', e => {
 function updateNight(time) {
   if (!nightRT) return;
   const want = state.time.night && !house.active && !barn.active ? 1 : 0;
-  nightK += (want - nightK) * Math.min(1, 0.04);
+  nightK += (want - nightK) * Math.min(1, (scene.game.loop.delta || 16) * 0.0009);   // плавно: ~3 с
   if (nightK < 0.01) { nightRT.setVisible(false); nightLights.forEach(([g]) => g.setVisible(false)); if (lanternG) lanternG.setVisible(false); return; }
   const cam = scene.cameras.main, wv = cam.worldView, w = Math.ceil(cam.width / cam.zoom) + 8, h = Math.ceil(cam.height / cam.zoom) + 8;
   if (nightRT.width !== w || nightRT.height !== h) nightRT.resize(w, h);
@@ -1144,6 +1147,7 @@ function updateNight(time) {
   nightRT.clear().fill(NIGHT.color, NIGHT.alpha * nightK);
   const lights = [];
   if (campfire) lights.push([campfire.x, campfire.y - 16, 230 + (REDUCED ? 0 : Math.sin(time / 90) * 8 + Math.sin(time / 37) * 4), 'fire']);
+  if (state.day4.stage >= 7 && d4.statue && d4.statue.visible && state.time.day === 4) lights.push([D4.ped.x, D4.ped.y - 60, 200, 'statue']);   // v199: светлячки у статуи
   if (state.items.lantern && lanternOn && player.visible) lights.push([player.x + 14 * facing, player.y - 24, 190, 'lantern']);
   for (const [x, y, r] of lights) { nightStamp.setScale(r * 2 / 128); nightRT.erase(nightStamp, x - nightRT.x, y - nightRT.y); }
   // тёплые отсветы (как у статуи) — поверх пелены
@@ -1151,7 +1155,8 @@ function updateNight(time) {
   nightLights.forEach(([g], i) => {
     const L = lights[i]; g.setVisible(!!L); if (!L) return;
     const fl = L[3] === 'fire' ? 1 + (REDUCED ? 0 : Math.sin(time / 70) * 0.06) : 1;
-    g.setPosition(L[0], L[1]).setScale((L[3] === 'fire' ? 9 : 6.5) * fl).setAlpha((L[3] === 'fire' ? 0.3 : 0.22) * nightK);
+    g.setTint(L[3] === 'statue' ? 0xFFF0B0 : 0xFFB050);
+    g.setPosition(L[0], L[1]).setScale((L[3] === 'fire' ? 9 : L[3] === 'statue' ? 7 : 6.5) * fl).setAlpha((L[3] === 'fire' ? 0.3 : L[3] === 'statue' ? 0.14 : 0.22) * nightK);
   });
   // фонарь в руке героини
   if (state.items.lantern && player.visible && state.time.night) {
@@ -1240,7 +1245,7 @@ function goToSleep(where) {
     if (cow) { player.setPosition(HUNT.cowshed.x, HUNT.cowshed.y); facing = -1; } else { player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1; }
     if (torgelNpc) { torgelNpc.setPosition(-290, 440).setDepth(440); torgelNpc.bodyG.scaleX = 1; torgelLab.setPosition(-290, 346); }   // Торгель — снова на своём месте
     hunt.active = false; lanternOn = true;
-    if (cow) state.day3.wake = 'cowshed';
+    if (cow) state.wake = 'cowshed';
     scene.cameras.main.centerOn(player.x, player.y);
     applyTime(true);
     progress();
@@ -1257,7 +1262,7 @@ function goToSleep(where) {
         ['grandpa', 'В поле за нашим домом сегодня жатва. Людям очень нужны лишние руки.'],
         ['grandpa', 'Сходи-ка помоги им, внучка. Дорожка от калитки ведёт прямо туда.'],
       ], () => { state.day2.stage = 1; toast('Новое задание: помоги людям в поле'); progress(); }), 1300);
-    } else if (state.time.day === 3 && state.day3.stage === 0 && state.day3.wake === 'cowshed') {   // проснулась в коровнике
+    } else if (state.wake === 'cowshed') {   // проснулась в коровнике (в любой день)
       setTimeout(() => showThought('Ну, Торгель… Спина отваливается, сено в волосах, а корова всю ночь жевала мне над ухом. Пойду к Сверкелю.'), 1300);
     } else if (state.time.day === 3 && state.day3.stage === 0) {
       setTimeout(startDay3, 1300);
@@ -1728,7 +1733,7 @@ function cookDone() {
 // Камень — из скал (мини-игра «раз-два — взяли!»), шлифовка статуи (мини-игра), Змей везёт в сад,
 // героиня отвлекает Арнхейнд, вечером — открытие со светлячками. ЗАГЛУШКИ: все реплики — черновик.
 const D4_TEXT = { 1: 'Эйнар просил зайти к нему на пастбище', 2: 'Попроси Торфинна помочь', 3: 'Встреться с Эйнаром у скал', 4: 'Отшлифуй статую',
-  5: 'Змей везёт статую в сад', 6: 'Отвлеки Арнхейнд, пока ставят статую', 7: 'Открытие статуи', 8: 'День 4 завершён — вечереет, пора домой' };
+  5: 'Змей везёт статую в сад', 6: 'Отвлеки Арнхейнд, пока ставят статую', 7: 'Открытие статуи', 8: 'День 4 завершён — стемнело, пора домой' };
 const D4 = {
   stone: { x: 2470, y: 330 }, road: { x: 2330, y: 262 }, ped: { x: 1785, y: 690 },   // v194: статуя — справа в саду, между дубом и высокими скалами
   rocks: { einar: { x: 2405, y: 352 }, thor: { x: 2535, y: 356 } },
@@ -2178,11 +2183,11 @@ function startUnveil() {
     d4.flies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); }); d4.flies = [];
     const cx = D4.ped.x, cy = D4.ped.y - 55;
     const glow = scene.add.image(cx, cy, 'firefly').setTint(0xFFE9A0).setScale(7).setAlpha(0).setDepth(D4.ped.y + 1).setBlendMode(Phaser.BlendModes.ADD);
-    scene.tweens.add({ targets: glow, alpha: 0.32, duration: 3200, delay: 1200, ease: 'Sine.easeInOut' });
+    scene.tweens.add({ targets: glow, alpha: 0.2, duration: 3200, delay: 1200, ease: 'Sine.easeInOut' });
     d4.flies.push(glow);
-    for (let i = 0; i < 46; i++) {
-      const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random());   // гуще у статуи, реже по краям
-      const fx = cx + Math.cos(a) * 150 * rr, fy = cy + Math.sin(a) * 95 * rr;
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random() * Math.PI * 2, rr = 0.42 + Math.random() * 0.58;   // v199: кольцом вокруг статуи — саму статую видно
+      const fx = cx + Math.cos(a) * 240 * rr, fy = cy + 10 + Math.sin(a) * 135 * rr;
       const f = scene.add.image(fx, fy, 'firefly').setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale((0.28 + Math.random() * 0.22) * 0.9).setAlpha(0);
       d4.flies.push(f);
       const delay = 1400 + i * 70 + Math.random() * 300;   // загораются по очереди, пока рассеивается затемнение
@@ -2192,7 +2197,7 @@ function startUnveil() {
       } });
       if (!REDUCED) {
         const drift = () => { if (!f.active) return;
-          scene.tweens.add({ targets: f, x: cx + (f.x - cx) * 0.9 + (Math.random() - 0.5) * 50, y: cy + (f.y - cy) * 0.9 + (Math.random() - 0.5) * 34, duration: 2600 + Math.random() * 2600, ease: 'Sine.easeInOut', onComplete: drift }); };
+          scene.tweens.add({ targets: f, x: fx + (Math.random() - 0.5) * 60, y: fy + (Math.random() - 0.5) * 40, duration: 2600 + Math.random() * 2600, ease: 'Sine.easeInOut', onComplete: drift }); };   // кружит у своего места
         drift();
       }
     }
@@ -2210,7 +2215,11 @@ function startUnveil() {
         ['iro', 'Эйнар… спасибо. Правда. Мне очень-очень приятно.'],
         ['nanamin', 'Я… рад, что тебе нравится.'],
         ['thought', 'Как он на неё смотрит… Пусть это останется его тайной.'],
-      ], () => { d4Next(8); toast('День 4 завершён'); }), 1100);
+      ], () => {
+        d4Next(8); toast('День 4 завершён');
+        state.time.night = true; progress();   // v199: плавно темнеет — домой с фонарём (можно наткнуться на Торгеля)
+        setTimeout(() => showThought(state.items.lantern ? 'Совсем стемнело… Хорошо, что у меня есть фонарь Змея. Пора домой.' : 'Совсем стемнело… Пора домой.'), 2600);
+      }), 1100);
     });
   }, 2900);
 }
