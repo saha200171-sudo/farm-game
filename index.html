@@ -51,6 +51,13 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .quest .text{font-family:var(--display);font-size:19px;font-weight:600;line-height:1.2;text-wrap:balance}
 .quest .sub{margin-top:6px;padding-top:6px;border-top:2px dashed #D9CBA8;font-family:var(--display);font-size:17px;font-weight:600;line-height:1.2;color:#3E5A7A}
 .side{display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
+/* ВРЕМЕННО: меню тестовых кнопок — прячется под одну кнопку «Тест» */
+.dev-menu{display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:10px;width:250px;box-sizing:border-box;border-radius:16px;background:rgba(46,36,24,.78);box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:calc(100vw - 20px)}
+.dev-menu[hidden]{display:none}
+.dev-menu .ghost-btn{width:100%;text-align:center}
+.dev-title{font-family:var(--body);font-weight:800;font-size:15px;color:#FFF6D8;padding:0 2px}
+.dev-days{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.dev-days .ghost-btn{padding-left:2px;padding-right:2px;font-size:15px;white-space:nowrap}
 .bag{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .chip{display:flex;align-items:center;gap:6px;background:var(--paper);border:2px solid var(--wood);border-radius:999px;padding:3px 12px 3px 6px;
   font-weight:800;font-size:16px;box-shadow:0 2px 0 rgba(46,36,24,.3);animation:pop .35s ease-out}
@@ -210,7 +217,13 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
     <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
-    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><div class="bag" id="bag"></div></div>
+    <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
+      <div class="dev-menu" id="devMenu" hidden>
+        <div class="dev-title">Перейти к дню</div>
+        <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button></div>
+        <div class="dev-title">Быстрые тесты</div>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Нанамина</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button>
+      </div><div class="bag" id="bag"></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
   <div class="shelf" id="shelf" hidden></div>
@@ -237,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 159;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 160;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -406,13 +419,14 @@ function questText() {
 }
 function updateHud() {
   const d2 = state.day2.stage;
-  $('questLabel').textContent = d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
+  const day3 = state.time.day >= 3 && d2 >= 6;
+  $('questLabel').textContent = day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
   $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
     : d2 === 4 ? (reap.active ? `Участок ${reap.k + 1}/2: сожни ${reap.n} из ${reap.bushes.length}` : (state.day2.plot ? 'Остался верхний участок: поговори с Кетилем' : 'Помоги жнецам: поговори с Кетилем в лагере'))
     : d2 === 5 ? (reap.active ? `Участок ${reap.k + 1}/2: копна ${D2().stook.length} из ${reap.sheafs.length}` : 'Сложи снопы в копну: поговори с Кетилем')
-    : d2 === 6 ? 'Жатва окончена! (продолжение скоро)' : questText();
+    : d2 === 6 ? (day3 ? 'Задания третьего дня — скоро' : 'Жатва окончена! (продолжение скоро)') : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
@@ -565,6 +579,33 @@ $('skipBtn').addEventListener('click', () => {
   scene.scene.restart();
   setTimeout(() => toast('Квест пропущен — поговори с Нанамином', 'info'), 400);
 });
+// ВРЕМЕННО: меню «Тест» и переход к началу любого дня
+function devMenu(open) { $('devMenu').hidden = !open; $('devBtn').setAttribute('aria-expanded', open); $('devBtn').textContent = open ? 'Тест ▴' : 'Тест ▾'; }
+$('devBtn').addEventListener('click', () => devMenu($('devMenu').hidden));
+$('devMenu').addEventListener('click', e => { if (e.target.closest('button')) setTimeout(() => devMenu(false), 0); });
+document.querySelectorAll('#devMenu [data-day]').forEach(b => b.addEventListener('click', () => { if (!ui.open) devJump(+b.dataset.day); }));
+function devJump(day) {
+  const s = freshState();
+  if (day >= 2) {   // день 1 пройден целиком: огород, Змей, куры, ужин, загон и коровы Нанамина
+    Object.assign(s, { step: 8, watered: [true, true, true], cookQuest: false });
+    s.items.key = true;
+    Object.assign(s.nanamin, { seen: true, stage: 4, fixed: [true, true, true], cows: COW_HOMES.map(() => 2), visited: true, tools: 5, barn: { round1: true, helped: 'zmey' } });
+    s.time = { day: 2, phase: 'day' };
+    s.day2.stage = 1;   // утро: дед попросил помочь в поле
+    s.pos = { x: ANCHORS.door.x, y: ANCHORS.door.y + 30 };
+  }
+  if (day >= 3) {   // день 2 пройден: оба участка сжаты, копны сложены
+    s.time = { day: 3, phase: 'day' };
+    Object.assign(s.day2, { stage: 6, visitedField: true, plot: 1 });
+    s.day2.plots = REAP_PLOTS.map((q, k) => {
+      const N = reap.P[k].bushes.length, n = Math.ceil(N / SHEAF_EVERY);
+      return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
+    });
+  }
+  state = s; try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}   // save() перезаписал бы позицию текущей
+  scene.scene.restart();
+  setTimeout(() => toast(day === 3 ? 'День 3 — его задания ещё не сделаны' : `День ${day}`, 'info'), 500);
+}
 function resetGame() {
   closeModal();
   state = freshState(); save();
@@ -1380,6 +1421,7 @@ function withinReach(id) {
   return Math.hypot(player.x - a.x, player.y - a.y) <= a.reach;
 }
 zone.addEventListener('pointerdown', e => {
+  if (!$('devMenu').hidden) devMenu(false);
   if (ui.open || stick.id !== null) return;
   e.preventDefault();
   const r = zone.getBoundingClientRect();
