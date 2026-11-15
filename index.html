@@ -148,7 +148,8 @@ body.in-house .side .ghost-btn{display:none}
 .house-exit{position:absolute;right:10px;z-index:4;font-size:14px;padding:6px 12px}
 body.in-house .stick-zone .stick{display:none}
 body.reaping .side .ghost-btn, body.reaping .stick-zone .stick, body.reaping .bubble, body.reaping .guide{display:none!important}
-#reapExit{top:150px}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
+#reapExit{top:150px}
+#lampBtn{top:auto;bottom:24px;right:16px;font-size:16px;padding:10px 16px}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
 body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overview .toast, body.overview .bubble, body.overview .rotate{display:none!important}
 
 /* Просьба повернуть телефон */
@@ -241,6 +242,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="shelf" id="shelf" hidden></div>
   <button class="ghost-btn house-exit" id="houseExit" type="button" hidden>Выйти из дома</button>
   <button class="ghost-btn house-exit" id="reapExit" type="button" hidden>Отдохнуть</button>
+  <button class="ghost-btn house-exit" id="lampBtn" type="button" hidden>Фонарь: вкл</button>
   <button class="bubble" id="bubble" type="button" hidden></button>
   <div class="guide" id="guide" hidden><span></span></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -262,7 +264,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 196;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 198;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -416,6 +418,7 @@ const ui = { open: false };
 function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
+  if (state.day3.wake === 'cowshed' && !state.day3.stage) return 'grandpa';   // v197: проснулась в коровнике
   const d4 = state.day4.stage;                         // день 4: подарок для Арнхейнд
   if (d4 === 1) return 'nanamin';
   if (d4 === 2) return 'thorfinn';
@@ -465,7 +468,9 @@ function updateHud() {
   const d2 = state.day2.stage;
   const d3 = state.day3.stage, day3 = d3 > 0 || (state.time.day >= 3 && d2 >= 6), d4 = state.day4.stage;
   $('questLabel').textContent = d4 ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
-  $('questText').textContent = d4 ? D4_TEXT[d4] || ''
+  $('questText').textContent = hunt.active ? 'Проберись домой — не попадись Торгелю'
+    : state.day3.wake === 'cowshed' && !d3 ? 'Ночь в коровнике… Сходи к Сверкелю'
+    : d4 ? D4_TEXT[d4] || ''
     : d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
     : d3 === 2 ? 'Поговори с Кетилем у его дома'
     : d3 === 3 ? 'Задание у дома Кетиля — скоро'
@@ -714,7 +719,13 @@ function interact(id) {
   if (id === 'chop') return startChopping();
   if (id === 'barn') return enterBarn();
   if (id === 'torgel') return talkTorgel();
-  if (id === 'door') return state.time.phase === 'evening' ? goToSleep() : enterHouse();
+  if (id === 'door') {
+    if (state.time.phase === 'evening' && hunt.active) {   // v197: Торгель сторожит дверь
+      if (Math.hypot(torgelNpc.x - HUNT.door.x, torgelNpc.y - HUNT.door.y) < 170) { hunt.mode = 'chase'; toast('Торгель у двери — заметил тебя!', 'warn'); return; }
+      endHunt(true); return goToSleep();
+    }
+    return state.time.phase === 'evening' ? goToSleep() : enterHouse();
+  }
   if (id.startsWith('h:')) return cookAction(id);
   if (id === 'ketil') return talkKetil();
   if (id.startsWith('reaper')) return talkReaper(+id.slice(6));
@@ -736,7 +747,7 @@ function interact(id) {
   if (id.startsWith('bed')) {
     const i = +id.slice(3);
     if (VEG_BEDS[i]) return harvestBed(i);
-    if (i >= QUEST_BEDS || !s.items.can || s.watered[i]) return testBed(i);   // ВРЕМЕННО: меню теста грядок
+    if (i >= QUEST_BEDS || !s.items.can || s.watered[i]) return;   // v198: тестовое меню грядок выключено (testBed оставлен в коде)
     s.watered[i] = true; drawBed(i); splash(BEDS[i].x, BEDS[i].y - 10);
     const n = s.watered.filter(Boolean).length;
     if (n === 3) { s.step = 3; toast('Все грядки политы!'); } else toast(`Полито ${n} из 3`, 'info');
@@ -783,6 +794,10 @@ function talkGrandpa() {
 // Если героиня уже видела грустного Эйнара, у дедушки можно спросить о нём
 function askGrandpa() {
   const nm = state.nanamin, L = state.day2.lunch;
+  if (state.day3.wake === 'cowshed' && !state.day3.stage) return showDialog([   // ЗАГЛУШКА: шутка Сверкеля после ночи в коровнике
+    ['grandpa', 'О, а вот и ты! Что-то от тебя коровой пахнет… Ты что, в коровнике ночевала?'],
+    ['grandpa', 'Ха! Ну, зато выспалась на свежем сене. Ладно, не дуйся — у меня для тебя новость.'],
+  ], () => { state.day3.wake = null; startDay3(); });
   if (L.on && !L.bread && !L.done) return showDialog([   // ЗАГЛУШКА: реплики — черновик
     ['grandpa', 'Обед для жнецов? Вот это дело! С утра в поле — и ни крошки, знаю я Кетиля.'],
     ['grandpa', 'Держи каравай, утром испёк. Да не урони по дороге!'],
@@ -939,6 +954,10 @@ function placeZmey(animate) {
 // Торгель — сын хозяина фермы Кетиля: очень сильный и суровый, но без повода никого не трогает.
 // Реплика — ЗАГЛУШКА, позже заменим текстом от автора
 function talkTorgel() {
+  if (state.time.night && state.items.lantern && !hunt.active) return showDialog([   // ЗАГЛУШКА: реплики — черновик
+    ['torgel', 'Опять шастаешь по ночам? Да ещё с огнём у сена — подпалишь всё!'],
+    ['torgel', 'Отдавай фонарь — и марш ночевать к коровам. В дом не пущу. А ну стой!'],
+  ], startHunt);
   showDialog([['torgel', 'Чего встала? Работы на ферме на всех хватит — иди займись делом.']]);
 }
 function talkNanamin() {
@@ -1054,6 +1073,65 @@ function buildTimeLayer() {
   nightK = state.time.night ? 1 : 0;
   applyTime(true);
 }
+// ===================== Ночь: прятки с Торгелем (v197, по желанию) =====================
+// Подошла к Торгелю ночью с фонарём — он не пускает в дом и ходит у двери. Свет фонаря его выдаёт: заметил издалека — идёт проверить,
+// близко — бежит. Без света он не видит (только вплотную). Отманить от двери и успеть войти. Поймал — ночь в коровнике.
+const HUNT = { door: { x: 210, y: 350 }, patrol: [[110, 372], [300, 380]], cowshed: { x: 120, y: 1540 }, see: 230, notice: 480, close: 70 };
+const hunt = { active: false, mode: 'patrol', pi: 0, tx: 0, ty: 0, t: 0, hinted: false };
+let lanternOn = true, torgelNpc = null, torgelLab = null;
+function startHunt() {
+  Object.assign(hunt, { active: true, mode: 'chase', pi: 0, t: 0 });
+  state.day2.torgel = 'hunt';
+  progress(); toast('Беги домой! Выключи фонарь — без света Торгель тебя не видит', 'warn');
+}
+function endHunt(won) {
+  hunt.active = false; lanternOn = true; $('lampBtn').textContent = 'Фонарь: вкл';
+  state.day2.torgel = won ? 'escaped' : 'caught'; progress();
+}
+function huntMove(tx, ty, speed, dt) {
+  const T = torgelNpc, dx = tx - T.x, dy = ty - T.y, d = Math.hypot(dx, dy);
+  if (d < 2) return true;
+  const st = Math.min(d, speed * dt / 1000), nx = T.x + dx / d * st, ny = T.y + dy / d * st;
+  if (walkable(nx, ny)) T.setPosition(nx, ny); else if (walkable(nx, T.y)) T.x = nx; else if (walkable(T.x, ny)) T.y = ny;
+  if (Math.abs(dx) > 2) T.bodyG.scaleX = dx < 0 ? -1 : 1;
+  T.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / (speed > 200 ? 70 : 110))) * 3;
+  return d < 14;
+}
+function updateHunt(dt) {
+  if (!hunt.active || !torgelNpc) return;
+  const T = torgelNpc; T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94);
+  if (ui.open) return;
+  const ms = Math.min(dt, 60), d = Math.hypot(player.x - T.x, player.y - T.y);
+  const see = (lanternOn && d < HUNT.see) || d < HUNT.close, notice = lanternOn && d < HUNT.notice;
+  if (see) { hunt.mode = 'chase'; hunt.tx = player.x; hunt.ty = player.y; }
+  else if (hunt.mode === 'chase') { hunt.mode = 'search'; hunt.t = 0; }   // потерял из виду — идёт туда, где видел
+  else if (notice && (hunt.mode === 'patrol' || hunt.mode === 'return' || hunt.mode === 'investigate')) { hunt.mode = 'investigate'; hunt.tx = player.x; hunt.ty = player.y; }
+  if (hunt.mode === 'chase') {
+    huntMove(player.x, player.y, 262, ms);
+    if (d < 26) return huntCaught();
+  } else if (hunt.mode === 'investigate') {
+    if (huntMove(hunt.tx, hunt.ty, 150, ms)) { hunt.mode = 'search'; hunt.t = 0; }
+  } else if (hunt.mode === 'search') {   // дошёл до места — оглядывается и возвращается к двери
+    if (huntMove(hunt.tx, hunt.ty, 170, ms) || hunt.t > 0) {
+      hunt.t += ms; T.bodyG.y = 0; T.bodyG.scaleX = Math.floor(hunt.t / 550) % 2 ? -1 : 1;   // оглядывается
+      if (hunt.t > 2200) hunt.mode = 'return';
+    }
+  } else if (hunt.mode === 'return') {
+    if (huntMove(HUNT.patrol[0][0], HUNT.patrol[0][1], 120, ms)) { hunt.mode = 'patrol'; hunt.pi = 1; }
+  } else {   // ходит у двери туда-сюда
+    const [px, py] = HUNT.patrol[hunt.pi];
+    if (huntMove(px, py, 80, ms)) hunt.pi = 1 - hunt.pi;
+  }
+}
+function huntCaught() {
+  hunt.active = false; stopWalking();
+  showDialog([['torgel', 'Попалась! Фонарь — мне, а ты — к коровам. И чтоб до утра ни шагу. Утром отдам.']], () => { endHunt(false); goToSleep('cowshed'); });
+}
+$('lampBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  lanternOn = !lanternOn; $('lampBtn').textContent = lanternOn ? 'Фонарь: вкл' : 'Фонарь: выкл';
+  if (!lanternOn && hunt.active && !hunt.hinted) { hunt.hinted = true; toast('Без света Торгель тебя не видит… Надо отманить его от двери', 'info'); }
+});
 // сколько темноты сейчас (0..1) — плавно нарастает с наступлением ночи
 function updateNight(time) {
   if (!nightRT) return;
@@ -1066,7 +1144,7 @@ function updateNight(time) {
   nightRT.clear().fill(NIGHT.color, NIGHT.alpha * nightK);
   const lights = [];
   if (campfire) lights.push([campfire.x, campfire.y - 16, 230 + (REDUCED ? 0 : Math.sin(time / 90) * 8 + Math.sin(time / 37) * 4), 'fire']);
-  if (state.items.lantern && player.visible) lights.push([player.x + 14 * facing, player.y - 24, 190, 'lantern']);
+  if (state.items.lantern && lanternOn && player.visible) lights.push([player.x + 14 * facing, player.y - 24, 190, 'lantern']);
   for (const [x, y, r] of lights) { nightStamp.setScale(r * 2 / 128); nightRT.erase(nightStamp, x - nightRT.x, y - nightRT.y); }
   // тёплые отсветы (как у статуи) — поверх пелены
   while (nightLights.length < lights.length) nightLights.push([scene.add.image(0, 0, 'firefly').setTint(0xFFB050).setBlendMode(Phaser.BlendModes.ADD).setDepth(5845)]);
@@ -1083,7 +1161,7 @@ function updateNight(time) {
       lanternG.fillStyle(0x3A2A1E, 1).fillRect(-4.5, -6, 9, 2).fillRect(-4.5, 5, 9, 2);
       lanternG.fillStyle(0xFFD27A, 1).fillRoundedRect(-3.5, -4, 7, 9, 2).fillStyle(0xFFF2C0, 1).fillCircle(0, 0.5, 2);
     }
-    lanternG.setVisible(true).setPosition(player.x + 16 * facing, player.y - 20).setDepth(player.depth + 0.5);
+    lanternG.setVisible(true).setPosition(player.x + 16 * facing, player.y - 20).setDepth(player.depth + 0.5).setAlpha(lanternOn ? 1 : 0.55);
   } else if (lanternG) lanternG.setVisible(false);
 }
 function applyTime(instant) {
@@ -1148,10 +1226,10 @@ function startEvening() {
   setTimeout(() => showThought('Солнце садится… Уже вечер. Пора домой — отдохнуть после такого дня.'), 2600);
 }
 // Сон: экран гаснет → «День N» → утро у дома дедушки
-function goToSleep() {
+function goToSleep(where) {
   ui.open = true; stopWalking();
-  const fade = $('fade'), text = $('fadeText');
-  text.textContent = 'Спокойной ночи…';
+  const fade = $('fade'), text = $('fadeText'), cow = where === 'cowshed';
+  text.textContent = cow ? 'Торгель запер тебя в коровнике… Спокойной ночи?' : 'Спокойной ночи…';
   fade.classList.add('show');
   setTimeout(() => { text.style.opacity = 0; }, 2000);
   setTimeout(() => {
@@ -1159,7 +1237,10 @@ function goToSleep() {
     state.time.phase = 'morning'; state.time.night = false; nightK = 0;
     if (campfire) { if (campfire.sparks) campfire.sparks.remove(); campfire.destroy(); campfire = null; }   // костёр догорел за ночь
     d4.flies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); }); d4.flies = [];   // светлячки у статуи разлетелись к утру
-    player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1;
+    if (cow) { player.setPosition(HUNT.cowshed.x, HUNT.cowshed.y); facing = -1; } else { player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1; }
+    if (torgelNpc) { torgelNpc.setPosition(-290, 440).setDepth(440); torgelNpc.bodyG.scaleX = 1; torgelLab.setPosition(-290, 346); }   // Торгель — снова на своём месте
+    hunt.active = false; lanternOn = true;
+    if (cow) state.day3.wake = 'cowshed';
     scene.cameras.main.centerOn(player.x, player.y);
     applyTime(true);
     progress();
@@ -1176,6 +1257,8 @@ function goToSleep() {
         ['grandpa', 'В поле за нашим домом сегодня жатва. Людям очень нужны лишние руки.'],
         ['grandpa', 'Сходи-ка помоги им, внучка. Дорожка от калитки ведёт прямо туда.'],
       ], () => { state.day2.stage = 1; toast('Новое задание: помоги людям в поле'); progress(); }), 1300);
+    } else if (state.time.day === 3 && state.day3.stage === 0 && state.day3.wake === 'cowshed') {   // проснулась в коровнике
+      setTimeout(() => showThought('Ну, Торгель… Спина отваливается, сено в волосах, а корова всю ночь жевала мне над ухом. Пойду к Сверкелю.'), 1300);
     } else if (state.time.day === 3 && state.day3.stage === 0) {
       setTimeout(startDay3, 1300);
     } else if (state.time.day === 4 && state.day4.stage === 0) {
@@ -2167,7 +2250,7 @@ function solids() {
   if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
   if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 150, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
-  list.push([-312, 430, 44, 16]);   // Торгель
+  if (!hunt.active) list.push([-312, 430, 44, 16]);   // Торгель (пока ловит героиню ночью — он ходит, место свободно)
   list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Лейф
   list.push(...CAMP_SOLIDS, [ANCHORS.ketil.x - 20, ANCHORS.ketil.y - 12, 40, 16]);   // полевой лагерь и Кетиль
   return list;
@@ -2211,7 +2294,7 @@ function hitTest(x, y) {
   if (near(ANCHORS.zmey.x, ANCHORS.zmey.y - (zmeyNapping() ? 10 : 35), 44)) return 'zmey';
   if (state.nanamin.tools === 2 && near(CHOP_SPOT.x, CHOP_SPOT.y - 14, 42)) return 'chop';
   if (state.nanamin.tools === 4 && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 46)) return 'barn';
-  if (near(-290, 396, 48)) return 'torgel';
+  if (!hunt.active && torgelNpc && near(torgelNpc.x, torgelNpc.y - 44, 48)) return 'torgel';
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < BEDS.length; i++) if ((!VEG_BEDS[i] || canHarvest(i)) && Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
@@ -2301,8 +2384,10 @@ function nearest() {
     if (id === 'klara' && !state.open.kuryatnik) continue;
     if (id === 'gate' && state.open.kuryatnik) continue;
     if (id.startsWith('pen') && (nm.stage !== 1 || nm.fixed[+id[3]])) continue;
+    if (id.startsWith('bed') && !VEG_BEDS[+id.slice(3)] && !(+id.slice(3) < QUEST_BEDS && state.items.can && !state.watered[+id.slice(3)])) continue;   // v198: без тестового меню грядок
     if (id === 'door' && state.time.phase !== 'evening' && state.step !== 71) continue;
     if (id === 'fieldGate') continue;
+    if (id === 'torgel' && hunt.active) continue;
     if (id === 'thorfinn' && (thor.mode !== 'idle' || !thorfinnChar || !thorfinnChar.visible)) continue;
     if (id === 'nanamin' && nanaminChar && !nanaminChar.visible) continue;
     if (id === 'd4' && !d4Spot()) continue;
@@ -5024,10 +5109,11 @@ class FarmScene extends Phaser.Scene {
     parkedCart = null; ride.active = false;
     placeZmey(false);   // дремлет под деревом или стоит у колодца
     // Торгель: сын Кетиля, крупнее остальных; светлые волосы зачёсаны назад, борода, шрам, тёмно-красная туника с горчичной отделкой, прямой меч
-    const torgel = makeChar({ skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
+    const torgel = torgelNpc = makeChar({ skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
       hair: 'swept', hairColor: 0xE8D27E, jawBeard: true, scar: true, stern: true, noBlush: true, longsword: true, scale: 1.18 });
     torgel.setPosition(-290, 440).setDepth(440);
-    nameLabel('Торгель', -290, 346);
+    torgelLab = nameLabel('Торгель', -290, 346);
+    hunt.active = false; lanternOn = true;
     this.npcs = [grandpa, klara, zmey, torgel];
     nanaminChar = null;
     buildPasture();
@@ -5134,6 +5220,8 @@ class FarmScene extends Phaser.Scene {
     updateRide(dt);
     updateDay4(dt);
     updateNight(time);
+    updateHunt(dt);
+    $('lampBtn').hidden = !(state.time.night && state.items.lantern && player.visible && !ui.open && !house.active);
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
