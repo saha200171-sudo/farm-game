@@ -262,7 +262,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 194;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 195;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -486,7 +486,8 @@ function updateHud() {
     if (L.brew && L.served.length < LUNCH_CUPS.length) chips.push([`Кружки отвара × ${LUNCH_CUPS.length - L.served.length}`, '#B07A3A']);
     if (state.items.net) chips.push(['Старая сеть', '#8C7A5C']);
     if (state.items.fish) chips.push([`Рыба × ${state.items.fish}`, '#6E9FB8']);
-    if (state.items.shell) chips.push(['Ракушка из Винланда', '#E8C9B0']); }
+    if (state.items.shell) chips.push(['Ракушка из Винланда', '#E8C9B0']);
+    if (state.items.lantern) chips.push(['Фонарь', '#F2B34A']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
   if (state.time.day > 1 || state.time.phase !== 'day') {
@@ -1011,6 +1012,10 @@ const TINTS = {
   morning: { color: 0xF6C7B4, alpha: 0.3 },
 };
 let timeTint = null, timeHaze = null, windowGlow = null, fireflies = [];
+// v195: поздний вечер (state.time.night) — поверх вечернего фильтра тёмная пелена; свет костра и фонаря «вырезает» в ней мягкие пятна
+const NIGHT = { color: 0x0A1030, alpha: 0.62 };
+let nightRT = null, nightStamp = null, nightK = 0, lanternG = null;
+const nightLights = [];   // тёплые отсветы поверх пелены: [картинка, кто светит]
 function buildTimeLayer() {
   timeTint = scene.add.rectangle(WORLD.x, WORLD.top, WW, WORLD.h, 0xffffff).setOrigin(0, 0).setDepth(5800).setAlpha(0);
   timeTint.setBlendMode(Phaser.BlendModes.MULTIPLY);
@@ -1034,7 +1039,48 @@ function buildTimeLayer() {
     ctx.fillStyle = grd; ctx.fillRect(32, 32, 32, 32); t.refresh();
   }
   fireflies = [];
+  if (!scene.textures.exists('lightMask')) {   // мягкое пятно света: в центре — полностью убирает темноту, к краю — плавно
+    const t = scene.textures.createCanvas('lightMask', 128, 128), ctx = t.getContext();
+    const grd = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.45, 'rgba(255,255,255,0.85)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, 128, 128); t.refresh();
+  }
+  nightRT = scene.add.renderTexture(0, 0, 64, 64).setOrigin(0, 0).setDepth(5840).setVisible(false);
+  nightStamp = scene.make.image({ key: 'lightMask', add: false }).setOrigin(0.5);
+  nightK = state.time.night ? 1 : 0;
   applyTime(true);
+}
+// сколько темноты сейчас (0..1) — плавно нарастает с наступлением ночи
+function updateNight(time) {
+  if (!nightRT) return;
+  const want = state.time.night && !house.active && !barn.active ? 1 : 0;
+  nightK += (want - nightK) * Math.min(1, 0.04);
+  if (nightK < 0.01) { nightRT.setVisible(false); nightLights.forEach(([g]) => g.setVisible(false)); if (lanternG) lanternG.setVisible(false); return; }
+  const cam = scene.cameras.main, wv = cam.worldView, w = Math.ceil(cam.width / cam.zoom) + 8, h = Math.ceil(cam.height / cam.zoom) + 8;
+  if (nightRT.width !== w || nightRT.height !== h) nightRT.resize(w, h);
+  nightRT.setPosition(wv.x - 4, wv.y - 4).setVisible(true);
+  nightRT.clear().fill(NIGHT.color, NIGHT.alpha * nightK);
+  const lights = [];
+  if (campfire) lights.push([campfire.x, campfire.y - 16, 230 + (REDUCED ? 0 : Math.sin(time / 90) * 8 + Math.sin(time / 37) * 4), 'fire']);
+  if (state.items.lantern && player.visible) lights.push([player.x + 14 * facing, player.y - 24, 190, 'lantern']);
+  for (const [x, y, r] of lights) { nightStamp.setScale(r * 2 / 128); nightRT.erase(nightStamp, x - nightRT.x, y - nightRT.y); }
+  // тёплые отсветы (как у статуи) — поверх пелены
+  while (nightLights.length < lights.length) nightLights.push([scene.add.image(0, 0, 'firefly').setTint(0xFFB050).setBlendMode(Phaser.BlendModes.ADD).setDepth(5845)]);
+  nightLights.forEach(([g], i) => {
+    const L = lights[i]; g.setVisible(!!L); if (!L) return;
+    const fl = L[3] === 'fire' ? 1 + (REDUCED ? 0 : Math.sin(time / 70) * 0.06) : 1;
+    g.setPosition(L[0], L[1]).setScale((L[3] === 'fire' ? 9 : 6.5) * fl).setAlpha((L[3] === 'fire' ? 0.3 : 0.22) * nightK);
+  });
+  // фонарь в руке героини
+  if (state.items.lantern && player.visible && state.time.night) {
+    if (!lanternG) {
+      lanternG = scene.add.graphics();
+      lanternG.lineStyle(1.5, 0x3A2A1E, 1).beginPath().arc(0, -9, 4, Math.PI, 0).strokePath();
+      lanternG.fillStyle(0x3A2A1E, 1).fillRect(-4.5, -6, 9, 2).fillRect(-4.5, 5, 9, 2);
+      lanternG.fillStyle(0xFFD27A, 1).fillRoundedRect(-3.5, -4, 7, 9, 2).fillStyle(0xFFF2C0, 1).fillCircle(0, 0.5, 2);
+    }
+    lanternG.setVisible(true).setPosition(player.x + 16 * facing, player.y - 20).setDepth(player.depth + 0.5);
+  } else if (lanternG) lanternG.setVisible(false);
 }
 function applyTime(instant) {
   const ph = state.time.phase, t = TINTS[ph];
@@ -1106,7 +1152,7 @@ function goToSleep() {
   setTimeout(() => { text.style.opacity = 0; }, 2000);
   setTimeout(() => {
     state.time.day += 1;
-    state.time.phase = 'morning';
+    state.time.phase = 'morning'; state.time.night = false; nightK = 0;
     if (campfire) { if (campfire.sparks) campfire.sparks.remove(); campfire.destroy(); campfire = null; }   // костёр догорел за ночь
     d4.flies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); }); d4.flies = [];   // светлячки у статуи разлетелись к утру
     player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1;
@@ -1928,7 +1974,7 @@ function campfireScene(n) {
   text.textContent = 'Вечером у костра…'; text.style.opacity = ''; fade.classList.add('show');
   let tmp = [];
   setTimeout(() => {   // под затемнением: вечер, костёр, все рассаживаются
-    state.time.phase = 'evening'; applyTime(true);
+    state.time.phase = 'evening'; state.time.night = true; nightK = 1; applyTime(true);   // v195: поздний вечер — у костра светло, вокруг темно
     campfire = null; buildCampfire();
     player.setVisible(false); player.setPosition(CAMP_HERO.x - 40, CAMP_HERO.y + 60);   // встаёт левее костра
     zmeyChar.setVisible(false); zmeyLabel.setVisible(false); if (leifChar) leifChar.setVisible(false); if (leifLabel) leifLabel.setVisible(false);
@@ -1951,14 +1997,16 @@ function campfireScene(n) {
     ['kale', 'Держи. Эту ракушку я привёз с берегов Винланда. Отдашь её тому, кого позовёшь с собой.'],
     ['zmey', 'В Винланд? Я бы поплыл… Шучу. Или нет.'],
     ['thought', 'Винланд… Новая земля за морем. С кем бы я хотела туда уплыть?'],
+    ['zmey', 'Ох, совсем стемнело. На, держи фонарь — а то в темноте в пшеницу забредёшь, и Торфинн тебя до утра гонять будет.'],
   ], () => {
     tmp.forEach(o => o.destroy());
+    state.items.lantern = true;
     player.setVisible(true); facing = 1;
     zmeyChar.setVisible(true); zmeyLabel.setVisible(true); if (leifChar) leifChar.setVisible(true); if (leifLabel) leifLabel.setVisible(true);
     state.items.shell = true; F.stage = 2; placeZmey(false);
     cam.setZoom(campfireScene.z0 || cam.zoom); cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y);
     progress(); updateCull(0, true);
-    toast('Получено: ракушка из Винланда');
+    toast('Получено: ракушка и фонарь');
   }), 3300);
 }
 function afterPolish() {
@@ -5081,6 +5129,7 @@ class FarmScene extends Phaser.Scene {
     updateReap(dt);
     updateRide(dt);
     updateDay4(dt);
+    updateNight(time);
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
