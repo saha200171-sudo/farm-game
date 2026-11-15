@@ -139,7 +139,9 @@ body.in-house .side .ghost-btn{display:none}
 .shelf img{width:88%;height:88%;object-fit:contain;filter:grayscale(1) brightness(.45);opacity:.35;transition:all .3s}
 .shelf img.have{filter:none;opacity:1}
 .house-exit{position:absolute;right:10px;z-index:4;font-size:14px;padding:6px 12px}
-body.in-house .stick-zone .stick{display:none}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
+body.in-house .stick-zone .stick{display:none}
+body.reaping .side .ghost-btn, body.reaping .stick-zone .stick, body.reaping .bubble, body.reaping .guide{display:none!important}
+#reapExit{top:150px}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
 body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overview .toast, body.overview .bubble, body.overview .rotate{display:none!important}
 
 /* Просьба повернуть телефон */
@@ -213,6 +215,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="recipe" id="recipe" hidden></div>
   <div class="shelf" id="shelf" hidden></div>
   <button class="ghost-btn house-exit" id="houseExit" type="button" hidden>Выйти из дома</button>
+  <button class="ghost-btn house-exit" id="reapExit" type="button" hidden>Отдохнуть</button>
   <button class="bubble" id="bubble" type="button" hidden></button>
   <div class="guide" id="guide" hidden><span></span></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -234,7 +237,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 151;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 152;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -337,7 +340,7 @@ const freshState = () => ({
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
-  day2: { stage: 0, visitedField: false },
+  day2: { stage: 0, visitedField: false, cut: [], sheaves: [] },
 });
 function loadState() {
   try {
@@ -370,7 +373,7 @@ function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
-  if (state.day2.stage === 3) return 'ketil';          // день 2: к Кетилю в лагерь
+  if (state.day2.stage === 3 || (state.day2.stage === 4 && !reap.active)) return 'ketil';   // день 2: к Кетилю в лагерь
   switch (state.step) {
     case 0: case 3: case 7: return 'grandpa';
     case 1: return 'well';
@@ -402,7 +405,8 @@ function updateHud() {
   $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
-    : d2 === 4 ? 'Помоги жнецам сжать пшеницу (мини-игра — скоро)' : questText();
+    : d2 === 4 ? (reap.active ? `Сожни участок серпом: ${reap.n} из ${reap.bushes.length}` : 'Помоги жнецам: поговори с Кетилем в лагере')
+    : d2 === 5 ? 'Жатва окончена! (продолжение скоро)' : questText();
   const chips = [];
   if (state.items.can) chips.push(['Лейка', '#4DA3D9']);
   if ((state.nanamin.tools === 5 && state.nanamin.stage === 1) || barn.carry) chips.push(['Ящик с инструментами', '#9C6B3E']);
@@ -1374,6 +1378,7 @@ zone.addEventListener('pointerdown', e => {
   e.preventDefault();
   const r = zone.getBoundingClientRect();
   const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (reap.active) { reap.down = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (_) {} reapPointer(px, py, true); return; }
   if (house.active && scene) { houseTap(e, px, py); return; }
   if (scene && player) {
     const cam = scene.cameras.main, z = cam.zoom / DPR;
@@ -1388,6 +1393,7 @@ zone.addEventListener('pointerdown', e => {
   knob.style.transform = '';
 });
 zone.addEventListener('pointermove', e => {
+  if (reap.active) { const r = zone.getBoundingClientRect(); reapPointer(e.clientX - r.left, e.clientY - r.top, false, reap.down === e.pointerId); return; }
   if (house.active && house.walk && house.walk.hold === e.pointerId) { const r = zone.getBoundingClientRect(); house.walk.x = houseWorldX(e.clientX - r.left); return; }
   if (e.pointerId !== stick.id) return;
   const r = zone.getBoundingClientRect();
@@ -1398,7 +1404,7 @@ zone.addEventListener('pointermove', e => {
   if (d < 6) { move.x = move.y = 0; } else { move.x = dx / STICK_R; move.y = dy / STICK_R; }
 });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
-  zone.addEventListener(t, e => { if (house.walk && house.walk.hold === e.pointerId) house.walk.hold = null; if (e.pointerId === stick.id) releaseStick(); }));
+  zone.addEventListener(t, e => { if (reap.down === e.pointerId) { reap.down = null; reap.last = null; } if (house.walk && house.walk.hold === e.pointerId) house.walk.hold = null; if (e.pointerId === stick.id) releaseStick(); }));
 
 // клавиатура на компьютере: стрелки/WASD — ходьба, пробел/E/Enter — действие
 const KEYMAP = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
@@ -1472,7 +1478,7 @@ function updateControls() {
   bubble.hidden = false;
 }
 function doAction() {
-  if (ui.open || !nearId) return;
+  if (ui.open || !nearId || reap.active) return;
   const a = anchorOf(nearId);
   if (Math.abs(a.x - player.x) > 4) facing = a.x < player.x ? -1 : 1;
   interact(nearId);
@@ -2795,8 +2801,133 @@ function drawWheat() {
       const bx = x + WHEAT_W / 2 + c * sx + (rnd() - 0.5) * 8 + (r % 2 ? sx * 0.3 : 0) * (c < n - 1 ? 1 : 0);
       const by = y + WHEAT_H + r * sy + (rnd() - 0.5) * 6;   // низ куста (полоска земли)
       const sc = k * (0.94 + rnd() * 0.12);
-      scene.add.image(bx, by, 'wheatPlot').setOrigin(0.5, 1).setScale(sc).setFlipX(rnd() < 0.5).setDepth(by);
+      const img = scene.add.image(bx, by, 'wheatPlot').setOrigin(0.5, 1).setScale(sc).setFlipX(rnd() < 0.5).setDepth(by);
+      if (WHEAT[REAP_PLOT][0] === x && WHEAT[REAP_PLOT][1] === y) {
+        const i = reap.bushes.length; reap.bushes.push({ img, x: bx, y: by, sc, cut: false });
+        if (state.day2.cut.includes(i)) { img.setTexture('wheatStubble'); reap.bushes[i].cut = true; }
+      }
     }
+  }
+  reap.n = reap.bushes.filter(b => b.cut).length;
+  for (const [sx, sy] of state.day2.sheaves) addSheaf(sx, sy, false);
+}
+// ===================== Жатва (день 2): серп по колосьям прямо на поле =====================
+// Камера наезжает на участок у лагеря, джойстик прячется: ведёшь пальцем — серп срезает кусты,
+// на их месте остаётся стерня, а жнецы вяжут срезанное в снопы. Сжатый участок так и остаётся на карте.
+const REAP_PLOT = 7;          // участок под лагерем Кетиля (WHEAT[7])
+const REAP_SPOT = { x: 2300, y: -412 };   // где стоит героиня — на дорожке над участком
+const SHEAF_EVERY = 9;        // каждые 9 срезанных кустов — новый сноп
+var reap = { active: false, bushes: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null };
+function reapView(animate) {
+  const cam = scene.cameras.main, W = app.clientWidth, H = app.clientHeight, top = 130;
+  const [x, y, w, h] = WHEAT[REAP_PLOT], bx0 = x - 20, by0 = y - 70, bw = w + 40, bh = h + 90;
+  const z = Math.min(W / bw, (H - top - 20) / bh, 2.2);
+  const cx = bx0 + bw / 2, cy = by0 + bh / 2 - top / 2 / z;
+  cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
+  reap.view = { cx, cy, z: DPR * z };
+  if (animate && !REDUCED) reap.fly = { t: 0, z0: cam.zoom, x0: cam.midPoint.x, y0: cam.midPoint.y };   // плавный наезд — в updateReap
+  else { reap.fly = null; cam.setZoom(DPR * z); cam.centerOn(cx, cy); }
+}
+function startReaping() {
+  if (reap.active) return;
+  const cam = scene.cameras.main;
+  reap.active = true; reap.down = null; reap.last = null; reap.trail = []; reap.group = [];
+  stopWalking(); nearId = null;
+  player.setPosition(REAP_SPOT.x, REAP_SPOT.y); facing = 1;
+  document.body.classList.add('reaping'); $('reapExit').hidden = false;
+  cam.stopFollow(); cam.removeBounds(); reapView(true);
+  if (!reap.sickle) {
+    reap.sickle = scene.add.image(0, 0, 'sickle').setOrigin(0.56, 0.42).setDepth(5000);
+    reap.sickle.setScale(64 / reap.sickle.width);
+    reap.trailG = scene.add.graphics().setDepth(4999);
+  }
+  const [x, y, w, h] = WHEAT[REAP_PLOT];
+  reap.sickle.setVisible(true).setPosition(x + w / 2, y + h / 2).setAngle(0);
+  if (!REDUCED) reap.idleTw = scene.tweens.add({ targets: reap.sickle, x: x + w / 2 + 70, angle: 18, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });   // подсказка: «води вот так»
+  updateHud();
+  toast('Проведи серпом по колосьям');
+}
+function endReaping(done) {
+  const cam = scene.cameras.main;
+  reap.active = false; reap.down = null; reap.last = null; reap.trail = [];
+  if (reap.idleTw) { reap.idleTw.stop(); reap.idleTw = null; }
+  reap.sickle.setVisible(false); reap.trailG.clear();
+  document.body.classList.remove('reaping'); $('reapExit').hidden = true;
+  cam.setBounds(WORLD.x, WORLD.top, WW, WORLD.h); fitCamera();
+  cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y);
+  if (done) {
+    // ЗАГЛУШКА: реплики — черновик, заменим на твои
+    showDialog([
+      ['ketil', 'Вот это да! Весь участок — и ни одного колоска не потоптала. Отец не зря тебя хвалил.'],
+      ['ketil', 'Снопы жнецы сами отвезут. Держи, заслужила отдых.'],
+    ], () => { state.day2.stage = 5; progress(); toast('Жатва окончена!'); });
+  } else { progress(); toast('Можно вернуться к Кетилю и продолжить'); }
+}
+$('reapExit').addEventListener('click', () => { if (reap.active && !ui.open) endReaping(false); });
+function reapPointer(px, py, start, pressed) {
+  const cam = scene.cameras.main, z = cam.zoom / DPR, wx = cam.worldView.x + px / z, wy = cam.worldView.y + py / z;
+  if (reap.idleTw) { reap.idleTw.stop(); reap.idleTw = null; }
+  const sk = reap.sickle, dx = wx - sk.x;
+  sk.setPosition(wx, wy);
+  if (Math.abs(dx) > 0.5) sk.setAngle(Phaser.Math.Clamp(sk.angle * 0.6 + dx * 1.6, -40, 40));   // наклон по ходу взмаха
+  if (!start && !pressed) return;   // мышью без нажатия серп просто следует за курсором
+  const now = scene.time.now;
+  reap.trail.push({ x: wx, y: wy, t: now });
+  if (reap.last) {   // режем всё, что попало на отрезок от прошлой точки до текущей
+    const lx = reap.last.x, ly = reap.last.y, d = Math.hypot(wx - lx, wy - ly), n = Math.max(1, Math.ceil(d / 5));
+    for (let k = 1; k <= n; k++) tryCut(lx + (wx - lx) * k / n, ly + (wy - ly) * k / n, wx - lx);
+  } else tryCut(wx, wy, 0);
+  reap.last = { x: wx, y: wy };
+}
+function tryCut(x, y, dir) {
+  for (let i = 0; i < reap.bushes.length; i++) {
+    const b = reap.bushes[i]; if (b.cut) continue;
+    const hw = 30 * b.sc / (WHEAT_W / 240) * 1;   // половина ширины куста на карте (≈30)
+    if (Math.abs(x - b.x) < hw && y > b.y - 62 && y < b.y - 4) cutBush(i, dir);
+  }
+}
+function cutBush(i, dir) {
+  const b = reap.bushes[i];
+  b.cut = true; reap.n++; state.day2.cut.push(i); reap.group.push(b);
+  b.img.setTexture('wheatStubble');
+  if (!REDUCED) {
+    b.img.setScale(b.sc, b.sc * 0.8); scene.tweens.add({ targets: b.img, scaleY: b.sc, duration: 220, ease: 'Back.easeOut' });
+    if (!scene.textures.exists('reapEar')) {   // колосок-частица
+      const g = scene.add.graphics(); g.fillStyle(0xE8B44A, 1).fillEllipse(6, 3, 12, 6); g.fillStyle(0xC98A2E, 1).fillRect(10, 2, 8, 2);
+      g.generateTexture('reapEar', 18, 6); g.destroy();
+    }
+    for (let k = 0; k < 4; k++) {
+      const e = scene.add.image(b.x + (Math.random() - 0.5) * 30, b.y - 30 - Math.random() * 20, 'reapEar').setDepth(4998).setAngle(Math.random() * 360);
+      scene.tweens.add({ targets: e, x: e.x + Math.sign(dir || 1) * (20 + Math.random() * 30), y: e.y + 18 + Math.random() * 16, angle: e.angle + (Math.random() - 0.5) * 300,
+        alpha: 0, duration: 550 + Math.random() * 250, ease: 'Quad.easeOut', onComplete: () => e.destroy() });
+    }
+  }
+  if (reap.group.length >= SHEAF_EVERY || reap.n === reap.bushes.length) {   // жнецы вяжут сноп из последних срезанных
+    const g = reap.group; reap.group = [];
+    const sx = g.reduce((a, q) => a + q.x, 0) / g.length, sy = g.reduce((a, q) => a + q.y, 0) / g.length;
+    state.day2.sheaves.push([Math.round(sx), Math.round(sy)]); addSheaf(sx, sy, true);
+  }
+  updateHud();
+  if (reap.n === reap.bushes.length) { reap.down = null; ui.open = true; scene.time.delayedCall(900, () => { ui.open = false; endReaping(true); }); }
+}
+function addSheaf(x, y, animate) {
+  const s = scene.add.image(x, y, 'sheaf').setOrigin(0.5, 0.95).setDepth(y + 1);
+  const sc = 62 / s.height; s.setScale(sc);
+  if (animate && !REDUCED) { s.setScale(0); scene.tweens.add({ targets: s, scale: sc, duration: 380, ease: 'Back.easeOut' }); }
+}
+function updateReap(dt) {
+  if (!reap.active || !reap.trailG) return;
+  const now = scene.time.now, g = reap.trailG, cam = scene.cameras.main, v = reap.view;
+  if (reap.fly) {
+    const f = reap.fly; f.t = Math.min(1, f.t + dt / 700); const e = 0.5 - Math.cos(Math.PI * f.t) / 2;
+    cam.setZoom(f.z0 + (v.z - f.z0) * e); cam.centerOn(f.x0 + (v.cx - f.x0) * e, f.y0 + (v.cy - f.y0) * e);
+    if (f.t >= 1) reap.fly = null;
+  } else cam.centerOn(v.cx, v.cy);
+  reap.trail = reap.trail.filter(p => now - p.t < 180);
+  g.clear();
+  for (let k = 1; k < reap.trail.length; k++) {   // светлый след за серпом
+    const a = reap.trail[k - 1], b = reap.trail[k], f = 1 - (now - b.t) / 180;
+    g.lineStyle(2 + 6 * f, 0xFFF6D8, 0.7 * f).lineBetween(a.x, a.y, b.x, b.y);
   }
 }
 // ===================== Торфинн: сторож поля =====================
@@ -2956,8 +3087,9 @@ function talkKetil() {
     ['ketil', 'Урожай в этом году богатый, а рук не хватает: двое работников слегли с простудой.'],
     ['ketil', 'Возьми серп и помоги сжать участок у лагеря. Только по колосьям не топчись — Торфинн не простит.'],
     ['hero', 'Хорошо, попробую!'],
-  ], () => { d2.stage = 4; progress(); toast('Новое задание: помоги жать пшеницу'); });
-  if (d2.stage === 4) return showDialog([['ketil', 'Серп лежит у телеги. Жатву сделаем чуть позже — эта часть ещё в работе.']]);
+  ], () => { d2.stage = 4; progress(); startReaping(); });
+  if (d2.stage === 4) return showDialog([['ketil', d2.cut.length ? 'Отдохнула? Тогда за дело — колосья сами себя не сожнут.' : 'Серп у тебя? Тогда начинай с участка у лагеря.']], startReaping);
+  if (d2.stage === 5) return showDialog([['ketil', 'Славно поработали! Теперь и отдохнуть не грех.']]);
   showDialog([['ketil', 'Я Кетиль, хозяин этого поля. Будет время — заходи, работы на всех хватит.']]);
 }
 
@@ -3371,7 +3503,8 @@ function fitCamera() {
   cam.setSize(Math.round(W * DPR), Math.round(H * DPR));
   if (OVERVIEW) { cam.setZoom(DPR * Math.min(W / WW, H / WORLD.h)); cam.centerOn(WORLD.x + WW / 2, WORLD.top + WORLD.h / 2); return; }
   if (barn.active) { cam.setZoom(DPR * Math.min(1.15, W / (BW + 40))); return; }
-  if (house.active) { cam.setZoom(DPR * houseZoom()); updateHouse(0, true); return; }   // в амбаре: по ширине — весь амбар, по высоте камера едет за героиней
+  if (house.active) { cam.setZoom(DPR * houseZoom()); updateHouse(0, true); return; }
+  if (reap.active) { reapView(false); return; }   // в амбаре: по ширине — весь амбар, по высоте камера едет за героиней
   // на вертикальном телефоне чуть отдаляем камеру, чтобы по бокам было видно больше фермы
   const base = Math.min(W, H) < 500 ? (H > W ? 0.9 : 1) : 1.15;
   const cover = Math.max(W / WW, H / WORLD.h);
@@ -3428,6 +3561,9 @@ class FarmScene extends Phaser.Scene {
     this.load.image('kale', 'assets/chars/kale.png');
     for (const k of new Set(BUILDINGS.map(b => b[0]))) this.load.image('h-' + k, 'assets/houses/' + k + '.webp');
     this.load.image('wheatPlot', 'assets/fields/wheat-plot.webp');
+    this.load.image('wheatStubble', 'assets/fields/wheat-stubble.webp');
+    this.load.image('sheaf', 'assets/fields/sheaf.webp');
+    this.load.image('sickle', 'assets/fields/sickle.webp');
     this.load.image('prop-well', 'assets/props/well.webp');
     this.load.image('prop-chop', 'assets/props/chop-block.webp');
     this.load.image('beds', 'assets/fields/beds.webp');
@@ -3561,7 +3697,7 @@ class FarmScene extends Phaser.Scene {
 
   update(time, dt) {
     let moving = house.active ? houseMove(dt) : false;
-    const v = ui.open || house.active ? { x: 0, y: 0 } : inputVector();
+    const v = ui.open || house.active || reap.active ? { x: 0, y: 0 } : inputVector();
     const mag = Math.hypot(v.x, v.y);
     if (mag > 0.05) {
       // скорость зависит от наклона джойстика; полная — с 70% наклона
@@ -3593,6 +3729,7 @@ class FarmScene extends Phaser.Scene {
     updateField();
     updateThorfinn(dt);
     updateReapers(dt);
+    updateReap(dt);
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
