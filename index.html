@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 169;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 170;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -354,6 +354,7 @@ const freshState = () => ({
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
+  day3: { stage: 0 },   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }] },
 });
 function loadState() {
@@ -361,7 +362,7 @@ function loadState() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 } };
+      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 }, day3: { ...d.day3, ...s.day3 } };
       // старые сохранения: коров было 4, теперь 8 — новые коровы дома, если квест уже пройден
       st.open.kuryatnik = st.open.sad = st.open.skaly = true;   // ВРЕМЕННО для тестов: курятник, сад и скалы открыты
       if (st.step === 4) { st.step = 5; st.items.key = false; }   // калитка уже открыта — шаг «открой калитку» пропускаем
@@ -394,6 +395,8 @@ const ui = { open: false };
 function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
+  if (state.day3.stage === 1) return null;             // день 3: Змея ищем сами (или спрашиваем)
+  if (state.day3.stage === 2) return 'ketil';          // день 3: Кетиль у своего дома
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
   if (state.day2.stage === 3 || ((state.day2.stage === 4 || state.day2.stage === 5) && !reap.active)) return 'ketil';   // день 2: к Кетилю в лагерь
   switch (state.step) {
@@ -423,9 +426,12 @@ function questText() {
 }
 function updateHud() {
   const d2 = state.day2.stage;
-  const day3 = state.time.day >= 3 && d2 >= 6;
+  const d3 = state.day3.stage, day3 = d3 > 0 || (state.time.day >= 3 && d2 >= 6);
   $('questLabel').textContent = day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
-  $('questText').textContent = d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
+  $('questText').textContent = d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
+    : d3 === 2 ? 'Поговори с Кетилем у его дома'
+    : d3 === 3 ? 'Задание у дома Кетиля — скоро'
+    : d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
     : d2 === 4 ? (reap.active ? `Участок ${reap.k + 1}/2: сожни ${reap.n} из ${reap.bushes.length}` : (state.day2.plot ? 'Остался верхний участок: поговори с Кетилем' : 'Помоги жнецам: поговори с Кетилем в лагере'))
@@ -588,6 +594,15 @@ function devMenu(open) { $('devMenu').hidden = !open; $('devBtn').setAttribute('
 $('devBtn').addEventListener('click', () => devMenu($('devMenu').hidden));
 $('devMenu').addEventListener('click', e => { if (e.target.closest('button')) setTimeout(() => devMenu(false), 0); });
 document.querySelectorAll('#devMenu [data-day]').forEach(b => b.addEventListener('click', () => { if (!ui.open) devJump(+b.dataset.day); }));
+// ЗАГЛУШКА: реплики — черновик. Утро дня 3: Кетиль зовёт к себе домой, пешком далеко — Змей подвезёт
+function startDay3() {
+  showDialog([
+    ['grandpa', 'Доброе утро! Кетиль просил передать: ждёт тебя у себя дома. Это за полем, у самой реки.'],
+    ['grandpa', 'Пешком туда полдня идти. Попроси Змея — у него телега, подвезёт.'],
+    ['hero', 'А где сам Змей?'],
+    ['grandpa', 'У колодца его нет — с утра куда-то запропастился. Поищи по ферме.'],
+  ], () => { state.day3.stage = 1; progress(); placeZmey(true); toast('Новое задание: найди Змея'); });
+}
 function devJump(day) {
   const s = freshState();
   if (day >= 2) {   // день 1 пройден целиком: огород, Змей, куры, ужин, загон и коровы Нанамина
@@ -608,7 +623,7 @@ function devJump(day) {
   }
   state = s; try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}   // save() перезаписал бы позицию текущей
   scene.scene.restart();
-  setTimeout(() => toast(day === 3 ? 'День 3 — его задания ещё не сделаны' : `День ${day}`, 'info'), 500);
+  if (day === 3) setTimeout(startDay3, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
 function resetGame() {
   closeModal();
@@ -693,6 +708,7 @@ function talkGrandpa() {
 // Если героиня уже видела грустного Нанамина, у дедушки можно спросить о нём
 function askGrandpa() {
   const nm = state.nanamin;
+  if (state.day3.stage === 1) return showDialog([['grandpa', 'Змей? С утра крутился у курятника. Спроси у Ольмара — он всё видит.']]);   // ЗАГЛУШКА
   if (nm.stage === 1 && (nm.tools === 1 || nm.tools === 3)) return toolsTalk();
   if (nm.stage === 1 && (nm.tools === 2 || nm.tools === 4) && ![0, 3, 7].includes(state.step)) return toolsTalk();
   if (state.nanamin.seen && state.nanamin.stage === 0) {
@@ -745,6 +761,14 @@ function talkKale() {
 // Змей — главный помощник на ферме: любит подшутить, но становится серьёзным, когда дело касается защиты фермы.
 // Реплики — ЗАГЛУШКА, позже заменим текстом от автора
 function talkZmey() {
+  const d3 = state.day3.stage;
+  // ЗАГЛУШКИ: реплики Змея в день 3 — черновик
+  if (d3 === 1) return showDialog([
+    ['zmey', 'О, напарница! Нашла меня. Я тут телегу чиню — колесо скрипело, как Торфинн на жнецов.'],
+    ['hero', 'Кетиль зовёт меня к себе. Подвезёшь?'],
+    ['zmey', 'К Кетилю? Через всю ферму и поле? Садись! Только держись крепче — лошадка у меня с характером.'],
+  ], startRide);
+  if (d3 >= 2) return showDialog([['zmey', 'Я тут подожду. Обратно — тоже с ветерком!']]);
   if (zmeyNapping()) {
     if (state.step !== 31) return showThought('Кто-то спит под деревом… Не буду будить. Пока.');
     return wakeZmey();
@@ -780,10 +804,11 @@ function wakeZmey() {
 }
 // Змей на своём месте: дремлет под деревом (до знакомства) или стоит у колодца
 function placeZmey(animate) {
-  const nap = zmeyNapping(), P = nap ? ZMEY_NAP : ZMEY_POST;
+  const d3 = state.day3.stage, nap = zmeyNapping() && !d3, P = d3 === 1 ? ZMEY_COW : d3 >= 2 ? ZMEY_YARD : nap ? ZMEY_NAP : ZMEY_POST;
   const put = () => {
     zmeyChar.setPosition(P.x, P.y).setDepth(nap ? 990 : P.y).setAngle(nap ? -84 : 0);   // спит на корнях дуба — поверх них
-    zmeyChar.bodyG.scaleX = -1;
+    zmeyChar.bodyG.scaleX = P === ZMEY_COW ? 1 : -1;
+    placeCart();
     zmeyChar.list[0].setVisible(!nap);   // своя тень у ног повернулась бы вместе с телом и торчала вниз «лишней ногой»
     if (nap && !placeZmey.napShadow) placeZmey.napShadow = scene.add.ellipse(0, 0, 92, 18, 0x1d2a12, 0.22);
     if (placeZmey.napShadow) placeZmey.napShadow.setPosition(P.x - 34, P.y + 14).setDepth(989).setVisible(nap);   // плоская тень под лежащим
@@ -809,6 +834,7 @@ function talkTorgel() {
 }
 function talkNanamin() {
   const nm = state.nanamin;
+  if (state.day3.stage === 1) return showDialog([['nanamin', 'Змей? У коровника он, с телегой возится. Вон там, левее.']]);   // ЗАГЛУШКА
   if (nm.stage < 3) return nanaminThought();
   if (nm.stage === 3) return showDialog([
     // ЗАГЛУШКА: реплики Нанамина после квеста — заменим на твои
@@ -989,6 +1015,8 @@ function goToSleep() {
         ['grandpa', 'В поле за нашим домом сегодня жатва. Людям очень нужны лишние руки.'],
         ['grandpa', 'Сходи-ка помоги им, внучка. Дорожка от калитки ведёт прямо туда.'],
       ], () => { state.day2.stage = 1; toast('Новое задание: помоги людям в поле'); progress(); }), 1300);
+    } else if (state.time.day === 3 && state.day3.stage === 0) {
+      setTimeout(startDay3, 1300);
     } else {
       setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
     }
@@ -1000,6 +1028,7 @@ function goToSleep() {
 // Ольмар (реплики — черновик): боится кур. Шаг 6 — «Загони кур» (во дворе), шаг 61 — собрать яйца в соломе
 function talkKlara() {
   const s = state;
+  if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Заходил, бормотал что-то про корову Нанамина. Наверное, на пастбище.']]);   // ЗАГЛУШКА
   if (s.step === 5) return showDialog([
     ['klara', 'А, ты та новенькая. Я Ольмар, сын Кетиля. Курятник — моя забота… пока отец не доверит мне дело поважнее.'],
     ['klara', 'Куры… э-э… решили прогуляться. Все шесть. Я их, конечно, сам выпустил. Для разминки.'],
@@ -1336,7 +1365,8 @@ function cookDone() {
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
 // День 1: пока героиня не представилась, Змей дремлет на корнях большого дуба в левом нижнем углу огорода
 const ZMEY_NAP = { x: -468, y: 903 }, ZMEY_POST = { x: 228, y: 588 };
-const zmeyNapping = () => state.step <= 3 || state.step === 31;
+const ZMEY_COW = { x: 48, y: 1562 }, ZMEY_YARD = { x: 3292, y: -1126 };   // день 3: у коровника с телегой → во дворе Кетиля
+const zmeyNapping = () => !state.day3.stage && (state.step <= 3 || state.step === 31);
 let saveMs = 0, facing = 1, nearId = null;
 const chickens = [];
 const cows = [], followers = [];
@@ -1364,7 +1394,8 @@ function solids() {
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
   list.push([917, 741, 52, 22]);    // Дядя Айро
-  if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([210, 578, 36, 14]);    // Змей (спит под деревом / у колодца)
+  if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
+  if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 150, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
   list.push([-312, 430, 44, 16]);   // Торгель
   list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Кейл
@@ -1429,6 +1460,7 @@ function withinReach(id) {
   return Math.hypot(player.x - a.x, player.y - a.y) <= a.reach;
 }
 zone.addEventListener('pointerdown', e => {
+  if (ride.active) { ride.fast = true; e.preventDefault(); return; }   // поездка на телеге: нажатие — быстрее
   if (!$('devMenu').hidden) devMenu(false);
   if (ui.open || stick.id !== null) return;
   e.preventDefault();
@@ -1468,6 +1500,7 @@ window.addEventListener('keydown', e => {
   if (KEYMAP[e.code]) { keys.add(e.code); e.preventDefault(); return; }
   if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') {
     if (e.repeat) return;
+    if (ride.active) { ride.fast = true; e.preventDefault(); return; }
     if (dlg.lines) { e.preventDefault(); advanceDialog(); }
     else if (!ui.open) { e.preventDefault(); doAction(); }
   }
@@ -3226,6 +3259,116 @@ function updateReap(dt) {
     g.lineStyle(2 + 6 * f, 0xFFF6D8, 0.7 * f).lineBetween(a.x, a.y, b.x, b.y);
   }
 }
+// ===================== Телега Змея (день 3): схематично, кодом; поездка от коровника до двора Кетиля =====================
+// Камера едет за телегой (героиня невидимо «сидит» в ней — так работают камера и отсечение), колёса крутятся, пыль,
+// Змей шутит в облачках. Нажатие — перемотка (быстрее в 4 раза).
+const CART_COW = { x: -120, y: 1590 }, CART_YARD = { x: 3300, y: -1160 };
+const HERO_LOOK = { skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A };
+const RIDE_ROUTE = [[-120, 1590], [100, 1490], [140, 1372], [364, 1372], [364, 1260], [644, 1260], [644, 420], [588, 420], [588, -448], [3136, -448], [3136, -1150]];
+const ride = { active: false };
+let parkedCart = null;
+const cartSpot = () => state.day3.stage === 1 ? CART_COW : state.day3.stage >= 2 ? CART_YARD : null;
+function makeCart(riders) {   // [0,0] — земля под серединой телеги; лошадка спереди (справа)
+  const c = scene.add.container(0, 0);
+  const sh = scene.add.ellipse(20, 0, 190, 22, 0x1d2a12, 0.22);
+  const pony = scene.add.graphics();
+  pony.fillStyle(0x6E4528, 1).fillRect(52, -24, 6, 24).fillRect(62, -24, 6, 24).fillRect(84, -24, 6, 24).fillRect(94, -24, 6, 24);   // ноги
+  pony.fillStyle(0x3A2416, 1).fillRect(51, -3, 8, 3).fillRect(61, -3, 8, 3).fillRect(83, -3, 8, 3).fillRect(93, -3, 8, 3);           // копыта
+  pony.fillStyle(0x8B5A2B, 1).fillEllipse(76, -34, 60, 28);                                                                                // туловище
+  pony.fillStyle(0x4A2E1A, 1).fillTriangle(46, -40, 40, -14, 50, -36);                                                                     // хвост
+  pony.fillStyle(0x8B5A2B, 1).fillTriangle(92, -44, 104, -70, 112, -58).fillRect(94, -50, 14, 14);                                         // шея
+  pony.fillStyle(0x8B5A2B, 1).fillEllipse(114, -66, 28, 16);                                                                               // голова
+  pony.fillStyle(0x4A2E1A, 1).fillTriangle(104, -72, 108, -84, 112, -72).fillTriangle(94, -46, 102, -72, 106, -62);                       // ухо, грива
+  pony.fillStyle(0x2A1A10, 1).fillCircle(118, -68, 1.8);                                                                                   // глаз
+  pony.lineStyle(3, 0x5A3A1E, 1).lineBetween(34, -32, 56, -36).lineBetween(34, -26, 56, -30);                                             // оглобли
+  const parts = [sh, pony];
+  if (riders) {
+    const z = makeChar(ZMEY_LOOK); z.setPosition(18, -26); z.bodyG.scaleX = 1;
+    const h = makeChar(HERO_LOOK); h.setPosition(-20, -26); h.bodyG.scaleX = 1;
+    z.list[0].setVisible(false); h.list[0].setVisible(false);
+    const reins = scene.add.graphics(); reins.lineStyle(1.5, 0x3A2416, 1).lineBetween(30, -52, 110, -62);
+    parts.push(h, z, reins); c.riders = [z, h];
+  }
+  const bed = scene.add.graphics();
+  bed.fillStyle(0x8A5E34, 1).fillRect(-44, -50, 84, 28);
+  bed.fillStyle(0xA9763F, 1).fillRect(-42, -48, 80, 7).fillRect(-42, -38, 80, 7);
+  bed.fillStyle(0x5E3D20, 1).fillRect(-46, -52, 88, 4).fillRect(-46, -24, 88, 4).fillRect(-46, -52, 5, 32).fillRect(37, -52, 5, 32);
+  if (!riders) bed.fillStyle(0xE3C46A, 1).fillEllipse(-4, -54, 70, 18);   // сено в пустой телеге
+  parts.push(bed);
+  c.wheels = [-24, 24].map(wx => {
+    const w = scene.add.graphics({ x: wx, y: -16 });
+    w.fillStyle(0x6B4526, 1).fillCircle(0, 0, 17); w.fillStyle(0x8A5E34, 1).fillCircle(0, 0, 13);
+    w.lineStyle(3, 0x5A3A1E, 1); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4; w.lineBetween(-13 * Math.cos(a), -13 * Math.sin(a), 13 * Math.cos(a), 13 * Math.sin(a)); }
+    w.fillStyle(0x3A2416, 1).fillCircle(0, 0, 4);
+    return w;
+  });
+  parts.push(...c.wheels);
+  c.add(parts); c.pony = pony; c.bed = bed;
+  return c;
+}
+function placeCart() {   // телега стоит там же, где ждёт Змей
+  if (parkedCart) { parkedCart.destroy(); parkedCart = null; }
+  const sp = cartSpot(); if (!sp || ride.active) return;
+  parkedCart = makeCart(false); parkedCart.setPosition(sp.x, sp.y).setDepth(sp.y).setScale(sp === CART_YARD ? -1 : 1, 1);
+}
+function startRide() {
+  const cam = scene.cameras.main;
+  if (parkedCart) { parkedCart.destroy(); parkedCart = null; }
+  zmeyChar.setVisible(false); zmeyLabel.setVisible(false);
+  stopWalking(); ui.open = true; player.setVisible(false);
+  const pts = RIDE_ROUTE, seg = [];
+  let L = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); L += d; }
+  const cart = makeCart(true); cart.setPosition(pts[0][0], pts[0][1]);
+  Object.assign(ride, { active: true, cart, seg, L, s: 0, t: 0, fast: false, dir: 1, dust: 0, said: 0, bubble: null, z0: cam.zoom, vmax: L / 9 });
+  player.setPosition(pts[0][0], pts[0][1]);
+  cam.zoomTo(ride.z0 * 0.8, 700, 'Sine.easeInOut');
+  toast('Нажми на экран — поедем быстрее', 'info');
+}
+const RIDE_JOKES = [[1.2, 'Держись крепче!'], [4.2, 'Пешком бы до вечера шла!'], [7.2, 'Тпру-у… почти приехали!']];   // ЗАГЛУШКИ
+function rideSay(text) {
+  if (ride.bubble) ride.bubble.destroy();
+  ride.bubble = scene.add.text(0, 0, text, { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '17px', color: '#2E2418',
+    backgroundColor: '#FFFDF4', padding: { x: 10, y: 6 }, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
+  const b = ride.bubble; scene.time.delayedCall(2300, () => { if (ride.bubble === b) { b.destroy(); ride.bubble = null; } });
+}
+function updateRide(dt) {
+  if (!ride.active) return;
+  const r = ride, sec = Math.min(dt, 120) / 1000;   // на медленных устройствах шаг крупнее — поездка всё равно ~10 с
+  r.t += sec * (r.fast ? 4 : 1);
+  const ease = Math.min(1, r.t / 0.9) * Math.min(1, (r.L - r.s) / 260 + 0.12);
+  r.s = Math.min(r.L, r.s + r.vmax * ease * sec * (r.fast ? 4 : 1));
+  let k = 0, acc = 0; while (k < r.seg.length - 1 && acc + r.seg[k] < r.s) acc += r.seg[k++];
+  const [ax, ay] = RIDE_ROUTE[k], [bx, by] = RIDE_ROUTE[k + 1], f = r.seg[k] ? (r.s - acc) / r.seg[k] : 1;
+  const x = ax + (bx - ax) * f, y = ay + (by - ay) * f, c = r.cart;
+  if (Math.abs(bx - ax) > 1) r.dir = bx > ax ? 1 : -1;
+  const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2;
+  c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
+  c.bed.y = -bounce; c.riders.forEach((q, i) => { q.y = -26 - bounce - (i ? 0.5 : 0); });
+  c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * 16)) * 2.5;
+  c.wheels.forEach(w => { w.rotation += r.vmax * ease * sec * (r.fast ? 4 : 1) / 17; });
+  player.setPosition(x, y);   // камера и отсечение следят за героиней — она «сидит» в телеге
+  if (!REDUCED && (r.dust -= sec) <= 0) {   // пыль из-под колёс
+    r.dust = 0.07;
+    const d = scene.add.circle(x - r.dir * 40 + (Math.random() - 0.5) * 14, y - 4, 5 + Math.random() * 5, 0xC9A97A, 0.55).setDepth(y - 1);
+    scene.tweens.add({ targets: d, x: d.x - r.dir * 26, y: d.y - 10 - Math.random() * 10, scale: 1.8, alpha: 0, duration: 650, onComplete: () => d.destroy() });
+  }
+  while (r.said < RIDE_JOKES.length && r.t >= RIDE_JOKES[r.said][0]) rideSay(RIDE_JOKES[r.said++][1]);
+  if (r.bubble) r.bubble.setPosition(x + r.dir * 18, y - 128);
+  if (r.s >= r.L) endRide();
+}
+function endRide() {
+  const r = ride, cam = scene.cameras.main;
+  r.active = false; if (r.bubble) { r.bubble.destroy(); r.bubble = null; }
+  r.cart.destroy();
+  state.day3.stage = 2;
+  player.setPosition(CART_YARD.x - 170, CART_YARD.y - 20).setVisible(true); facing = 1;
+  zmeyChar.setVisible(true); zmeyLabel.setVisible(true);
+  placeZmey(false);   // Змей с телегой — во дворе Кетиля
+  cam.zoomTo(r.z0, 600, 'Sine.easeInOut');
+  ui.open = false; progress();
+  // ЗАГЛУШКА: реплики — черновик
+  showDialog([['zmey', 'Приехали! Быстрее ветра. Кетиль вон, у дома — иди, я подожду.']]);
+}
 // ===================== Торфинн: сторож поля =====================
 // Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
 let thorfinnChar = null, thorfinnLabel = null;
@@ -3314,6 +3457,7 @@ const CAMP = [   // [кадр атласа амбара, центр x, низ y,
   // v163: по наброску в Figma — стог под дубом, рядом тележка и мешки (бочки и ведро убраны)
   ['haystack', 2786, -528, 196, 0], ['cart', 2838, -492, 153, 1], ['sacks1', 2716, -521, 91, 0],
 ];
+const KETIL_CAMP = { x: 2640, y: -510 }, KETIL_HOME = { x: 3043, y: -1295 };   // Кетиль: в лагере (день 2) / у двери своего дома (день 3)
 const CAMP_TREE = ['s1-oak-1', 2597, -973, 488, 388];   // большой дуб над лагерем: [картинка, x, y (левый верх), ширина, высота]
 const CAMP_SOLIDS = CAMP.map(([k, x, b, w]) => [x - w * 0.42, b - 18, w * 0.84, 18]);
 // Жнецы ходят вдоль края участков (по траве у дорожки) и жнут: останавливаются и машут серпом
@@ -3339,7 +3483,8 @@ function buildFieldCamp() {
     const img = scene.add.image(x, b, 'barn', k).setOrigin(0.5, 1).setScale(w / BARN_FRAMES[k][2]).setFlipX(!!flip).setDepth(b);
     scene.add.image(x, b - 3, 'coopShadow').setDisplaySize(w * 1.05, img.displayHeight * 0.22).setDepth(GROUND - 8);
   }
-  const k = makeChar(KETIL_CLOAK); k.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); k.bodyG.scaleX = -1;
+  if (state.time.day >= 3) Object.assign(ANCHORS.ketil, KETIL_HOME); else Object.assign(ANCHORS.ketil, KETIL_CAMP);   // день 3 — Кетиль дома
+  const k = makeChar(KETIL_CLOAK); k.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); k.bodyG.scaleX = state.time.day >= 3 ? 1 : -1;
   scene.npcs.push(k);
   nameLabel('Кетиль', ANCHORS.ketil.x, ANCHORS.ketil.y - 92);
   const rnd = mulberry32(7);
@@ -3381,7 +3526,13 @@ function talkReaper(i) {
   showDialog([[who, line]]);
 }
 function talkKetil() {
-  const d2 = state.day2;
+  const d2 = state.day2, d3 = state.day3;
+  // ЗАГЛУШКИ: день 3 — задание у дома придумаем отдельно
+  if (d3.stage === 1 || d3.stage === 2) return showDialog([
+    ['ketil', d3.stage === 2 ? 'Добралась! Змей, небось, всю дорогу шутил? Вот он, мой дом.' : 'Пешком дошла? Ну ты упорная! В другой раз проси Змея — у него телега.'],
+    ['ketil', 'Дело у меня к тебе есть, по хозяйству. Расскажу чуть позже — эта часть ещё в работе.'],
+  ], () => { d3.stage = 3; progress(); });
+  if (d3.stage === 3) return showDialog([['ketil', 'Скоро расскажу, что за дело. Не уходи далеко!']]);
   // ЗАГЛУШКИ: реплики Кетиля — черновик, заменим на твои
   if (d2.stage === 2 || d2.stage === 3) return showDialog([
     ['ketil', 'А, ты, должно быть, та самая, что живёт у отца. Я Кетиль, это поле — моё.'],
@@ -3933,6 +4084,7 @@ class FarmScene extends Phaser.Scene {
       hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true });
     zmeyLabel = nameLabel('Змей', 228, 510);
     placeZmey.napShadow = null;   // после «Заново» старая тень уничтожена вместе со сценой
+    parkedCart = null; ride.active = false;
     placeZmey(false);   // дремлет под деревом или стоит у колодца
     // Торгель: сын Кетиля, крупнее остальных; светлые волосы зачёсаны назад, борода, шрам, тёмно-красная туника с горчичной отделкой, прямой меч
     const torgel = makeChar({ skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
@@ -4040,6 +4192,7 @@ class FarmScene extends Phaser.Scene {
     updateThorfinn(dt);
     updateReapers(dt);
     updateReap(dt);
+    updateRide(dt);
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
