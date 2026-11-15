@@ -56,7 +56,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 .dev-menu[hidden]{display:none}
 .dev-menu .ghost-btn{width:100%;text-align:center}
 .dev-title{font-family:var(--body);font-weight:800;font-size:15px;color:#FFF6D8;padding:0 2px}
-.dev-days{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.dev-days{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
 .dev-days .ghost-btn{padding-left:2px;padding-right:2px;font-size:15px;white-space:nowrap}
 .bag{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .chip{display:flex;align-items:center;gap:6px;background:var(--paper);border:2px solid var(--wood);border-radius:999px;padding:3px 12px 3px 6px;
@@ -205,6 +205,14 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .chop-bar{position:relative;height:30px;border:3px solid var(--wood);border-radius:999px;background:#EADFC8;overflow:hidden}
 .chop-bar .zone{position:absolute;top:0;bottom:0;background:#86C46F;border-left:2px solid #4F8A3A;border-right:2px solid #4F8A3A}
 .chop-bar .mark{position:absolute;top:0;bottom:0;width:6px;margin-left:-3px;background:var(--ink);border-radius:3px}
+.push-track{position:relative;height:56px;border-bottom:4px solid var(--wood);margin:0 6px}
+.push-stone{position:absolute;left:8%;bottom:0;width:52px;height:42px;margin-left:-26px;border-radius:50% 50% 44% 44%;background:#8E8A82;box-shadow:inset -8px -6px 0 #77736B;transition:left .4s ease}
+.push-beat{position:relative;height:96px}
+.push-beat .ring{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border:5px solid #4F8A3A;border-radius:50%}
+.push-beat .dot{position:absolute;left:50%;top:50%;width:70px;height:70px;border-radius:50%;background:#86C46F;transform:translate(-50%,-50%) scale(.3)}
+.push-beat .word{position:absolute;left:0;right:0;bottom:-6px;text-align:center;font-family:var(--display);font-weight:600;font-size:20px;color:var(--ink)}
+.push-beat .word.go{color:#C9472F}
+#polishCv{display:block;margin:0 auto;width:min(240px,60vw);touch-action:none;background:#EADFC8;border-radius:14px;border:3px solid var(--wood)}
 .chop-msg{min-height:1.45em;font-family:var(--display);font-weight:600;font-size:19px}
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes rise{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
@@ -220,7 +228,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
     <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
       <div class="dev-menu" id="devMenu" hidden>
         <div class="dev-title">Перейти к дню</div>
-        <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button></div>
+        <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button></div>
         <div class="dev-title">Быстрые тесты</div>
         <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button>
       </div><div class="bag" id="bag"></div></div>
@@ -250,7 +258,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 185;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 186;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -322,6 +330,7 @@ const ANCHORS = {
   ketil:   { x: 2640, y: -510, reach: 78, mark: -128 },  // Кетиль в полевом лагере — в конце поперечной дорожки (день 2)
   thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
+  d4:      { x: 0, y: 0, reach: 80, mark: -112 },   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
   kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Арнхейнд, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
@@ -354,7 +363,8 @@ const freshState = () => ({
   // время суток меняется по сюжету: day → evening (после квеста Эйнара) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
-  day3: { stage: 0, cartAt: 'cow' },   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
+  day3: { stage: 0, cartAt: 'cow' },
+  day4: { stage: 0 },   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }] },
 });
 function loadState() {
@@ -362,7 +372,7 @@ function loadState() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 }, day3: { ...d.day3, ...s.day3 } };
+      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 }, day3: { ...d.day3, ...s.day3 }, day4: { ...d.day4, ...s.day4 } };
       // старые сохранения: коров было 4, теперь 8 — новые коровы дома, если квест уже пройден
       st.open.kuryatnik = st.open.sad = st.open.skaly = true;   // ВРЕМЕННО для тестов: курятник, сад и скалы открыты
       if (st.step === 4) { st.step = 5; st.items.key = false; }   // калитка уже открыта — шаг «открой калитку» пропускаем
@@ -397,6 +407,12 @@ const ui = { open: false };
 function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
+  const d4 = state.day4.stage;                         // день 4: подарок для Арнхейнд
+  if (d4 === 1) return 'nanamin';
+  if (d4 === 2) return 'thorfinn';
+  if (d4 === 3 || d4 === 4) return 'd4';
+  if (d4 === 6) return 'iro';
+  if (d4 === 5 || d4 === 7) return null;
   if (state.day3.stage === 1) return null;             // день 3: Змея ищем сами (или спрашиваем)
   if (state.day3.stage === 2) return 'ketil';          // день 3: Кетиль у своего дома
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
@@ -428,9 +444,10 @@ function questText() {
 }
 function updateHud() {
   const d2 = state.day2.stage;
-  const d3 = state.day3.stage, day3 = d3 > 0 || (state.time.day >= 3 && d2 >= 6);
-  $('questLabel').textContent = day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
-  $('questText').textContent = d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
+  const d3 = state.day3.stage, day3 = d3 > 0 || (state.time.day >= 3 && d2 >= 6), d4 = state.day4.stage;
+  $('questLabel').textContent = d4 ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
+  $('questText').textContent = d4 ? D4_TEXT[d4] || ''
+    : d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
     : d3 === 2 ? 'Поговори с Кетилем у его дома'
     : d3 === 3 ? 'Задание у дома Кетиля — скоро'
     : d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
@@ -623,9 +640,12 @@ function devJump(day) {
       return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
     });
   }
+  if (day >= 4) {   // день 3 пройден: Змей-извозчик у поля, у Кетиля побывали
+    s.time = { day: 4, phase: 'day' }; Object.assign(s.day3, { stage: 3, cartAt: 'field' });
+  }
   state = s; try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}   // save() перезаписал бы позицию текущей
   scene.scene.restart();
-  if (day === 3) setTimeout(startDay3, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
+  if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startDay4, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
 function resetGame() {
   closeModal();
@@ -649,6 +669,8 @@ function interact(id) {
   if (id.startsWith('h:')) return cookAction(id);
   if (id === 'ketil') return talkKetil();
   if (id.startsWith('reaper')) return talkReaper(+id.slice(6));
+  if (id === 'd4') return day4Act();
+  if (id === 'thorfinn' && state.day4.stage === 2) return day4Thorfinn();
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
     ['thorfinn', 'Я Торфинн, слежу за полем. Ходи только по дорожкам — и мы поладим.'],
@@ -748,6 +770,7 @@ function askAboutNanamin() {
 // ===================== Пастбище: Эйнар, загон, коровы =====================
 // Арнхейнд — чайный мастер у пруда. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
 function talkIro() {
+  if (state.day4.stage === 6) return day4Distract();
   showDialog([
     ['iro', 'Ой, здравствуй! Ты, должно быть, новенькая у Сверкеля? Я Арнхейнд, это мой сад.'],
     ['iro', 'Присаживайся, я как раз заварила чай. Здесь, у пруда, так спокойно — заходи, когда устанешь.'],
@@ -844,6 +867,7 @@ function talkTorgel() {
 }
 function talkNanamin() {
   const nm = state.nanamin;
+  if (state.day4.stage === 1) return day4Einar();
   if (state.day3.stage === 1) return showDialog([['nanamin', 'Змей? У коровника он, с телегой возится. Вон там, левее.']]);   // ЗАГЛУШКА
   if (nm.stage < 3) return nanaminThought();
   if (nm.stage === 3) return showDialog([
@@ -1027,6 +1051,8 @@ function goToSleep() {
       ], () => { state.day2.stage = 1; toast('Новое задание: помоги людям в поле'); progress(); }), 1300);
     } else if (state.time.day === 3 && state.day3.stage === 0) {
       setTimeout(startDay3, 1300);
+    } else if (state.time.day === 4 && state.day4.stage === 0) {
+      setTimeout(startDay4, 1300);
     } else {
       setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
     }
@@ -1371,6 +1397,298 @@ function cookDone() {
   });
 }
 
+
+// ===================== День 4: подарок для Арнхейнд — статуя в саду (схематично, без картинок) =====================
+// Эйнар хочет поблагодарить Арнхейнд памятным подарком; Торфинн охотно помогает (знает о его чувствах).
+// Камень — из скал (мини-игра «раз-два — взяли!»), шлифовка статуи (мини-игра), Змей везёт в сад,
+// героиня отвлекает Арнхейнд, вечером — открытие со светлячками. ЗАГЛУШКИ: все реплики — черновик.
+const D4_TEXT = { 1: 'Эйнар просил зайти к нему на пастбище', 2: 'Попроси Торфинна помочь', 3: 'Встреться с Эйнаром у скал', 4: 'Отшлифуй статую',
+  5: 'Змей везёт статую в сад', 6: 'Отвлеки Арнхейнд, пока ставят статую', 7: 'Открытие статуи', 8: 'День 4 завершён — вечереет, пора домой' };
+const D4 = {
+  stone: { x: 2470, y: 330 }, road: { x: 2330, y: 262 }, ped: { x: 1420, y: 770 },
+  rocks: { einar: { x: 2405, y: 352 }, thor: { x: 2535, y: 356 } },
+  work: { einar: { x: 2262, y: 292 }, thor: { x: 2398, y: 286 } },
+  garden: { einar: { x: 1300, y: 790 }, thor: { x: 1530, y: 790 } },
+  route: [[2330, 262], [1092, 252], [1092, 590], [1250, 640], [1338, 776]],
+};
+let einarLabel = null, arnheidChar = null, arnheidLabel = null;
+const d4 = { built: false, einar: null, thor: null, eLab: null, tLab: null, stone: null, statue: null, cloth: null, ride: null, flies: [] };
+const d4Busy = () => { const st = state.day4.stage; return st >= 3 && st <= 7; };   // Эйнар и Торфинн заняты статуей
+function d4Spot() {   // с кем говорить в квесте (облачко «Поговорить»): Эйнар у камня или статуя на шлифовку
+  const st = state.day4.stage;
+  if (st === 3) return d4.einar;
+  if (st === 4) return d4.statue;
+  return null;
+}
+function startDay4() {
+  showDialog([
+    ['grandpa', 'Доброе утро! Эйнар с утра заходил, тебя спрашивал. Мялся, мялся — так ничего и не сказал.'],
+    ['grandpa', 'Загляни к нему на пастбище. Чую, дело у него какое-то… деликатное.'],
+  ], () => { state.day4.stage = 1; progress(); toast('Новое задание: загляни к Эйнару'); });
+}
+function d4Statue(g, covered) {   // постамент и статуя девушки во весь рост; covered — под покрывалом
+  g.clear();
+  g.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 70, 16);
+  g.fillStyle(0x8E8A82, 1).fillRect(-26, -22, 52, 22).fillStyle(0xA9A59C, 1).fillRect(-28, -26, 56, 6);   // постамент
+  if (covered) {
+    g.fillStyle(0xE6D8B8, 1).fillTriangle(-24, -26, 24, -26, 0, -118).fillEllipse(0, -112, 22, 18);   // покрывало
+    g.fillStyle(0xCDBE9C, 1).fillTriangle(-8, -26, 6, -26, 0, -100);
+    return;
+  }
+  const st = 0xC9C5BB, sh = 0xA9A59C;   // светлый камень
+  g.fillStyle(st, 1).fillTriangle(-17, -28, 17, -28, 0, -84).fillRoundedRect(-11, -88, 22, 34, 6);       // длинное платье
+  g.fillStyle(sh, 1).fillTriangle(-4, -28, 6, -28, 2, -70);                                              // складка
+  g.fillStyle(st, 1).fillCircle(-12, -66, 4).fillCircle(12, -66, 4);                                     // руки
+  g.fillStyle(sh, 1).fillEllipse(0, -100, 24, 22).fillRoundedRect(-12, -100, 24, 30, 6);                 // длинные волосы
+  g.fillStyle(st, 1).fillCircle(0, -100, 9);                                                             // лицо
+  g.fillStyle(sh, 0.8).fillEllipse(0, -108, 18, 8);                                                      // волосы надо лбом
+}
+function buildDay4() {
+  Object.assign(d4, { built: true, ride: null, flies: [] });
+  d4.einar = makeChar({ ...EINAR_LOOK }); d4.thor = makeChar({ ...THOR_LOOK, calm: true });
+  d4.eLab = nameLabel('Эйнар', 0, 0); d4.tLab = nameLabel('Торфинн', 0, 0);
+  d4.stone = scene.add.graphics();
+  d4.stone.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 64, 16).fillStyle(0x8E8A82, 1).fillEllipse(0, -24, 60, 46).fillStyle(0xA9A59C, 1).fillEllipse(-8, -32, 30, 18);
+  d4.statue = scene.add.graphics(); d4.cloth = false;
+  placeDay4();
+}
+function d4Put(c, lab, p, face) { c.setVisible(!!p); lab.setVisible(!!p); if (!p) return; c.setPosition(p.x, p.y).setDepth(p.y); c.bodyG.scaleX = face || 1; lab.setPosition(p.x, p.y - 78); }
+// расставляет участников квеста по этапу (оригиналы Эйнара и Торфинна прячутся, пока они заняты статуей)
+function placeDay4() {
+  if (!d4.built) return;
+  const st = state.day4.stage, busy = d4Busy();
+  if (nanaminChar) nanaminChar.setVisible(!busy); if (einarLabel) einarLabel.setVisible(!busy);
+  if (thorfinnChar) thorfinnChar.setVisible(!busy); if (thorfinnLabel) thorfinnLabel.setVisible(!busy);
+  const at = st === 3 ? D4.rocks : st === 4 ? D4.work : st === 6 || st === 7 ? D4.garden : null;
+  d4Put(d4.einar, d4.eLab, at && at.einar, 1); d4Put(d4.thor, d4.tLab, at && at.thor, -1);
+  d4.stone.setVisible(st === 3).setPosition(D4.stone.x, D4.stone.y).setDepth(D4.stone.y);
+  const sp = st === 4 ? D4.road : st >= 6 ? D4.ped : null;
+  d4.statue.setVisible(!!sp);
+  if (sp) { d4Statue(d4.statue, st === 6 || st === 7); d4.statue.setPosition(sp.x, sp.y).setDepth(sp.y); }
+  const dsp = d4Spot(); if (dsp) Object.assign(ANCHORS.d4, { x: dsp.x, y: dsp.y, mark: st === 4 ? -132 : -112 });
+}
+function d4Next(st, msg) { state.day4.stage = st; progress(); placeDay4(); if (msg) toast(msg); }
+function day4Einar() {
+  showDialog([
+    ['nanamin', 'А, это ты… Слушай, мне нужна помощь. Только — никому, ладно?'],
+    ['nanamin', 'Арнхейнд… она ко всем так добра. Я хочу её поблагодарить. Сделать что-то… на память.'],
+    ['nanamin', 'У неё в саду есть пустой постамент. Я подумал — статуя. Красивая. Торфинн умеет работать с камнем — попроси его, а?'],
+  ], () => d4Next(2, 'Новое задание: попроси Торфинна помочь'));
+}
+function day4Thorfinn() {
+  showDialog([
+    ['thorfinn', 'Подарок для Арнхейнд? Конечно помогу! С радостью.'],
+    ['thorfinn', 'Эйнар давно… ну, ты понимаешь. Он хороший. И она хорошая.'],
+    ['thorfinn', 'Камень возьмём в скалах, за курятником — там, где кончается дорожка. Эйнар уже, наверное, бежит туда.'],
+  ], () => d4Next(3, 'Новое задание: встреться с Эйнаром у скал'));
+}
+function day4Act() {
+  const st = state.day4.stage;
+  if (st === 3) return showDialog([
+    ['nanamin', 'Вот этот! Ровный, без трещин. Только тяжёлый…'],
+    ['thorfinn', 'Вдвоём покатите — на «раз-два — взяли!». Я поддержу сзади.'],
+  ], startPushGame);
+  if (st === 4) return showDialog([['thorfinn', 'Фигура готова. Осталось отшлифовать — сделаешь? У тебя рука лёгкая.']], startPolishGame);
+}
+// --- мини-игра «Раз-два — взяли!»: жми на «Взяли!» в такт с Эйнаром
+function startPushGame() {
+  if (ui.open) return;
+  openModal(`<div class="card mg push" id="pushCard"><div>
+    <div class="badge">Мини-игра</div><h2>Раз-два — взяли!</h2>
+    <p>Эйнар считает «раз… два…» — жми на «Взяли!», когда кружок совпадёт с кольцом.</p></div>
+    <div class="push-track"><div class="push-stone" id="pushStone"></div></div>
+    <div class="push-beat"><div class="ring"></div><div class="dot" id="pushDot"></div><div class="word" id="pushWord">Раз…</div></div>
+    <div class="mg-stats"><span id="pushN">Рывков: 0 из 4</span></div>
+    <div class="chop-msg" id="pushMsg">&nbsp;</div>
+    <div class="row"><button class="btn" id="pushBtn" type="button">Взяли!</button></div></div>`);
+  const T = 1.25, BEAT = 0.83, NEED = 4, g = { t: 0, n: 0, last: performance.now(), raf: 0, lock: 0, done: false };
+  const msg = t => { $('pushMsg').textContent = t; };
+  const tick = now => {
+    const dt = Math.min(60, now - g.last) / 1000; g.last = now; g.t += dt; g.lock = Math.max(0, g.lock - dt);
+    const ph = (g.t % T) / T;
+    $('pushWord').textContent = ph < 0.33 ? 'Раз…' : ph < 0.66 ? 'Два…' : 'Взяли!';
+    $('pushWord').classList.toggle('go', ph >= 0.66);
+    const k = Math.max(0, 1 - Math.abs(ph - BEAT) * 2.4);   // кружок растёт к удару
+    $('pushDot').style.transform = `translate(-50%, -50%) scale(${(0.25 + 0.75 * Math.min(1, ph / BEAT)).toFixed(3)})`;
+    $('pushDot').style.opacity = (0.45 + 0.55 * k).toFixed(2);
+    g.raf = requestAnimationFrame(tick);
+  };
+  const act = () => {
+    if (g.done || g.lock > 0) return;
+    const ph = (g.t % T) / T;
+    if (Math.abs(ph - BEAT) < 0.12) {
+      g.n++; g.lock = 0.5;
+      $('pushStone').style.left = (8 + g.n / NEED * 76) + '%';
+      $('pushN').textContent = `Рывков: ${g.n} из ${NEED}`;
+      msg(['Пошёл!', 'Ещё немного!', 'Эйнар: «Хорошо идёт!»', 'Докатили!'][g.n - 1] || 'Есть!');
+      if (g.n >= NEED) { g.done = true; setTimeout(() => { cancelAnimationFrame(g.raf); closeModal(); afterPush(); }, 700); }
+    } else { g.lock = 0.35; msg(ph < BEAT ? 'Рано! Эйнар: «Дождись «взяли»!»' : 'Поздно! Ещё раз, вместе!'); }
+  };
+  $('pushCard').addEventListener('pointerdown', e => { e.preventDefault(); act(); });
+  g.raf = requestAnimationFrame(tick);
+}
+function afterPush() {
+  scene.tweens.add({ targets: d4.stone, x: D4.road.x, y: D4.road.y, angle: 360, duration: 900, ease: 'Sine.easeInOut' });
+  setTimeout(() => {
+    const fade = $('fade'), text = $('fadeText');
+    text.textContent = 'Торфинн, Эйнар и ты весь день трудитесь над статуей…'; text.style.opacity = ''; fade.classList.add('show'); ui.open = true;
+    setTimeout(() => { d4.stone.setAngle(0); d4Next(4); }, 1300);
+    setTimeout(() => { fade.classList.remove('show'); ui.open = false;
+      showDialog([['nanamin', 'Получилось… Она правда похожа на… ну, на настоящую.'], ['thorfinn', 'Осталось отшлифовать — и в сад.']]); }, 3000);
+  }, 1000);
+}
+// --- мини-игра «Шлифовка»: ведёшь пальцем по камню — шероховатости светлеют
+function startPolishGame() {
+  if (ui.open) return;
+  openModal(`<div class="card mg polish" id="polishCard"><div>
+    <div class="badge">Мини-игра</div><h2>Шлифовка</h2>
+    <p>Води пальцем по статуе — шероховатый камень становится гладким.</p></div>
+    <canvas id="polishCv" width="240" height="300"></canvas>
+    <div class="mg-stats"><span id="polishN">Отшлифовано: 0%</span></div></div>`);
+  const cv = $('polishCv'), ctx = cv.getContext('2d'), W = 240, H = 300;
+  // гладкая статуя
+  const smooth = document.createElement('canvas'); smooth.width = W; smooth.height = H;
+  const sm = smooth.getContext('2d');
+  const shape = (c, fill) => {
+    c.fillStyle = fill;
+    c.beginPath(); c.moveTo(120, 70); c.lineTo(190, 270); c.lineTo(50, 270); c.closePath(); c.fill();   // платье
+    c.beginPath(); c.ellipse(120, 70, 46, 44, 0, 0, Math.PI * 2); c.fill();                             // волосы
+    c.fillRect(74, 70, 92, 90);
+    c.beginPath(); c.arc(76, 160, 14, 0, Math.PI * 2); c.arc(164, 160, 14, 0, Math.PI * 2); c.fill();     // руки
+  };
+  shape(sm, '#C9C5BB');
+  sm.fillStyle = '#D9D5CC'; sm.beginPath(); sm.arc(120, 74, 28, 0, Math.PI * 2); sm.fill();             // лицо
+  sm.fillStyle = '#A9A59C'; sm.beginPath(); sm.moveTo(112, 170); sm.lineTo(128, 270); sm.lineTo(104, 270); sm.closePath(); sm.fill();
+  // шершавый слой — только по силуэту
+  const rough = document.createElement('canvas'); rough.width = W; rough.height = H;
+  const rc = rough.getContext('2d');
+  shape(rc, '#8A8378');
+  rc.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < 900; i++) { rc.fillStyle = Math.random() < 0.5 ? 'rgba(60,52,44,0.35)' : 'rgba(170,160,145,0.35)'; rc.fillRect(Math.random() * W, Math.random() * H, 3 + Math.random() * 5, 2 + Math.random() * 4); }
+  rc.globalCompositeOperation = 'destination-out';
+  const count = () => { const d = rc.getImageData(0, 0, W, H).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i] > 40) n++; return n; };
+  const total = count(); let down = false, last = null, moves = 0, done = false;
+  const draw = () => { ctx.clearRect(0, 0, W, H); ctx.drawImage(smooth, 0, 0); ctx.drawImage(rough, 0, 0); };
+  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
+  const rub = (x, y) => {
+    if (last) { const n = Math.ceil(Math.hypot(x - last[0], y - last[1]) / 6); for (let k = 1; k <= n; k++) { rc.beginPath(); rc.arc(last[0] + (x - last[0]) * k / n, last[1] + (y - last[1]) * k / n, 16, 0, Math.PI * 2); rc.fill(); } }
+    else { rc.beginPath(); rc.arc(x, y, 16, 0, Math.PI * 2); rc.fill(); }
+    last = [x, y]; draw();
+    if (++moves % 6 === 0 && !done) {
+      const left = count() / total, pct = Math.min(100, Math.round((1 - left) / 0.88 * 100));
+      $('polishN').textContent = `Отшлифовано: ${pct}%`;
+      if (pct >= 100) { done = true; setTimeout(() => { closeModal(); afterPolish(); }, 500); }
+    }
+  };
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); down = true; last = null; try { cv.setPointerCapture(e.pointerId); } catch (_) {} rub(...pos(e)); });
+  cv.addEventListener('pointermove', e => { if (down) rub(...pos(e)); });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { down = false; last = null; }));
+  window.__polishRub = rub;   // для теста
+  draw();
+}
+function afterPolish() {
+  showDialog([
+    ['nanamin', 'Она… прекрасна. Спасибо вам. Правда.'],
+    ['thorfinn', 'Позовём Змея — пусть отвезёт в сад. Только осторожно!'],
+    ['zmey', 'Кто тут звал лучшего извозчика фермы? Грузите. Аккуратно, аккуратно…'],
+  ], startStatueRide);
+}
+// --- перевозка: Змей везёт статую в сад (как поездка дня 3, но с грузом)
+function startStatueRide() {
+  const cart = makeCart('both'), r = D4.route, seg = []; let L = 0;
+  for (let i = 1; i < r.length; i++) { const d = Math.hypot(r[i][0] - r[i - 1][0], r[i][1] - r[i - 1][1]); seg.push(d); L += d; }
+  const st = scene.add.graphics(); d4Statue(st, true); st.setScale(0.45).setPosition(-8, -40); cart.addAt(st, cart.list.indexOf(cart.bed));   // статуя под покрывалом в телеге
+  d4.statue.setVisible(false); d4.einar.setVisible(false); d4.eLab.setVisible(false); d4.thor.setVisible(false); d4.tLab.setVisible(false);
+  stopWalking(); ui.open = true; player.setVisible(false);
+  d4.ride = { cart, seg, L, s: 0, t: 0, dir: -1, said: false, bubble: null };
+  state.day4.stage = 5; progress();
+}
+function updateDay4(dt) {
+  const r = d4.ride; if (!r) return;
+  const sec = Math.min(dt, 120) / 1000; r.t += sec;
+  const ease = Math.min(1, r.t / 0.8) * Math.min(1, (r.L - r.s) / 220 + 0.15);
+  r.s = Math.min(r.L, r.s + 430 * ease * sec);
+  let k = 0, acc = 0; while (k < r.seg.length - 1 && acc + r.seg[k] < r.s) acc += r.seg[k++];
+  const [ax, ay] = D4.route[k], [bx, by] = D4.route[k + 1], f = r.seg[k] ? (r.s - acc) / r.seg[k] : 1;
+  const x = ax + (bx - ax) * f, y = ay + (by - ay) * f, c = r.cart;
+  if (Math.abs(bx - ax) > 1) r.dir = bx > ax ? 1 : -1;
+  c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
+  const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2; c.bed.y = -bounce; c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * 16)) * 2.5;
+  c.wheels.forEach(w => { w.rotation += 430 * ease * sec / 17; });
+  player.setPosition(x, y);
+  if (!r.said && r.t > 1.4) {   // ЗАГЛУШКА: шутка Змея
+    r.said = true;
+    r.bubble = scene.add.text(0, 0, 'Это что, я в полный рост? Нет? Жаль.', { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '17px', color: '#2E2418',
+      backgroundColor: '#FFFDF4', padding: { x: 10, y: 6 }, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
+    scene.time.delayedCall(3200, () => { if (r.bubble) { r.bubble.destroy(); r.bubble = null; } });
+  }
+  if (r.bubble) r.bubble.setPosition(x, y - 128);
+  if (r.s >= r.L) {
+    d4.ride = null; if (r.bubble) r.bubble.destroy(); c.destroy();
+    player.setPosition(1300, 820).setVisible(true); facing = 1; ui.open = false;
+    d4Next(6);
+    showDialog([
+      ['zmey', 'Доставлено! Ни царапинки. Ну, почти.'],
+      ['nanamin', 'Мы с Торфинном поставим её на постамент. Уведи Арнхейнд, ладно? Чтобы не увидела раньше времени.'],
+    ], () => toast('Новое задание: отвлеки Арнхейнд'));
+  }
+}
+// --- отвлечь Арнхейнд: три разговора, проиграть нельзя
+function day4Distract() {
+  const say = (who, t, next) => showDialog([[who, t]], next);
+  showChoice('iro', 'О, ты в гости? А я как раз собиралась полить цветы у пруда.', [
+    ['Расскажи про свои цветы', () => say('iro', 'Вот эти — мои любимые. Они цветут, даже когда холодает. Упрямые, как Эйнар!', r2)],
+    ['Можно мне чаю?', () => say('iro', 'Конечно! Садись, сейчас заварю — с мятой из сада.', r2)],
+  ]);
+  function r2() {
+    showChoice('iro', 'Слышишь? Будто кто-то за деревьями возится… и шепчется.', [
+      ['Наверное, ветер', () => say('iro', 'Ветер? Ну хорошо… Странный сегодня ветер — ругается шёпотом.', r3)],
+      ['Это, наверное, белки!', () => say('iro', 'Белки?.. Такие большие и шумные? Ладно, пусть возятся.', r3)],
+    ]);
+  }
+  function r3() {
+    showChoice('iro', 'Посидишь ещё со мной? Здесь так хорошо, когда день клонится к вечеру.', [
+      ['Конечно, посижу', () => say('iro', 'Спасибо. С тобой тут ещё уютнее.', done)],
+      ['Расскажи, как тебе здесь живётся', () => say('iro', 'Хорошо живётся. Здесь добрые люди — Эйнар, Торфинн… Они мне как родные.', done)],
+    ]);
+  }
+  function done() { toast('Эйнар машет из-за деревьев: «Готово!»', 'info'); setTimeout(startUnveil, 900); }
+}
+// --- вечер: открытие статуи со светлячками
+function startUnveil() {
+  const fade = $('fade'), text = $('fadeText');
+  ui.open = true; stopWalking();
+  text.textContent = 'Вечером в саду…'; text.style.opacity = ''; fade.classList.add('show');
+  setTimeout(() => {
+    state.day4.stage = 7; state.time.phase = 'evening'; applyTime(true); placeDay4();
+    arnheidChar.setPosition(D4.ped.x - 25, D4.ped.y + 58).setDepth(D4.ped.y + 58); arnheidChar.bodyG.scaleX = 1; arnheidLabel.setPosition(arnheidChar.x, arnheidChar.y - 92);
+    player.setPosition(D4.ped.x + 44, D4.ped.y + 66).setVisible(true); facing = -1;
+    scene.cameras.main.centerOn(D4.ped.x, D4.ped.y);
+    d4.flies = [];   // светлячки вокруг статуи
+    if (!REDUCED) for (let i = 0; i < 22; i++) {
+      const fx = D4.ped.x + (Math.random() - 0.5) * 260, fy = D4.ped.y - 20 - Math.random() * 140;
+      const f = scene.add.container(fx, fy, [scene.add.circle(0, 0, 9, 0xFFE97A, 0.22), scene.add.circle(0, 0, 3.4, 0xFFF6B8, 1)]).setDepth(5500).setAlpha(0);   // светлячок со свечением
+      scene.tweens.add({ targets: f, alpha: { from: 0.1, to: 1 }, x: fx + (Math.random() - 0.5) * 60, y: fy + (Math.random() - 0.5) * 40, duration: 1400 + Math.random() * 1400, yoyo: true, repeat: -1, delay: Math.random() * 1200, ease: 'Sine.easeInOut' });
+      d4.flies.push(f);
+    }
+  }, 1300);
+  setTimeout(() => { fade.classList.remove('show'); ui.open = false;
+    showDialog([
+      ['iro', 'Что тут у вас? Эйнар, Торфинн… вы что-то прячете?'],
+      ['nanamin', 'Арнхейнд… это тебе. От всех нас. Просто… спасибо. За всё.'],
+    ], () => {
+      d4Statue(d4.statue, false);   // снимаем покрывало
+      if (!REDUCED) { d4.statue.setAlpha(0.3); scene.tweens.add({ targets: d4.statue, alpha: 1, duration: 900 }); }
+      setTimeout(() => showDialog([
+        ['iro', 'Какая красивая… Я даже не знаю, что сказать. Спасибо вам.'],
+        ['thorfinn', 'Это всё он придумал.'],
+        ['iro', 'Эйнар… спасибо. Правда. Мне очень-очень приятно.'],
+        ['nanamin', 'Я… рад, что тебе нравится.'],
+        ['thought', 'Как он на неё смотрит… Пусть это останется его тайной.'],
+      ], () => { d4Next(8); toast('День 4 завершён'); }), 1100);
+    });
+  }, 2900);
+}
 // ===================== Игровой мир (Phaser) =====================
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
 // День 1: пока героиня не представилась, Змей дремлет на корнях большого дуба в левом нижнем углу огорода
@@ -1455,10 +1773,11 @@ function hitTest(x, y) {
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < BEDS.length; i++) if ((!VEG_BEDS[i] || canHarvest(i)) && Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
-  if (near(800, 1545, 44)) return 'nanamin';
+  if (nanaminChar && nanaminChar.visible && near(800, 1545, 44)) return 'nanamin';
+  if (d4Spot() && near(ANCHORS.d4.x, ANCHORS.d4.y - 35, 48)) return 'd4';
   if (state.open.sad && near(943, 721, 50)) return 'iro';
   if (near(ANCHORS.kale.x, ANCHORS.kale.y - 58, 62)) return 'kale';
-  if (thorfinnChar && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
+  if (thorfinnChar && thorfinnChar.visible && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
   if (near(ANCHORS.ketil.x, ANCHORS.ketil.y - 40, 48)) return 'ketil';
   for (let i = 0; i < REAPERS.length; i++) if (REAPERS[i].c && near(REAPERS[i].c.x, REAPERS[i].c.y - 35, 42)) return 'reaper' + i;
   if (state.nanamin.stage === 1) for (let i = 0; i < 3; i++) if (!state.nanamin.fixed[i] && near(PEN_SPOTS[i].x, PEN_SPOTS[i].y, 50)) return 'pen' + i;
@@ -1541,7 +1860,9 @@ function nearest() {
     if (id.startsWith('pen') && (nm.stage !== 1 || nm.fixed[+id[3]])) continue;
     if (id === 'door' && state.time.phase !== 'evening' && state.step !== 71) continue;
     if (id === 'fieldGate') continue;
-    if (id === 'thorfinn' && thor.mode !== 'idle') continue;
+    if (id === 'thorfinn' && (thor.mode !== 'idle' || !thorfinnChar || !thorfinnChar.visible)) continue;
+    if (id === 'nanamin' && nanaminChar && !nanaminChar.visible) continue;
+    if (id === 'd4' && !d4Spot()) continue;
     if (id === 'iro' && !state.open.sad) continue;
     if (id === 'chop' && !(state.nanamin.stage === 1 && state.nanamin.tools === 2)) continue;
     if (id === 'barn' && !(state.nanamin.stage === 1 && state.nanamin.tools === 4)) continue;
@@ -3009,9 +3330,9 @@ function drawGarden() {
 // Арнхейнд сидит на берегу пруда в саду
 function buildIro() {
   // v185: Арнхейнд (схематично, как остальные жители) стоит у пруда, на месте Арнхейнд
-  const a = makeChar(ARNHEID_LOOK); a.setPosition(ANCHORS.iro.x, ANCHORS.iro.y).setDepth(GARDEN_POND.d + 0.1); a.bodyG.scaleX = -1;   // над прудом, как в макете
+  const a = arnheidChar = makeChar(ARNHEID_LOOK); a.setPosition(ANCHORS.iro.x, ANCHORS.iro.y).setDepth(GARDEN_POND.d + 0.1); a.bodyG.scaleX = -1;   // над прудом, как в макете
   scene.npcs.push(a);
-  nameLabel('Арнхейнд', ANCHORS.iro.x, ANCHORS.iro.y - 92);
+  arnheidLabel = nameLabel('Арнхейнд', ANCHORS.iro.x, ANCHORS.iro.y - 92);
   return a;
 }
 // Поле с пшеницей: участки заполняются рядами кустов пшеницы во весь рост (Magnific, вариант 1) —
@@ -3525,7 +3846,7 @@ function buildThorfinn() {
   thorfinnLabel = nameLabel('Торфинн', ANCHORS.thorfinn.x, ANCHORS.thorfinn.y - 78);
 }
 function updateThorfinn(dt) {
-  const t = thorfinnChar; if (!t) return;
+  const t = thorfinnChar; if (!t || !t.visible) return;   // день 4: Торфинн занят статуей
   const step = sp => sp * Math.min(dt, 50) / 1000;
   const moveTo = (tx, ty, sp) => {
     const dx = tx - t.x, dy = ty - t.y, d = Math.hypot(dx, dy);
@@ -3993,7 +4314,7 @@ function buildPasture() {
   drawFields();
   drawPen();
   setNanaminMood(state.nanamin.stage < 3);
-  nameLabel('Эйнар', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
+  einarLabel = nameLabel('Эйнар', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
   cows.length = 0; followers.length = 0;
   registerCowFrames();
   for (let i = 0; i < COW_HOMES.length; i++) {
@@ -4220,6 +4541,7 @@ class FarmScene extends Phaser.Scene {
     buildThorfinn();
     buildFieldCamp();
     buildIro();
+    buildDay4();
     drawRocks();
     drawRiver();
     buildKale();
@@ -4315,6 +4637,7 @@ class FarmScene extends Phaser.Scene {
     updateReapers(dt);
     updateReap(dt);
     updateRide(dt);
+    updateDay4(dt);
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
 
