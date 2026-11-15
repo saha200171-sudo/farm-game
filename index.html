@@ -237,7 +237,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 156;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 158;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2795,7 +2795,7 @@ const WHEAT_W = 80;                    // ширина одного куста �
 const WHEAT_H = WHEAT_W * 226 / 240;   // его высота (картинка 240×226)
 function drawWheat() {
   // сцену могли перезапустить («Заново»): старые картинки жатвы уничтожены — начинаем с чистого листа
-  Object.assign(reap, { active: false, mode: 'cut', bushes: [], sheafs: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null, drag: null, ring: null, ringTw: null, wiggle: [], fly: null });
+  Object.assign(reap, { active: false, mode: 'cut', bushes: [], sheafs: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null, drag: null, ring: null, ringTw: null, wiggle: [], fly: null, mouse: null, mouseNext: 0, cols: 1 });
   const rnd = mulberry32(21), k = WHEAT_W / 240;
   for (const [x, y, w, h] of WHEAT) {
     const n = Math.max(1, Math.ceil((w - WHEAT_W) / (WHEAT_W * 0.84)) + 1), sx = (w - WHEAT_W) / Math.max(1, n - 1);
@@ -2806,6 +2806,7 @@ function drawWheat() {
       const sc = k * (0.94 + rnd() * 0.12);
       const img = scene.add.image(bx, by, 'wheatPlot').setOrigin(0.5, 1).setScale(sc).setFlipX(rnd() < 0.5).setDepth(by);
       if (WHEAT[REAP_PLOT][0] === x && WHEAT[REAP_PLOT][1] === y) {
+        reap.cols = n;
         const i = reap.bushes.length; reap.bushes.push({ img, x: bx, y: by, sc, cut: false });
         if (state.day2.cut.includes(i)) { img.setTexture('wheatStubble'); reap.bushes[i].cut = true; }
       }
@@ -2820,7 +2821,7 @@ function drawWheat() {
 function showStook(animate) {
   reap.sheafs.forEach(q => q.img.setVisible(false));
   const k = scene.add.image(STOOK.x, STOOK.y + 6, 'stook').setOrigin(0.5, 0.95).setDepth(STOOK.y + 47);
-  const sc = 100 / k.height; k.setScale(sc);
+  const sc = 82 / k.height; k.setScale(sc);
   if (animate && !REDUCED) { k.setScale(sc * 0.85, sc * 0.7); scene.tweens.add({ targets: k, scaleX: sc, scaleY: sc, duration: 420, ease: 'Back.easeOut' }); }
 }
 // ===================== Жатва (день 2): серп по колосьям прямо на поле =====================
@@ -2829,6 +2830,7 @@ function showStook(animate) {
 const REAP_PLOT = 7;          // участок под лагерем Кетиля (WHEAT[7])
 const REAP_SPOT = { x: 2300, y: -412 };   // где стоит героиня — на дорожке над участком
 const SHEAF_EVERY = 9;        // каждые 9 срезанных кустов — новый сноп
+const MOUSE_AT = [7, 25, 42];   // после скольких срезанных кустов мышка выскакивает (из первого подходящего)
 var reap = { active: false, mode: 'cut', bushes: [], sheafs: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null, drag: null, ring: null, wiggle: [] };
 // Копна: снопы перетаскивают пальцем к отметке посреди участка; каждый встаёт в своё место, наклонясь к остальным
 const STOOK = { x: 2300, y: -206 };
@@ -2938,6 +2940,7 @@ function endReaping(done, quiet) {
   wiggleSheafs(false);
   if (reap.ringTw) { reap.ringTw.stop(); reap.ringTw = null; } if (reap.ring) reap.ring.setVisible(false);
   reap.active = false; reap.down = null; reap.last = null; reap.trail = [];
+  if (reap.mouse) { scene.tweens.killTweensOf(reap.mouse); reap.mouse.setVisible(false); }
   if (reap.idleTw) { reap.idleTw.stop(); reap.idleTw = null; }
   reap.sickle.setVisible(false); reap.trailG.clear();
   document.body.classList.remove('reaping'); $('reapExit').hidden = true;
@@ -2962,6 +2965,34 @@ function reapPointer(px, py, start, pressed) {
   } else tryCut(wx, wy, 0);
   reap.last = { x: wx, y: wy };
 }
+// Мышка: иногда выскакивает из только что срезанного куста и удирает по сжатой стерне — назад, откуда пришёл серп (там земля открыта и её видно)
+function mouseTexture() {
+  if (scene.textures.exists('fieldMouse')) return 'fieldMouse';
+  if (!scene.textures.exists('fieldMouseG')) {   // запасная нарисованная мышка — если картинка не загрузилась
+    const g = scene.add.graphics();
+    g.lineStyle(2, 0x8A6A50, 1).beginPath().moveTo(4, 18).lineTo(12, 15).strokePath();
+    g.fillStyle(0x9C7652, 1).fillEllipse(22, 15, 24, 14).fillCircle(32, 12, 6);
+    g.fillStyle(0xE7A0A0, 1).fillCircle(29, 6, 3.5); g.fillStyle(0x2A2018, 1).fillCircle(35, 11, 1.4);
+    g.generateTexture('fieldMouseG', 42, 24); g.destroy();
+  }
+  return 'fieldMouseG';
+}
+function popMouse(b, dir) {
+  if (reap.mouse && reap.mouse.visible) return;
+  if (!reap.mouse) { reap.mouse = scene.add.image(0, 0, mouseTexture()).setOrigin(0.5, 0.9); reap.mouse.setScale(38 / reap.mouse.width); }
+  const m = reap.mouse, sc = m.scaleX, [x, , w] = WHEAT[REAP_PLOT];
+  const run = dir ? -Math.sign(dir) : (Math.random() < 0.5 ? -1 : 1), y = b.y - 4;
+  const tx = run < 0 ? x - 30 : x + w + 30, dur = Math.abs(tx - b.x) / 170 * 1000;
+  scene.tweens.killTweensOf(m);
+  m.setPosition(b.x, y).setDepth(b.y + 3).setFlipX(run < 0).setAlpha(1).setVisible(true).setScale(sc * 0.4);
+  const pi = scene.add.text(b.x, y - 34, 'Пи!', { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: '16px', color: '#FFFDF4', stroke: '#2E2418', strokeThickness: 4, resolution: 3 }).setOrigin(0.5).setDepth(5002);
+  scene.tweens.add({ targets: pi, y: pi.y - 16, alpha: 0, duration: 700, delay: 250, onComplete: () => pi.destroy() });
+  if (REDUCED) { scene.time.delayedCall(700, () => m.setVisible(false)); return; }
+  scene.tweens.add({ targets: m, scale: sc, duration: 160, ease: 'Back.easeOut' });   // выпрыгнула
+  scene.tweens.add({ targets: m, x: tx, duration: dur, delay: 140, ease: 'Sine.easeIn', onUpdate: () => { m.y = y - Math.abs(Math.sin(m.x / 9)) * 2.5; },
+    onComplete: () => m.setVisible(false) });
+  scene.tweens.add({ targets: m, alpha: 0, duration: 250, delay: 140 + dur - 250 });
+}
 function tryCut(x, y, dir) {
   for (let i = 0; i < reap.bushes.length; i++) {
     const b = reap.bushes[i]; if (b.cut) continue;
@@ -2972,6 +3003,9 @@ function tryCut(x, y, dir) {
 function cutBush(i, dir) {
   const b = reap.bushes[i];
   b.cut = true; reap.n++; state.day2.cut.push(i); reap.group.push(b);
+  // мышка — только из куста, перед которым (ближе к нам) уже сжато: иначе её закроют высокие колосья
+  const front = reap.bushes[i + reap.cols];
+  if (reap.mouseNext < MOUSE_AT.length && reap.n >= MOUSE_AT[reap.mouseNext] && (!front || front.cut)) { reap.mouseNext++; popMouse(b, dir); }
   b.img.setTexture('wheatStubble');
   if (!REDUCED) {
     b.img.setScale(b.sc, b.sc * 0.8); scene.tweens.add({ targets: b.img, scaleY: b.sc, duration: 220, ease: 'Back.easeOut' });
@@ -3652,6 +3686,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('sheaf', 'assets/fields/sheaf.webp');
     this.load.image('sickle', 'assets/fields/sickle.webp');
     this.load.image('stook', 'assets/fields/stook.webp');
+    this.load.image('fieldMouse', 'assets/fields/mouse.webp');
     this.load.image('prop-well', 'assets/props/well.webp');
     this.load.image('prop-chop', 'assets/props/chop-block.webp');
     this.load.image('beds', 'assets/fields/beds.webp');
