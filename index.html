@@ -237,7 +237,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 155;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 156;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -2794,6 +2794,8 @@ const WHEAT = [[60, -960, 460, 390], [680, -960, 660, 390], [60, -390, 460, 320]
 const WHEAT_W = 80;                    // ширина одного куста на карте
 const WHEAT_H = WHEAT_W * 226 / 240;   // его высота (картинка 240×226)
 function drawWheat() {
+  // сцену могли перезапустить («Заново»): старые картинки жатвы уничтожены — начинаем с чистого листа
+  Object.assign(reap, { active: false, mode: 'cut', bushes: [], sheafs: [], n: 0, down: null, last: null, trail: [], group: [], sickle: null, trailG: null, idleTw: null, drag: null, ring: null, ringTw: null, wiggle: [], fly: null });
   const rnd = mulberry32(21), k = WHEAT_W / 240;
   for (const [x, y, w, h] of WHEAT) {
     const n = Math.max(1, Math.ceil((w - WHEAT_W) / (WHEAT_W * 0.84)) + 1), sx = (w - WHEAT_W) / Math.max(1, n - 1);
@@ -3709,6 +3711,7 @@ class FarmScene extends Phaser.Scene {
     const zmey = zmeyChar = makeChar({ skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
       hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true });
     zmeyLabel = nameLabel('Змей', 228, 510);
+    placeZmey.napShadow = null;   // после «Заново» старая тень уничтожена вместе со сценой
     placeZmey(false);   // дремлет под деревом или стоит у колодца
     // Торгель: сын Кетиля, крупнее остальных; светлые волосы зачёсаны назад, борода, шрам, тёмно-красная туника с горчичной отделкой, прямой меч
     const torgel = makeChar({ skin: 0xD6A078, dress: 0x7E2F2B, tunic: true, trim: 0xC9A040, belt: 0x4A3020, buckle: 0xBFC3C6, legs: 0xD9CDB2, boots: 0x7A5A3A,
