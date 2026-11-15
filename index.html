@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 183;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 184;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -3561,9 +3561,8 @@ function buildFieldCamp() {
     scene.add.image(x + w / 2, y + h * 0.97, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(GROUND - 8); }
   for (const [k, x, b, w, flip] of CAMP) {
     const img = scene.add.image(x, b, 'barn', k).setOrigin(0.5, 1).setScale(w / BARN_FRAMES[k][2]).setFlipX(!!flip).setDepth(b);
-    const dh = img.displayHeight;   // v174: тень там, где предмет касается земли — мягкая побольше + плотная узкая под основанием (иначе «парит»)
-    scene.add.image(x, b - dh * 0.06, 'coopShadow').setDisplaySize(w * 1.0, dh * 0.34).setDepth(GROUND - 8);
-    scene.add.ellipse(x, b - dh * 0.035, w * 0.78, dh * 0.11, 0x1d2a12, 0.3).setDepth(GROUND - 7.9);
+    const dh = img.displayHeight;   // v184: прежняя мягкая тень, но выше — под самим предметом (была слишком низко)
+    scene.add.image(x, b - dh * 0.1, 'coopShadow').setDisplaySize(w * 1.05, dh * 0.22).setDepth(GROUND - 8);
   }
   if (state.time.day >= 3) Object.assign(ANCHORS.ketil, KETIL_HOME); else Object.assign(ANCHORS.ketil, KETIL_CAMP);   // день 3 — Кетиль дома
   const k = makeChar(KETIL_CLOAK); k.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); k.bodyG.scaleX = state.time.day >= 3 ? 1 : -1;
