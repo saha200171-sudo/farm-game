@@ -258,7 +258,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 187;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 188;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -936,7 +936,7 @@ function cowPenned(c) {
 // Цветной фильтр поверх всей фермы: вечер — тёплый закат, утро — мягкий розоватый свет
 // Вечер = тёплый закат (умножение) + полупрозрачная сине-сиреневая дымка сумерек поверх
 const TINTS = {
-  evening: { color: 0xE89A66, alpha: 0.45, haze: 0x3E4C92, hazeAlpha: 0.12 },   // v187: тёплый закат + немного синевы (было 0xE58C58 / 0.62 / 0.2 — слишком плотно)
+  evening: { color: 0xE6925E, alpha: 0.55, haze: 0x3E4C92, hazeAlpha: 0.16 },   // v188: плотнее v187 (0xE89A66 / 0.45 / 0.12), легче v186; тёплый закат + немного синевы (было 0xE58C58 / 0.62 / 0.2 — слишком плотно)
   morning: { color: 0xF6C7B4, alpha: 0.3 },
 };
 let timeTint = null, timeHaze = null, windowGlow = null, fireflies = [];
@@ -992,11 +992,11 @@ function spawnFireflies() {
   for (let g = 0; g < cells.length; g++) {
     const [c, r] = cells[g];
     const gx = WORLD.x + (c + 0.15 + rnd() * 0.7) * cw, gy = WORLD.top + (r + 0.15 + rnd() * 0.7) * ch;
-    const groupDelay = 1000 + g * 330 + rnd() * 300;        // группы зажигаются по очереди, в случайном порядке
+    const groupDelay = 600 + g * 75 + rnd() * 200;        // группы зажигаются по очереди, в случайном порядке; v188: вся карта ~15 с (было ~65 с)
     const n = 3 + Math.floor(rnd() * 3);
     for (let i = 0; i < n; i++) {
       const f = scene.add.image(gx + (rnd() - 0.5) * 140, gy + (rnd() - 0.5) * 100, 'firefly')
-        .setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale((0.28 + rnd() * 0.22) * 1.2).setAlpha(0);
+        .setDepth(5900).setBlendMode(Phaser.BlendModes.ADD).setScale((0.28 + rnd() * 0.22) * 0.9).setAlpha(0);   // v188: мельче (было ×1.2)
       fireflies.push(f);
       const drift = () => {
         if (!f.active) return;
@@ -1006,7 +1006,7 @@ function spawnFireflies() {
       drift();
       // плавно загорается, потом мягко мерцает
       scene.tweens.add({
-        targets: f, alpha: 1, duration: 1800, delay: groupDelay + i * 220, ease: 'Sine.easeInOut',
+        targets: f, alpha: 1, duration: 1300, delay: groupDelay + i * 150, ease: 'Sine.easeInOut',
         onComplete: () => {
           if (!f.active) return;
           scene.tweens.add({ targets: f, alpha: { from: 1, to: 0.27 }, duration: 900 + Math.random() * 900,
