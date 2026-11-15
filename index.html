@@ -130,15 +130,16 @@ body.in-barn .quest{display:none}
 /* Дом Сверкеля: сверху шаги рецепта, снизу полка с продуктами (только в доме) */
 body.in-house .side .ghost-btn{display:none}
 .recipe{position:absolute;left:6px;right:6px;display:flex;flex-wrap:nowrap;gap:4px;justify-content:center;z-index:1;pointer-events:none}
-.recipe span{font-family:var(--body,Nunito,sans-serif);font-weight:800;font-size:12px;padding:4px 6px;white-space:nowrap;border-radius:14px;background:rgba(255,253,244,.82);color:#3a2c1c;border:2px solid rgba(46,36,24,.25)}
+.recipe span{font-family:var(--body,Nunito,sans-serif);font-weight:800;font-size:clamp(9px,2.7vw,12px);padding:4px clamp(3px,1.2vw,6px);white-space:nowrap;border-radius:14px;background:rgba(255,253,244,.82);color:#3a2c1c;border:2px solid rgba(46,36,24,.25)}
 .recipe span.done{background:#5E9E57;color:#fff;border-color:#3f6e3a}
 .recipe span.cur{background:#F9B862;border-color:#a8742a}
-.shelf{position:absolute;left:10px;right:10px;height:96px;display:flex;gap:8px;justify-content:center;align-items:center;z-index:1;pointer-events:none;
+.shelf{position:absolute;left:8px;right:8px;padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(3px,1.4vw,8px);align-items:center;z-index:1;pointer-events:none;
   background:linear-gradient(#7a5132,#5c3b22);border:4px solid #3e2715;border-radius:14px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
-.shelf div{width:60px;height:68px;border-radius:10px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
-.shelf img{width:54px;height:54px;object-fit:contain;filter:grayscale(1) brightness(.45);opacity:.35;transition:all .3s}
+.shelf div{aspect-ratio:1/1.1;max-height:72px;border-radius:10px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+.shelf img{width:88%;height:88%;object-fit:contain;filter:grayscale(1) brightness(.45);opacity:.35;transition:all .3s}
 .shelf img.have{filter:none;opacity:1}
-.house-exit{position:absolute;right:12px;top:12px;z-index:4}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
+.house-exit{position:absolute;right:10px;z-index:4;font-size:14px;padding:6px 12px}
+body.in-house .stick-zone .stick{display:none}   /* в амбаре плашка задания не закрывает угол с ящиком; подсказки — всплывашками */
 body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overview .toast, body.overview .bubble, body.overview .rotate{display:none!important}
 
 /* Просьба повернуть телефон */
@@ -233,7 +234,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 144;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 146;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -1074,7 +1075,7 @@ const HX = 6000, HY = 200, HW = 1283, HH = 456;
 const GRANDPA_LOOK = { skin: 0xE6B38C, dress: 0x667083, belly: true, belt: 0x2E2A28, buckle: 0x55504A, legs: 0x4E5560, scarf: 0xBDB8A2,
   hair: 'bald', hairColor: 0xC4C0B6, goatee: true, heavyLids: true, handsBehind: true, noBlush: true, calm: true };
 const HOUSE_FRAMES = {"h31":[0,0,108,912],"h33":[110,0,108,912],"hcold":[220,0,356,305],"h8":[578,0,356,305],"h1":[936,0,364,266],"h29":[1302,0,120,262],"h30":[1424,0,124,260],"h17":[1550,0,106,238],"h6":[1658,0,208,234],"h26":[0,914,260,226],"h28":[262,914,146,224],"h35":[410,914,382,220],"h24":[794,914,338,214],"h25":[1134,914,100,194],"h20":[1236,914,308,188],"h12":[1546,914,328,183],"h32":[0,1142,256,182],"h4":[258,1142,144,180],"h23":[404,1142,216,170],"h27":[622,1142,226,158],"h2":[850,1142,260,152],"h21":[1112,1142,308,144],"h22":[1422,1142,100,144],"h34":[1524,1142,188,144],"h14":[1714,1142,160,112],"h36":[1876,1142,104,104],"h18":[0,1326,276,76],"h7":[278,1326,339,49],"h19":[619,1326,172,44],"h15":[793,1326,335,41],"h5":[1130,1326,198,38],"h11":[1330,1326,312,34],"h9":[1644,1326,312,30],"h10":[0,1404,312,30],"h3":[314,1404,137,29],"h16":[453,1404,95,28],"h0":[550,1404,266,25],"h13":[818,1404,149,18]};
-const HOUSE_ITEMS = [["h0","тень лавка",647,364,133,12.3,0],["h1","лежанка",1051,265,182,133,0],["h2","furniture-1",775,313,130,76,0],["h3","тень бочка",35.8,377.2,68.4,14.3,0],["h4","бочка с водой",34,294.7,72,89.6,0],["h5","тень полка",118.6,371,98.8,18.7,0],["h6","полка",116,263.5,104,116.8,0],["h7","тень очаг",237.5,374.1,169.1,24.4,0],["h8","очаг",233,234.1,178,152.2,0],["h9","тень стол",412.1,381,155.8,14.6,0],["h10","тень",775,372,155.8,14.6,0],["h11","тень",642,362,156,17,0],["h12","стол с доской",408,297,164,91.3,0],["h13","тень дрова",563,380,74.1,8.6,0],["h14","дрова",563,340,80,56,0],["h15","тень лежанка",1041.4,374.1,167.2,20.4,0],["h16","тень метла",1226.3,381.5,47.5,13.7,0],["h17","метла с ведром",1230,271,53,119,0],["h18","тень стол ужин",826,384,138,38,0],["h19","тень",973,371,86,22,0],["h20","травы",91,0,154,94,1],["h21","травы",478,0,154,72,1],["h22","травы",826,0,50,72,1],["h23","травы",276,0,108,85,1],["h24","травы",973,0,169,107,1],["h25","лук",433,0,50,97,1],["h26","горшок",-25,343,130,113,1],["h27","корзина",1199,377,113,79,1],["h28","лук2",1134,0,73,112,1],["h29","лампа",1196,0,60,131,1],["h30","рыба",910,0,62,130,1],["h31","столб",161,0,54,456,1],["h32","лавка",647,286,128,91,0],["h33","резной столб",713,0,54,456,1],["h34","лаванда",13,0,94,72,1],["h35","стол для ужина",798,303,191,110,0],["h36","табурет",987,338,52,52,0]];
+const HOUSE_ITEMS = [["h0","тень лавка",647,364,133,12.3,0],["h1","лежанка",1051,265,182,133,0],["h2","furniture-1",775,313,130,76,0],["h3","тень бочка",35.8,377.2,68.4,14.3,0],["h4","бочка с водой",34,294.7,72,89.6,0],["h5","тень полка",118.6,371,98.8,18.7,0],["h6","полка",116,263.5,104,116.8,0],["h7","тень очаг",237.5,374.1,169.1,24.4,0],["h8","очаг",233,234.1,178,152.2,0],["h9","тень стол",412.1,381,155.8,14.6,0],["h10","тень",775,372,155.8,14.6,0],["h11","тень",642,362,156,17,0],["h12","стол с доской",408,297,164,91.3,0],["h13","тень дрова",563,380,74.1,8.6,0],["h14","дрова",563,340,80,56,0],["h15","тень лежанка",1041.4,374.1,167.2,20.4,0],["h16","тень метла",1226.3,381.5,47.5,13.7,0],["h17","метла с ведром",1230,271,53,119,0],["h18","тень стол ужин",826,384,138,38,0],["h19","тень",973,371,86,22,0],["h20","травы",91,0,154,94,1],["h21","травы",478,0,154,72,1],["h22","травы",826,0,50,72,1],["h23","травы",276,0,108,85,1],["h24","травы",973,0,169,107,1],["h25","лук",433,0,50,97,1],["h26","горшок",136,404,104,90,1],["h27","корзина",1199,377,113,79,1],["h28","лук2",1134,0,73,112,1],["h29","лампа",1196,0,60,131,1],["h30","рыба",910,0,62,130,1],["h31","столб",-46,0,54,456,1],["h32","лавка",647,286,128,91,0],["h33","резной столб",713,0,54,456,1],["h34","лаванда",13,0,94,72,1],["h35","стол для ужина",798,303,191,110,0],["h36","табурет",987,338,52,52,0]];
 const HOUSE_FLOOR = [HY + 392, HY + 448];                       // где можно ходить (по высоте)
 const HOUSE_STATIONS = {                                         // станции готовки: центр и верх (для облачка)
   barrel: { x: HX + 70, top: HY + 295 }, shelf: { x: HX + 168, top: HY + 264 },
@@ -1106,7 +1107,7 @@ function enterHouse() {
   house.active = true; stopWalking();
   houseLit((state.cook || {}).stage >= 2);
   house.prevScale = player.scaleX; player.setScale(1.35);
-  player.setPosition(HX + 640, HY + 425); facing = -1;
+  player.setPosition(HX + 640, HY + 425); facing = -1; house.walk = null; releaseStick();
   const cam = scene.cameras.main; cam.stopFollow(); cam.removeBounds(); document.body.classList.add('in-house');
   ['recipe', 'shelf', 'houseExit'].forEach(id => $(id).hidden = false);
   fitCamera(); updateHouse(0, true); updateHud(); renderCook();
@@ -1120,19 +1121,52 @@ function leaveHouse() {
   cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y); updateHud();
 }
 // камера: комната крупно, сверху место под задание и рецепт, снизу — полка
-function houseZoom() { const H = app.clientHeight, W = app.clientWidth; return Math.min(H * 0.6 / HH, W / 330); }
+function houseZoom() { return houseLayout().z; }
+function houseLayout() {   // высота комнаты — сколько остаётся между заданием с рецептом и полкой
+  const W = app.clientWidth, H = app.clientHeight, topPx = 150;
+  const slot = Math.min(72, (W - 16 - 16 - 6 * Math.min(8, W * 0.014)) / 7) * 1.1, shelfH = slot + 16 + 8;
+  const roomPx = Math.max(220, H - topPx - shelfH - 26);
+  return { topPx, shelfH, z: Math.min(roomPx / HH, H * 0.6 / HH, W / 330) };
+}
 function updateHouse(dt, force) {
   if (!house.active) return;
-  const cam = scene.cameras.main, z = houseZoom(), W = app.clientWidth, H = app.clientHeight;
-  const viewW = W / z, viewH = H / z, topPx = 150;
+  const cam = scene.cameras.main, L = houseLayout(), z = L.z, W = app.clientWidth, H = app.clientHeight;
+  const viewW = W / z, viewH = H / z, topPx = L.topPx;
   const cx = Phaser.Math.Clamp(player.x, HX + viewW / 2, HX + HW - viewW / 2);
   const cy = HY - topPx / z + viewH / 2;
   cam.centerOn(cx, cy);
   for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.06;   // передний план — чуть быстрее
   if (force) {
     $('recipe').style.top = (topPx - 44) + 'px';
-    $('shelf').style.top = Math.round(topPx + HH * z + 14) + 'px';
+    $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px';
+    $('houseExit').style.top = (topPx + 8) + 'px';
   }
+}
+// управление в доме: нажала на пол — героиня идёт туда (держишь палец — идёт за ним, камера едет следом);
+// нажала на станцию — подходит к ней и сразу делает действие. Ходит по одной линии посередине пола.
+const HOUSE_LINE = HY + 425;
+function houseWorldX(px) { const cam = scene.cameras.main; return Phaser.Math.Clamp(cam.worldView.x + px / (cam.zoom / DPR), HX + 50, HX + HW - 50); }
+function houseTap(e, px, py) {
+  const cam = scene.cameras.main, z = cam.zoom / DPR, wx = cam.worldView.x + px / z, wy = cam.worldView.y + py / z;
+  const hit = hitTest(wx, wy);
+  if (hit && hit.startsWith('h:')) { house.walk = { x: Phaser.Math.Clamp(HOUSE_STATIONS[hit.slice(2)].x, HX + 50, HX + HW - 50), then: hit, hold: null }; return; }
+  house.walk = { x: houseWorldX(px), then: null, hold: e.pointerId };
+  try { zone.setPointerCapture(e.pointerId); } catch (_) {}
+}
+function houseMove(dt) {
+  if (ui.open) return false;
+  player.y = HOUSE_LINE;
+  const kx = (keys.has('ArrowLeft') || keys.has('KeyA') ? -1 : 0) + (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0);
+  const sp = 240 * Math.min(dt, 50) / 1000;
+  if (kx) { house.walk = null; player.x = Phaser.Math.Clamp(player.x + kx * sp, HX + 50, HX + HW - 50); facing = kx; return true; }
+  const w = house.walk; if (!w) return false;
+  const d = w.x - player.x;
+  if (Math.abs(d) <= sp) {
+    player.x = w.x;
+    if (!w.hold) { house.walk = null; if (w.then) { nearId = w.then; interact(w.then); } }
+    return false;
+  }
+  player.x += Math.sign(d) * sp; facing = d < 0 ? -1 : 1; return true;
 }
 function houseNearest() {
   let best = null, bd = 80;
@@ -1309,6 +1343,7 @@ zone.addEventListener('pointerdown', e => {
   e.preventDefault();
   const r = zone.getBoundingClientRect();
   const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (house.active && scene) { houseTap(e, px, py); return; }
   if (scene && player) {
     const cam = scene.cameras.main, z = cam.zoom / DPR;
     const hit = hitTest(cam.worldView.x + px / z, cam.worldView.y + py / z);
@@ -1322,6 +1357,7 @@ zone.addEventListener('pointerdown', e => {
   knob.style.transform = '';
 });
 zone.addEventListener('pointermove', e => {
+  if (house.active && house.walk && house.walk.hold === e.pointerId) { const r = zone.getBoundingClientRect(); house.walk.x = houseWorldX(e.clientX - r.left); return; }
   if (e.pointerId !== stick.id) return;
   const r = zone.getBoundingClientRect();
   let dx = e.clientX - r.left - stick.bx, dy = e.clientY - r.top - stick.by;
@@ -1331,7 +1367,7 @@ zone.addEventListener('pointermove', e => {
   if (d < 6) { move.x = move.y = 0; } else { move.x = dx / STICK_R; move.y = dy / STICK_R; }
 });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
-  zone.addEventListener(t, e => { if (e.pointerId === stick.id) releaseStick(); }));
+  zone.addEventListener(t, e => { if (house.walk && house.walk.hold === e.pointerId) house.walk.hold = null; if (e.pointerId === stick.id) releaseStick(); }));
 
 // клавиатура на компьютере: стрелки/WASD — ходьба, пробел/E/Enter — действие
 const KEYMAP = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
@@ -3378,8 +3414,8 @@ class FarmScene extends Phaser.Scene {
   }
 
   update(time, dt) {
-    let moving = false;
-    const v = ui.open ? { x: 0, y: 0 } : inputVector();
+    let moving = house.active ? houseMove(dt) : false;
+    const v = ui.open || house.active ? { x: 0, y: 0 } : inputVector();
     const mag = Math.hypot(v.x, v.y);
     if (mag > 0.05) {
       // скорость зависит от наклона джойстика; полная — с 70% наклона
