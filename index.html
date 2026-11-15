@@ -222,7 +222,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Нанамина</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button>
       </div><div class="bag" id="bag"></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -250,10 +250,10 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 184;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 185;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
-// Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
+// Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
 const WORLD = { x: -560, w: 3640, top: -1700, h: 3700 };   // v162: справа (над фермой) — двор Кетиля   // x — левый край (карта расширена влево), w — правый край   // карта расширена вправо (было 1400) и вверх — море над полем
 const WW = 3640 + 560;     // полная ширина карты (WORLD.w - WORLD.x)
 const FARM_W = 2800;       // правый край фермы и пастбища (ниже поля карта не расширялась)
@@ -277,13 +277,13 @@ const zoneAt = (x, y) => y < -1000 ? 'more' : y < 0 ? 'pole' : y >= 1000 ? 'past
 const SPEAKERS = {
   grandpa: { name: 'Сверкель', letter: 'С', color: '#5E6675' },
   klara: { name: 'Ольмар',         letter: 'О', color: '#3E5A86' },   // Ольмар — второй сын Кетиля (раньше здесь была Клара)
-  nanamin: { name: 'Нанамин',      letter: 'Н', color: '#5B7FA6' },
+  nanamin: { name: 'Эйнар',        letter: 'Э', color: '#6E7E40' },   // v185: Эйнар вместо Эйнара (id прежний — сохранения не ломаются)
   thorfinn: { name: 'Торфинн',     letter: 'Т', color: '#C9A55A' },
   ketil: { name: 'Кетиль', letter: 'К', color: '#4F6B3E' },
   reaper0: { name: 'Бьорн', letter: 'Б', color: '#A08A5E' }, reaper1: { name: 'Сигрид', letter: 'С', color: '#B5523B' },
   reaper2: { name: 'Арне', letter: 'А', color: '#8A6A4A' }, reaper3: { name: 'Гудрун', letter: 'Г', color: '#5F6F8A' },
   reaper4: { name: 'Лейф', letter: 'Л', color: '#C8642E' },
-  iro:     { name: 'Дядя Айро',    letter: 'А', color: '#7A8B3A' },
+  iro:     { name: 'Арнхейнд',     letter: 'А', color: '#A65E52' },   // v185: Арнхейнд вместо Арнхейнд
   kale:    { name: 'Кейл',         letter: 'К', color: '#3E8C8C' },
   zmey:    { name: 'Змей',         letter: 'З', color: '#6E4D66' },
   torgel:  { name: 'Торгель',      letter: 'Т', color: '#8A3430' },
@@ -292,7 +292,7 @@ const SPEAKERS = {
   test:    { name: 'Тест грядки',   letter: '⚙', color: '#8A8A8A' },   // ВРЕМЕННО: меню для теста грядок
 };
 
-// Пастбище: загон для коров (сломан в 3 местах), Нанамин рядом, 4 коровы бродят по пастбищу
+// Пастбище: загон для коров (сломан в 3 местах), Эйнар рядом, 4 коровы бродят по пастбищу
 const PEN = { x: 180, y: 1400, w: 530, h: 350, gateX1: 330, gateX2: 400 };   // загон увеличен
 const PEN_SPOTS = [{ x: 180, y: 1500 }, { x: 440, y: 1750 }, { x: 710, y: 1470 }];
 const COW_HOMES = [{ x: 1080, y: 1200 }, { x: 930, y: 1720 }, { x: 330, y: 1880 }, { x: 1700, y: 1450 },
@@ -322,7 +322,7 @@ const ANCHORS = {
   ketil:   { x: 2640, y: -510, reach: 78, mark: -128 },  // Кетиль в полевом лагере — в конце поперечной дорожки (день 2)
   thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
-  kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Дядя Айро, чайный мастер — у пруда в саду
+  kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Арнхейнд, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -348,10 +348,10 @@ const freshState = () => ({
   bedCrop: [],   // ВРЕМЕННО для тестов: что выращено на грядке ('kapusta' | 'tykva' | 'rostki' | 'pustaya')
   open: { ogorod: true, kuryatnik: true, sad: true, pastbishe: true, pole: true, skaly: true, more: true }, // ВРЕМЕННО для тестов: все локации открыты сразу
   pos: { x: 300, y: 430 },
-  // квест Нанамина: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
+  // квест Эйнара: stage 0 — не знаем о нём, 1 — чиним загон, 2 — собираем коров, 3 — можно поговорить, 4 — готово
   // tools: 0 — ещё не пробовали чинить, 1 — нужны инструменты, 2 — Сверкель попросил наколоть дров, 3 — дрова готовы, 4 — идти в амбар, 5 — ящик у нас
   nanamin: { seen: false, stage: 0, fixed: [false, false, false], cows: COW_HOMES.map(() => 0), visited: false, tools: 0, barn: { round1: false, helped: null } },
-  // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
+  // время суток меняется по сюжету: day → evening (после квеста Эйнара) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
   day3: { stage: 0, cartAt: 'cow' },   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
@@ -450,13 +450,13 @@ function updateHud() {
     chips.unshift([`День ${state.time.day}`, sky]);
   }
   $('bag').innerHTML = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
-  // второе задание — квест Нанамина
+  // второе задание — квест Эйнара
   const nm = state.nanamin, side = $('sideQuest');
   let sideText = {
-    1: [`Почини загон Нанамина: ${nm.fixed.filter(Boolean).length} из 3`, 'Спроси у Сверкеля инструменты', 'Наколи дров у дровника',
+    1: [`Почини загон Эйнара: ${nm.fixed.filter(Boolean).length} из 3`, 'Спроси у Сверкеля инструменты', 'Наколи дров у дровника',
         'Вернись к Сверкелю', 'Забери ящик с инструментами из амбара'][nm.tools === 5 || !nm.tools ? 0 : nm.tools],
-    2: `Загони коров Нанамина: ${nm.cows.filter(c => c === 2).length} из ${COW_HOMES.length}`,
-    3: 'Поговори с Нанамином',
+    2: `Загони коров Эйнара: ${nm.cows.filter(c => c === 2).length} из ${COW_HOMES.length}`,
+    3: 'Поговори с Эйнаром',
   }[nm.stage] || (state.time.phase === 'evening' ? 'Вечереет: вернись домой и ложись спать' : null);
   if (barn.active) sideText = barn.carry ? 'Вынеси ящик из амбара — к двери внизу' : 'Прокрадись к ящику у дальней стены';
   side.hidden = !sideText;
@@ -553,8 +553,8 @@ $('resetBtn').addEventListener('click', () => {
   $('mCancel').onclick = closeModal;
   $('mReset').onclick = resetGame;
 });
-// ВРЕМЕННО (для теста): пропустить квест Нанамина — загон починен, коровы дома,
-// героиня рядом с повеселевшим Нанамином; остаётся поговорить с ним, и наступит вечер.
+// ВРЕМЕННО (для теста): пропустить квест Эйнара — загон починен, коровы дома,
+// героиня рядом с повеселевшим Эйнаром; остаётся поговорить с ним, и наступит вечер.
 // ВРЕМЕННО: кнопка для теста амбара с любого момента игры — ставит квест на шаг «забери ящик из амбара» и сразу заводит в амбар
 $('barnBtn').addEventListener('click', () => {
   if (ui.open || barn.active) return;
@@ -589,7 +589,7 @@ $('skipBtn').addEventListener('click', () => {
   state.pos = { x: ANCHORS.nanamin.x - 40, y: ANCHORS.nanamin.y + 40 };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
   scene.scene.restart();
-  setTimeout(() => toast('Квест пропущен — поговори с Нанамином', 'info'), 400);
+  setTimeout(() => toast('Квест пропущен — поговори с Эйнаром', 'info'), 400);
 });
 // ВРЕМЕННО: меню «Тест» и переход к началу любого дня
 function devMenu(open) { $('devMenu').hidden = !open; $('devBtn').setAttribute('aria-expanded', open); $('devBtn').textContent = open ? 'Тест ▴' : 'Тест ▾'; }
@@ -607,7 +607,7 @@ function startDay3() {
 }
 function devJump(day) {
   const s = freshState();
-  if (day >= 2) {   // день 1 пройден целиком: огород, Змей, куры, ужин, загон и коровы Нанамина
+  if (day >= 2) {   // день 1 пройден целиком: огород, Змей, куры, ужин, загон и коровы Эйнара
     Object.assign(s, { step: 8, watered: [true, true, true], cookQuest: false });
     s.items.key = true;
     Object.assign(s.nanamin, { seen: true, stage: 4, fixed: [true, true, true], cows: COW_HOMES.map(() => 2), visited: true, tools: 5, barn: { round1: true, helped: 'zmey' } });
@@ -707,7 +707,7 @@ function talkGrandpa() {
   showDialog([['grandpa', idle]]);
 }
 
-// Если героиня уже видела грустного Нанамина, у дедушки можно спросить о нём
+// Если героиня уже видела грустного Эйнара, у дедушки можно спросить о нём
 function askGrandpa() {
   const nm = state.nanamin;
   if (state.day3.stage === 1) return showDialog([['grandpa', 'Змей? С утра крутился у курятника. Спроси у Ольмара — он всё видит.']]);   // ЗАГЛУШКА
@@ -739,18 +739,18 @@ function toolsTalk() {
 }
 function askAboutNanamin() {
   showDialog([
-    ['grandpa', 'А-а, это Нанамин, наш сосед с пастбища. Хороший парень, у него было целое стадо коров.'],
+    ['grandpa', 'А-а, это Эйнар, наш сосед с пастбища. Хороший парень, у него было целое стадо коров.'],
     ['grandpa', 'Да вот беда: загон совсем развалился, и коровы разбежались кто куда. С тех пор он сам не свой, ни с кем не разговаривает.'],
     ['grandpa', 'Хочешь с ним поговорить — сначала помоги ему. Почини загон, а потом собери всех коров обратно.'],
   ], () => { state.nanamin.stage = 1; toast('Новое задание: почини загон'); progress(); });
 }
 
-// ===================== Пастбище: Нанамин, загон, коровы =====================
-// Дядя Айро — чайный мастер у пруда. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
+// ===================== Пастбище: Эйнар, загон, коровы =====================
+// Арнхейнд — чайный мастер у пруда. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
 function talkIro() {
   showDialog([
-    ['iro', 'А, гостья! Присаживайся. Чай как раз настоялся.'],
-    ['iro', 'Спешить некуда: хороший чай, как и хороший день, не торопят.'],
+    ['iro', 'Ой, здравствуй! Ты, должно быть, новенькая у Сверкеля? Я Арнхейнд, это мой сад.'],
+    ['iro', 'Присаживайся, я как раз заварила чай. Здесь, у пруда, так спокойно — заходи, когда устанешь.'],
   ]);
 }
 // Кейл — капитан корабля: уверенный, дружелюбный, харизматичный. Реплики — ЗАГЛУШКА, позже заменим текстом от автора
@@ -847,7 +847,7 @@ function talkNanamin() {
   if (state.day3.stage === 1) return showDialog([['nanamin', 'Змей? У коровника он, с телегой возится. Вон там, левее.']]);   // ЗАГЛУШКА
   if (nm.stage < 3) return nanaminThought();
   if (nm.stage === 3) return showDialog([
-    // ЗАГЛУШКА: реплики Нанамина после квеста — заменим на твои
+    // ЗАГЛУШКА: реплики Эйнара после квеста — заменим на твои
     ['nanamin', 'Ты… ты вернула всех моих коров? И загон теперь как новый!'],
     ['nanamin', 'Спасибо. Я уж думал, никогда их не соберу. Заходи в гости, когда захочешь.'],
   ], () => { nm.stage = 4; progress(); startEvening(); });
@@ -903,7 +903,7 @@ function cowPenned(c) {
   if (n === COW_HOMES.length) {
     nm.stage = 3;
     setNanaminMood(false);
-    toast('Все коровы дома! Кажется, Нанамин повеселел');
+    toast('Все коровы дома! Кажется, Эйнар повеселел');
   } else toast(`Коров в загоне: ${n} из ${COW_HOMES.length}`, 'info');
   progress();
 }
@@ -1038,7 +1038,7 @@ function goToSleep() {
 // Ольмар (реплики — черновик): боится кур. Шаг 6 — «Загони кур» (во дворе), шаг 61 — собрать яйца в соломе
 function talkKlara() {
   const s = state;
-  if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Заходил, бормотал что-то про корову Нанамина. Наверное, на пастбище.']]);   // ЗАГЛУШКА
+  if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Заходил, бормотал что-то про корову Эйнара. Наверное, на пастбище.']]);   // ЗАГЛУШКА
   if (s.step === 5) return showDialog([
     ['klara', 'А, ты та новенькая. Я Ольмар, сын Кетиля. Курятник — моя забота… пока отец не доверит мне дело поважнее.'],
     ['klara', 'Куры… э-э… решили прогуляться. Все шесть. Я их, конечно, сам выпустил. Для разминки.'],
@@ -1403,7 +1403,7 @@ function solids() {
   ];
   if (!state.open.kuryatnik) list.push([692, 200, 16, 100]);
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
-  list.push([917, 741, 52, 22]);    // Дядя Айро
+  list.push([917, 741, 52, 22]);    // Арнхейнд
   if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
   if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 150, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
@@ -1591,6 +1591,10 @@ function makeChar(look) {
   shadow.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 36, 12);
   const b = scene.add.graphics();
   if (look.cloak) b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -42, 36, 38, { tl: 12, tr: 12, bl: 4, br: 4 });   // плащ сзади, до колен
+  if (look.hair === 'flowing') {   // длинные волнистые волосы за спиной — ниже плеч (рисуем до тела)
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 36, 30).fillRoundedRect(-18, -56, 36, 30, 8);
+    b.fillTriangle(-18, -28, -12, -28, -16, -21).fillTriangle(12, -28, 18, -28, 16, -21);
+  }
   b.fillStyle(look.legs || 0x4a3424, 1).fillRoundedRect(-8, -14, 6, 14, 2).fillRoundedRect(2, -14, 6, 14, 2);
   if (look.boots) b.fillStyle(look.boots, 1).fillRoundedRect(-9, -8, 8, 9, 2).fillRoundedRect(1, -8, 8, 9, 2);
   if (look.scale) c.setScale(look.scale);   // крупнее остальных (Торгель)
@@ -1598,8 +1602,13 @@ function makeChar(look) {
   if (!look.handsBehind) b.fillStyle(look.skin, 1).fillCircle(-15, -25, 4.5).fillCircle(15, -25, 4.5);
   if (look.belly) b.fillStyle(look.dress, 1).fillRoundedRect(-15, -40, 30, 31, { tl: 11, tr: 11, bl: 6, br: 6 }).fillEllipse(0, -21, 33, 24);   // круглый живот
   else if (look.tunic) b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 2, br: 2 }).fillTriangle(-13, -22, -16, -10, 0, -10).fillTriangle(13, -22, 16, -10, 0, -10).fillRect(-14, -14, 28, 4);   // длинная туника, расширяется книзу
+  else if (look.longDress) b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 34, { tl: 10, tr: 10, bl: 3, br: 3 }).fillTriangle(-13, -26, -17, -5, 0, -5).fillTriangle(13, -26, 17, -5, 0, -5);   // длинное платье, книзу шире
   else b.fillStyle(look.dress, 1).fillRoundedRect(-13, -40, 26, 30, { tl: 10, tr: 10, bl: 5, br: 5 });
-  if (look.apron) b.fillStyle(look.apron, 1).fillRoundedRect(-8, -30, 16, 18, 4);
+  if (look.pinafore) {   // длинный передник на лямках с двумя круглыми застёжками
+    b.fillStyle(look.apron, 1).fillRoundedRect(-9, -38, 18, 32, 3);
+    if (look.apronTrim) b.fillStyle(look.apronTrim, 1).fillRect(-9, -38, 2, 32).fillRect(7, -38, 2, 32);
+    b.fillStyle(0xB8872E, 1).fillCircle(-7, -37, 2.8).fillCircle(7, -37, 2.8).fillStyle(0xE0B455, 1).fillCircle(-7.6, -37.6, 1.1).fillCircle(6.4, -37.6, 1.1);
+  } else if (look.apron) b.fillStyle(look.apron, 1).fillRoundedRect(-8, -30, 16, 18, 4);
   if (look.suspenders) b.fillStyle(look.suspenders, 1).fillRect(-8, -39, 4, 28).fillRect(4, -39, 4, 28);
   if (look.hair === 'pony') { b.fillStyle(look.hairColor, 1).fillCircle(14, -58, 7).fillCircle(18, -49, 6); }
   if (look.hair === 'scarf') b.fillStyle(look.hairColor, 1).fillTriangle(9, -56, 24, -46, 19, -60).fillTriangle(11, -55, 18, -42, 22, -50);   // концы платка торчат сзади, за головой
@@ -1615,10 +1624,13 @@ function makeChar(look) {
   if (look.hair === 'swept') {   // длинные волосы, зачёсанные назад: сзади до плеч
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 34, 28).fillRoundedRect(-18, -54, 8, 22, 4).fillRoundedRect(10, -54, 8, 22, 4);
   }
+  if (look.hair === 'braid') b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30);   // коса: сзади — объём волос
+  if (look.hair === 'shag') b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 36, 30);   // взлохмаченные до ушей
   if (look.hair === 'long') {   // длинные волосы сзади: до плеч, слегка расходятся
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30).fillTriangle(-17, -52, -9, -52, -15, -27).fillTriangle(17, -52, 9, -52, 15, -27);
   }
-  if (look.belt) b.fillStyle(look.belt, 1).fillRect(-13, -24, 26, 4).fillStyle(look.buckle || 0xD9B45A, 1).fillRect(-2, -25, 4, 6);
+  if (look.sash) b.fillStyle(look.sash, 1).fillRect(-13, -24, 26, 4).fillRect(3, -22, 3, 9).fillRect(6, -22, 3, 7).fillCircle(5, -22, 2.6);   // тканевый пояс, узел с концами
+  else if (look.belt) b.fillStyle(look.belt, 1).fillRect(-13, -24, 26, 4).fillStyle(look.buckle || 0xD9B45A, 1).fillRect(-2, -25, 4, 6);
   if (look.scarf) {   // полотенце на шее: концы свисают на грудь поверх ремня
     b.fillStyle(look.scarf, 1).fillRoundedRect(-10, -42, 20, 5, 2).fillRoundedRect(-10, -41, 5, 24, 2).fillRoundedRect(5, -41, 5, 24, 2);
     b.fillStyle(0x8F8B78, 0.5).fillRect(-8, -36, 1.5, 18).fillRect(7, -36, 1.5, 18);
@@ -1627,7 +1639,8 @@ function makeChar(look) {
     b.fillStyle(look.trim, 1).fillRoundedRect(-7, -41, 14, 5, 2).fillRoundedRect(-19, -31, 8, 4, 1.5).fillRoundedRect(11, -31, 8, 4, 1.5);
   }
   if (look.vtrim) {   // широкий ворот с вырезом и манжеты (кант)
-    b.fillStyle(look.vtrim, 1).fillRoundedRect(-11, -42, 22, 6, 3).fillTriangle(-4, -37, 4, -37, 0, -31).fillRoundedRect(-19, -29, 8, 4, 1.5).fillRoundedRect(11, -29, 8, 4, 1.5);
+    b.fillStyle(look.vtrim, 1).fillRoundedRect(-11, -42, 22, 6, 3).fillTriangle(-4, -37, 4, -37, 0, -31);
+    if (!look.noCuffs) b.fillRoundedRect(-19, -29, 8, 4, 1.5).fillRoundedRect(11, -29, 8, 4, 1.5);
     b.fillStyle(look.skin, 1).fillTriangle(-2, -38, 2, -38, 0, -33);
   }
   if (look.cloak) {   // плащ спереди: тяжёлый воротник-накидка на плечах и круглая застёжка
@@ -1661,6 +1674,22 @@ function makeChar(look) {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 31, 14).fillRoundedRect(-16, -60, 6, 26, 3).fillRoundedRect(10, -60, 6, 26, 3);
     b.fillStyle(look.hairColor, 1).fillTriangle(-9, -58, -1, -58, -6, -52).fillTriangle(2, -58, 9, -58, 6, -53);
     b.fillStyle(0xB88E3E, 0.6).fillRect(-14, -48, 2, 14).fillRect(12, -48, 2, 14);   // тень в прядях
+  } else if (look.hair === 'braid') {
+    // мягкая чёлка, прядь у лица и коса, перекинутая через плечо вперёд, с лентой
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 31, 14).fillRoundedRect(10, -60, 6, 18, 3).fillRoundedRect(-16, -60, 6, 12, 3);
+    b.fillTriangle(-9, -59, -1, -59, -7, -52);
+    for (let k = 0; k < 5; k++) b.fillStyle(look.hairColor, 1).fillEllipse(-13 + k * 0.4, -47 + k * 5.4, 9 - k * 0.6, 7.5);
+    b.fillStyle(0x000000, 0.12); for (let k = 0; k < 5; k++) b.fillRect(-16 + k * 0.4, -46 + k * 5.4, 6, 1.4);   // плетение
+    b.fillStyle(look.ribbon || 0xC0574A, 1).fillRect(-16, -21, 7, 3).fillTriangle(-14, -18, -11, -18, -13, -13);
+  } else if (look.hair === 'flowing') {
+    // лоб открыт, волосы убраны назад; волнистые пряди вдоль лица до груди
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -64, 30, 11).fillRoundedRect(-17, -60, 6, 30, 3).fillRoundedRect(11, -60, 6, 30, 3);
+    b.fillTriangle(-17, -34, -11, -34, -15, -26).fillTriangle(11, -34, 17, -34, 15, -26);
+    b.fillStyle(0x000000, 0.08).fillRect(-6, -68, 2, 6).fillRect(1, -69, 2, 6).fillRect(6, -67, 2, 5);   // пряди, зачёсанные назад
+  } else if (look.hair === 'shag') {
+    // взлохмаченная чёлка прядями и волосы, закрывающие уши
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 32, 15).fillRoundedRect(-17, -61, 7, 17, 3).fillRoundedRect(10, -61, 7, 17, 3);
+    b.fillTriangle(-12, -60, -5, -60, -9, -51).fillTriangle(-5, -61, 2, -61, -2, -53).fillTriangle(2, -60, 9, -60, 7, -52).fillTriangle(8, -59, 14, -59, 13, -51);
   } else if (look.hair === 'wavy') {
     // макушка, пряди по бокам лица и пара прядей, упавших на лоб
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 31, 13).fillRoundedRect(-16, -60, 6, 20, 3).fillRoundedRect(10, -60, 6, 20, 3);
@@ -1681,6 +1710,7 @@ function makeChar(look) {
   } else {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -61, 30, 15).fillEllipse(-10, -56, 10, 12);
   }
+  if (look.flower) b.fillStyle(look.flower, 1).fillCircle(10, -64, 3).fillCircle(13, -61, 3).fillCircle(8, -60.5, 3).fillStyle(0xF4D35E, 1).fillCircle(10.3, -61.8, 1.6);   // цветок в волосах
   if (look.hat) {   // соломенная шляпа с широкими полями
     b.fillStyle(look.hat, 1).fillEllipse(0, -61, 42, 10).fillEllipse(0, -66, 22, 14);
     b.fillStyle(0x8A6A3A, 0.55).fillRect(-11, -63.5, 22, 2.5);
@@ -1701,6 +1731,7 @@ function makeChar(look) {
   if (look.scar) b.lineStyle(1.4, 0x9A5F48, 0.9).lineBetween(8, -56, 10, -47);   // шрам на щеке
   if (look.stern) b.lineStyle(2.2, 0x2e2418, 1).lineBetween(-10, -58, -2, -55).lineBetween(10, -58, 2, -55);   // сведённые брови
   if (look.brows) b.lineStyle(2, 0x2e2418, 1).lineBetween(-9, -56, -2, -55.5).lineBetween(9, -56, 2, -55.5);   // прямые густые брови
+  if (look.worried) b.lineStyle(2, 0x5A3A26, 1).lineBetween(-9, -55, -2, -57.5).lineBetween(9, -55, 2, -57.5);   // брови «домиком» — немного озабоченный
   if (look.beard) {
     // седая борода и усы вместо рта
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -40, 22, 16).fillEllipse(-4, -45, 9, 5).fillEllipse(4, -45, 9, 5);
@@ -2303,10 +2334,10 @@ function updateBarn(dt, time) {
   t.setDepth(t.y); barn.zmey.setDepth(barn.zmey.y);
   barn.alert.setPosition(t.x, t.y - 96);
 }
-// Мелочи по карте: цветы и камушки из «Сада Айро», разбросаны случайно (но одинаково при каждом запуске)
+// Мелочи по карте: цветы и камушки из «Сада Арнхейнд», разбросаны случайно (но одинаково при каждом запуске)
 // — не на дорожках, грядках, постройках и не вплотную к деревьям; поле, сад и море не трогаем
 const DECOR_KINDS = [['g-tuft-poppy', 40], ['g-tuft-cornflower', 42], ['g-tuft-clover', 44], ['g-pebbles-a', 40], ['g-pebbles-b', 36], ['g-rock-flat-daisies', 92], ['g-rock-poppies-a', 70]];
-const DECOR_SKIP = [[886, 1661], [1126, 1561], [-462, 853]];   // пастбище у Нанамина: камень с маками и плоский камень с ромашками; камень за дубом Змея
+const DECOR_SKIP = [[886, 1661], [1126, 1561], [-462, 853]];   // пастбище у Эйнара: камень с маками и плоский камень с ромашками; камень за дубом Змея
 function scatterDecor() {
   const rnd = mulberry32(2026), cells = pathCells(), placed = [];
   const nearPath = (x, y) => { const c = Math.floor(x / CELL), r = Math.floor(y / CELL);
@@ -2520,7 +2551,7 @@ function drawFences() {
 const COOP = { x: 1227, y: 215, w: 272 };   // увеличен (v110); под ним вытоптанная площадка из дорожки
 const KOROVNIK = { x: -138, y: 1500, w: 458 };
 // линия основания стен (доли ширины/высоты картинки) — для правильного наложения героини сбоку и сзади
-const PAINTED_BASES = [{ B: KOROVNIK, ar: 669 / 993, base: [[0.04, 0.735], [0.5, 0.99], [0.96, 0.83]] }];   // коровник у загона Нанамина (v121), ворота смотрят к загону
+const PAINTED_BASES = [{ B: KOROVNIK, ar: 669 / 993, base: [[0.04, 0.735], [0.5, 0.99], [0.96, 0.83]] }];   // коровник у загона Эйнара (v121), ворота смотрят к загону
 // мягкая тень под постройкой (овал с размытым краем), лежит на земле поверх дорожки
 function buildingShadow(x, y, w, h) {
   shadowTex();
@@ -2915,7 +2946,7 @@ function buildKale() {
   scene.add.image(ANCHORS.kale.x, ANCHORS.kale.y, 'kale').setOrigin(0.5, 0.98).setScale(120 / 285).setDepth(ANCHORS.kale.y);
   nameLabel('Кейл', ANCHORS.kale.x, ANCHORS.kale.y - 128);
 }
-// ===================== Сад Дяди Айро: сцена по макету из Figma (страница «Сад Айро») =====================
+// ===================== Сад Арнхейнд: сцена по макету из Figma (страница «Сад Айро») =====================
 // Координаты пересчитаны из макета (масштаб 0.441, забор сада макета вписан в зону сада 700–2000 × 500–1000).
 // [картинка, x, y (левый верхний угол), ширина, высота, глубина, тень (1 — деревья и кусты)]
 // Глубина = основание; мелочи, которые в макете лежат поверх деревьев, чуть приподняты — порядок как в Figma.
@@ -2929,7 +2960,7 @@ const GARDEN = [
   ['g-bush-poppy', 697, 633, 86, 70, 702.12, 0],
   ['g-rock-moss-flowers', 727, 648, 112, 82, 727.45, 0],
   ['tree-4', 674, 697, 141, 148, 840.12, 1],
-  ['s2-branchy-2', 786, 555, 195, 194, 760.00, 1],   // ствол левее Айро, за кустами (по эскизу)
+  ['s2-branchy-2', 786, 555, 195, 194, 760.00, 1],   // ствол левее Арнхейнд, за кустами (по эскизу)
   ['bush-4', 825, 727, 50, 43, 774.10, 1],
   ['tree-3', 1598, 727, 195, 206, 927.01, 1],
   ['g-bush-poppy', 777, 736, 86, 70, 803.66, 0],
@@ -2975,12 +3006,13 @@ function drawGarden() {
     if (sh) scene.add.image(x + w / 2, y + h * 0.97, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(GROUND - 8);
   }
 }
-// Дядя Айро сидит на берегу пруда в саду
+// Арнхейнд сидит на берегу пруда в саду
 function buildIro() {
-  // новый Айро в мягком стиле (Magnific), место — из макета сада
-  const iro = scene.add.image(ANCHORS.iro.x, ANCHORS.iro.y, 'g-iro').setOrigin(0.5, 0.97).setDisplaySize(80, 80).setDepth(GARDEN_POND.d + 0.1);   // над прудом, как в макете
-  nameLabel('Дядя Айро', ANCHORS.iro.x, ANCHORS.iro.y - 90);
-  return iro;
+  // v185: Арнхейнд (схематично, как остальные жители) стоит у пруда, на месте Арнхейнд
+  const a = makeChar(ARNHEID_LOOK); a.setPosition(ANCHORS.iro.x, ANCHORS.iro.y).setDepth(GARDEN_POND.d + 0.1); a.bodyG.scaleX = -1;   // над прудом, как в макете
+  scene.npcs.push(a);
+  nameLabel('Арнхейнд', ANCHORS.iro.x, ANCHORS.iro.y - 92);
+  return a;
 }
 // Поле с пшеницей: участки заполняются рядами кустов пшеницы во весь рост (Magnific, вариант 1) —
 // задние ряды выглядывают из-за передних, глубина у каждого куста своя, поэтому в поле можно «зайти»
@@ -3936,10 +3968,16 @@ function cowWander(c) {
     },
   });
 }
+// Эйнар (вместо Эйнара): рыжевато-каштановые взлохмаченные волосы, усы с бородкой, зелёная туника с горчичным воротом, тканевый пояс
+const EINAR_LOOK = { skin: 0xE7B58F, dress: 0x6E7E40, tunic: true, vtrim: 0xB8A045, noCuffs: true, sash: 0xE3D6B2, legs: 0xA79E86, boots: 0x7A5E40,
+  hair: 'shag', hairColor: 0x8A4A2E, goatee: true, brows: true, noBlush: true };
+// Арнхейнд (вместо Арнхейнд): длинные волнистые светлые волосы, длинное кирпично-розовое платье, передник с медными застёжками
+const ARNHEID_LOOK = { skin: 0xF5D6BC, dress: 0xA65E52, longDress: true, pinafore: true, apron: 0xEEE5D0, apronTrim: 0xD9B85A, legs: 0x6B5040, boots: 0x5A4232,
+  hair: 'flowing', hairColor: 0xEBD27C };
 function setNanaminMood(sad) {
   const pos = { x: ANCHORS.nanamin.x, y: ANCHORS.nanamin.y };
   if (nanaminChar) { scene.npcs.splice(scene.npcs.indexOf(nanaminChar), 1); nanaminChar.destroy(); }
-  nanaminChar = makeChar({ skin: 0xE9BC96, dress: 0x5B7FA6, suspenders: 0x3E5A7A, hair: 'short', hairColor: 0xE8D29A, sad });
+  nanaminChar = makeChar({ ...EINAR_LOOK, sad });
   nanaminChar.setPosition(pos.x, pos.y).setDepth(pos.y);
   nanaminChar.bodyG.scaleX = -1;          // смотрит на загон
   scene.npcs.push(nanaminChar);
@@ -3955,7 +3993,7 @@ function buildPasture() {
   drawFields();
   drawPen();
   setNanaminMood(state.nanamin.stage < 3);
-  nameLabel('Нанамин', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
+  nameLabel('Эйнар', ANCHORS.nanamin.x, ANCHORS.nanamin.y - 78);
   cows.length = 0; followers.length = 0;
   registerCowFrames();
   for (let i = 0; i < COW_HOMES.length; i++) {
@@ -3965,7 +4003,7 @@ function buildPasture() {
   }
   trig.pen = trig.nanamin = false;
 }
-// Каждый кадр: коровы идут за героиней, мысли у загона и у Нанамина
+// Каждый кадр: коровы идут за героиней, мысли у загона и у Эйнара
 function updatePasture(dt) {
   const nm = state.nanamin;
   let lead = player;
@@ -3990,7 +4028,7 @@ function updatePasture(dt) {
   const farPen = player.x < PEN.x - 110 || player.x > PEN.x + PEN.w + 110 || player.y < PEN.y - 110 || player.y > PEN.y + PEN.h + 110;
   if (nm.stage === 0 && inPen && !trig.pen && Math.hypot(player.x - ANCHORS.nanamin.x, player.y - ANCHORS.nanamin.y) > 90) { trig.pen = true; penThought(); }
   else if (farPen) trig.pen = false;
-  // Нанамин: мысли, пока квест не выполнен
+  // Эйнар: мысли, пока квест не выполнен
   const dN = Math.hypot(player.x - ANCHORS.nanamin.x, player.y - ANCHORS.nanamin.y);
   if (nm.stage < 3 && dN < 90 && !trig.nanamin) { trig.nanamin = true; nanaminThought(); }
   else if (dN > 140) trig.nanamin = false;
@@ -4094,7 +4132,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowSeraya', 'assets/cows/cow-seraya.png');
     this.load.image('cowPalevaya', 'assets/cows/cow-palevaya.png');
     this.load.image('fence', 'assets/fence/fence.png');
-    for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', 'g-iro', ...DECOR_KINDS.map(d => d[0])])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
+    for (const k of new Set([...GARDEN.map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', ...DECOR_KINDS.map(d => d[0])])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
     this.load.image('kale', 'assets/chars/kale.png');
     this.load.image('river-water', 'assets/river/water.webp');
     this.load.image('river-0', 'assets/river/river-0.webp');
