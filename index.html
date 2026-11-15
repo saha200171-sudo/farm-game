@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 180;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 182;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -320,7 +320,7 @@ const ANCHORS = {
   door:    { x: 210, y: 320, reach: 62, mark: -140 },   // дверь дома дедушки (вечером — «Лечь спать»)
   fieldGate: { x: 588, y: -40, reach: 0, mark: -50 },   // проход в поле (только цель для маркера)
   ketil:   { x: 2640, y: -510, reach: 78, mark: -128 },  // Кетиль в полевом лагере — в конце поперечной дорожки (день 2)
-  thorfinn: { x: 650, y: -530, reach: 72, mark: -118 }, // пост Торфинна у перекрёстка в поле (сам он двигается)
+  thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
   kale:    { x: 215, y: -1140, reach: 84, mark: -138 },   // v162: на берегу реки, перед своей лодкой   // Кейл, капитан корабля — на пляже у пристани   // Дядя Айро, чайный мастер — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
@@ -3026,12 +3026,14 @@ function showStook(animate) {
   if (animate && !REDUCED) { k.setScale(sc * 0.85, sc * 0.7); scene.tweens.add({ targets: k, scaleX: sc, scaleY: sc, duration: 420, ease: 'Back.easeOut' }); }
 }
 // Табличка-мем в пшенице у поста Торфинна (Magnific, ровная доска); надпись — текстом поверх
-const FIELD_SIGN = { x: 774, y: -559, w: 80 };   // v177: на втором столбике забора (низ — обрубок столбика на его верхушке)
+const FIELD_SIGN = { x: 680, y: -558, w: 70 };   // v181: на крайнем левом столбике, выше, на длинной подставке   // v177: на втором столбике забора (низ — обрубок столбика на его верхушке)
 const NL = String.fromCharCode(10);   // перенос строки в надписях   // низ столбика; ширина таблички на карте
 function drawFieldSign() {
   const S = FIELD_SIGN, img = scene.add.image(S.x, S.y, 'fieldSign').setOrigin(0.5, 1).setDepth(-513);   // поверх забора
   img.setScale(S.w / img.width);
-  const h = img.displayHeight, cy = S.y - h * (1 - (34 + 288) / 2 / 340);   // середина доски (доска — строки 34–288 из 340, ниже — ножка до столбика)
+  const h = img.displayHeight, cy = S.y - h * (1 - (34 + 288) / 2 / 459);   // середина доски (доска — строки 34–288 из 459, ниже — подставка до столбика)
+  const pw = S.w * 0.84, ph = S.w * 254 / 420 * 0.8;   // подложка под текст — однотонная, светло-коричневая
+  scene.add.graphics().setDepth(-512.95).fillStyle(0xC9A27A, 0.5).fillRoundedRect(S.x - pw / 2, cy - ph / 2, pw, ph, 3);
   scene.add.text(S.x, cy, 'КТО НАСТУПИТ' + NL + 'НА ГРЯДКИ' + NL + 'ТОМУ НАСТУПЛЮ' + NL + 'НА ЕБАЛО', {
     fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '900', fontSize: '54px', color: '#3A2210', align: 'center', lineSpacing: 12,
   }).setOrigin(0.5).setScale(0.25 * S.w / 150).setAlpha(0.92).setDepth(-512.9);
