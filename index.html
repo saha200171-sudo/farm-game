@@ -264,7 +264,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 200;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 201;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1080,12 +1080,19 @@ function buildTimeLayer() {
 // Подошла к Торгелю ночью с фонарём — он не пускает в дом и ходит у двери. Свет фонаря его выдаёт: заметил издалека — идёт проверить,
 // близко — бежит. Без света он не видит (только вплотную). Отманить от двери и успеть войти. Поймал — ночь в коровнике.
 const HUNT = { door: { x: 210, y: 350 }, patrol: [[110, 372], [300, 380]], cowshed: { x: 120, y: 1540 }, see: 230, notice: 480, close: 70 };
-const hunt = { active: false, mode: 'patrol', pi: 0, tx: 0, ty: 0, t: 0, hinted: false };
+const hunt = { active: false, mode: 'patrol', pi: 0, tx: 0, ty: 0, t: 0, hinted: false, grace: 0 };
 let lanternOn = true, torgelNpc = null, torgelLab = null;
-function startHunt() {
-  Object.assign(hunt, { active: true, mode: 'chase', pi: 0, t: 0 });
+function startHunt() {   // v201: Торгель уходит сторожить дверь (пока открыта мысль героини), потом 3 с форы
+  const T = torgelNpc, [px, py] = HUNT.patrol[0];
   state.day2.torgel = 'hunt';
-  progress(); toast('Беги домой! Выключи фонарь — без света Торгель тебя не видит', 'warn');
+  T.bodyG.scaleX = px > T.x ? 1 : -1;
+  scene.tweens.add({ targets: T, x: px, y: py, duration: 1800, ease: 'Sine.easeInOut',
+    onUpdate: () => { T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94); T.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 110)) * 3; } });
+  showThought('Он встал у двери… Не пустит меня домой, пока я не отдам фонарь. Ну уж нет, ночевать с коровами я не собираюсь. Надо как-то отвлечь его от двери.', () => {
+    scene.tweens.killTweensOf(T); T.setPosition(px, py).setDepth(py); T.bodyG.y = 0; torgelLab.setPosition(px, py - 94);
+    Object.assign(hunt, { active: true, mode: 'patrol', pi: 1, t: 0, grace: 3000 });
+    progress(); toast('Выключи фонарь — без света Торгель тебя не видит', 'warn');
+  });
 }
 function endHunt(won) {
   hunt.active = false; lanternOn = true; $('lampBtn').textContent = 'Фонарь: вкл';
@@ -1105,7 +1112,8 @@ function updateHunt(dt) {
   const T = torgelNpc; T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94);
   if (ui.open) return;
   const ms = Math.min(dt, 60), d = Math.hypot(player.x - T.x, player.y - T.y);
-  const see = (lanternOn && d < HUNT.see) || d < HUNT.close, notice = lanternOn && d < HUNT.notice;
+  const blind = hunt.grace > 0; if (blind) hunt.grace -= ms;   // первые 3 с — фора, он героиню не замечает
+  const see = !blind && ((lanternOn && d < HUNT.see) || d < HUNT.close), notice = !blind && lanternOn && d < HUNT.notice;
   if (see) { hunt.mode = 'chase'; hunt.tx = player.x; hunt.ty = player.y; }
   else if (hunt.mode === 'chase') { hunt.mode = 'search'; hunt.t = 0; }   // потерял из виду — идёт туда, где видел
   else if (notice && (hunt.mode === 'patrol' || hunt.mode === 'return' || hunt.mode === 'investigate')) { hunt.mode = 'investigate'; hunt.tx = player.x; hunt.ty = player.y; }
