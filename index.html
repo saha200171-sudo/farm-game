@@ -250,7 +250,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 179;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 180;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Нанамина
@@ -354,7 +354,7 @@ const freshState = () => ({
   // время суток меняется по сюжету: day → evening (после квеста Нанамина) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
-  day3: { stage: 0, cartAt: 'cow' },   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
+  day3: { stage: 0, cartAt: 'cow' },   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }] },
 });
 function loadState() {
@@ -375,6 +375,7 @@ function loadState() {
         st.day2.wheatUp = 40; (st.day2.plots[1].sheaves || []).forEach(q => { q[1] += 40; });
       }
       if (s.day3 && s.day3.stage >= 2 && !s.day3.cartAt) st.day3.cartAt = 'yard';   // сохранения v170: Змей уже у Кетиля
+      if (st.day3.stage >= 2 && st.day3.cartAt === 'cow') st.day3.cartAt = 'field';   // v180: после первой поездки Змей ждёт у поля
       const nc = st.nanamin.cows;
       while (nc.length < COW_HOMES.length) nc.push(st.nanamin.stage >= 3 ? 2 : 0);
       return st;
@@ -771,8 +772,8 @@ function talkZmey() {
     ['zmey', 'К Кетилю? Через всю ферму и поле? Садись! Только держись крепче — лошадка у меня с характером.'],
   ], () => startDrive('ride'));
   if (d3 >= 2) {   // Змей-извозчик: подвезти до другой остановки или пройтись пешком (он поедет следом)
-    const toCow = state.day3.cartAt === 'yard';
-    return showChoice('zmey', toCow ? 'Ну что, обратно на ферму? Подвезу с ветерком!' : 'К Кетилю? Садись — домчу быстрее ветра!', [
+    const back = state.day3.cartAt === 'yard';
+    return showChoice('zmey', back ? 'Ну что, обратно к полю? Подвезу с ветерком!' : 'К Кетилю? Садись — домчу быстрее ветра!', [
       ['Подвези, пожалуйста', () => startDrive('ride')],
       ['Пройдусь пешком', () => showDialog([['zmey', 'Как знаешь! Я тогда следом поеду — вдруг передумаешь.']], () => startDrive('escort'))],
     ]);
@@ -812,10 +813,11 @@ function wakeZmey() {
 }
 // Змей на своём месте: дремлет под деревом (до знакомства) или стоит у колодца
 function placeZmey(animate) {
-  const d3 = state.day3.stage, nap = zmeyNapping() && !d3, P = d3 ? (state.day3.cartAt === 'yard' ? ZMEY_YARD : ZMEY_COW) : nap ? ZMEY_NAP : ZMEY_POST;
+  const d3 = state.day3.stage, nap = zmeyNapping() && !d3, at = state.day3.cartAt;
+  const P = d3 ? (at === 'yard' ? ZMEY_YARD : at === 'field' ? ZMEY_FIELD : ZMEY_COW) : nap ? ZMEY_NAP : ZMEY_POST;
   const put = () => {
     zmeyChar.setPosition(P.x, P.y).setDepth(nap ? 990 : P.y).setAngle(nap ? -84 : 0);   // спит на корнях дуба — поверх них
-    zmeyChar.bodyG.scaleX = P === ZMEY_COW ? 1 : -1;
+    zmeyChar.bodyG.scaleX = P === ZMEY_YARD || P === ZMEY_POST ? -1 : 1;
     placeCart();
     zmeyChar.list[0].setVisible(!nap);   // своя тень у ног повернулась бы вместе с телом и торчала вниз «лишней ногой»
     if (nap && !placeZmey.napShadow) placeZmey.napShadow = scene.add.ellipse(0, 0, 92, 18, 0x1d2a12, 0.22);
@@ -1373,7 +1375,7 @@ function cookDone() {
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
 // День 1: пока героиня не представилась, Змей дремлет на корнях большого дуба в левом нижнем углу огорода
 const ZMEY_NAP = { x: -468, y: 903 }, ZMEY_POST = { x: 228, y: 588 };
-const ZMEY_COW = { x: 48, y: 1562 }, ZMEY_YARD = { x: 3292, y: -1126 };   // день 3: у коровника с телегой → во дворе Кетиля
+const ZMEY_COW = { x: 48, y: 1562 }, ZMEY_YARD = { x: 3292, y: -1126 }, ZMEY_FIELD = { x: 40, y: -394 };   // + у поля: начало поперечной дорожки   // день 3: у коровника с телегой → во дворе Кетиля
 const zmeyNapping = () => !state.day3.stage && (state.step <= 3 || state.step === 31);
 let saveMs = 0, facing = 1, nearId = null;
 const chickens = [];
@@ -1468,7 +1470,7 @@ function withinReach(id) {
   return Math.hypot(player.x - a.x, player.y - a.y) <= a.reach;
 }
 zone.addEventListener('pointerdown', e => {
-  if (ride.active) { ride.fast = true; e.preventDefault(); return; }   // поездка на телеге: нажатие — быстрее
+  if (ride.active && ride.mode === 'ride') { ride.fast = true; e.preventDefault(); return; }   // поездка на телеге: нажатие — быстрее
   if (!$('devMenu').hidden) devMenu(false);
   if (ui.open || stick.id !== null) return;
   e.preventDefault();
@@ -1508,7 +1510,7 @@ window.addEventListener('keydown', e => {
   if (KEYMAP[e.code]) { keys.add(e.code); e.preventDefault(); return; }
   if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'Enter') {
     if (e.repeat) return;
-    if (ride.active) { ride.fast = true; e.preventDefault(); return; }
+    if (ride.active && ride.mode === 'ride') { ride.fast = true; e.preventDefault(); return; }
     if (dlg.lines) { e.preventDefault(); advanceDialog(); }
     else if (!ui.open) { e.preventDefault(); doAction(); }
   }
@@ -3281,13 +3283,14 @@ function updateReap(dt) {
 // ===================== Телега Змея (день 3): схематично, кодом; поездка от коровника до двора Кетиля =====================
 // Камера едет за телегой (героиня невидимо «сидит» в ней — так работают камера и отсечение), колёса крутятся, пыль,
 // Змей шутит в облачках. Нажатие — перемотка (быстрее в 4 раза).
-const CART_COW = { x: -120, y: 1590 }, CART_YARD = { x: 3300, y: -1160 };
+const CART_COW = { x: -120, y: 1590 }, CART_YARD = { x: 3300, y: -1160 }, CART_FIELD = { x: -14, y: -420 };
 const HERO_LOOK = { skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A };
 const RIDE_ROUTE = [[-120, 1590], [100, 1490], [140, 1372], [364, 1372], [364, 1260], [644, 1260], [644, 420], [588, 420], [588, -448], [3136, -448], [3136, -1150]];
 const ride = { active: false, armed: true };
 let parkedCart = null;
-const cartSpot = () => !state.day3.stage ? null : state.day3.cartAt === 'yard' ? CART_YARD : CART_COW;
-const ROUTE_TO_YARD = [...RIDE_ROUTE, [CART_YARD.x, CART_YARD.y]], ROUTE_TO_COW = [...ROUTE_TO_YARD].reverse();
+const cartSpot = () => !state.day3.stage ? null : ({ yard: CART_YARD, field: CART_FIELD, cow: CART_COW })[state.day3.cartAt];
+const ROUTE_TO_YARD = [...RIDE_ROUTE, [CART_YARD.x, CART_YARD.y]];   // первая поездка: от коровника
+const ROUTE_FIELD_YARD = [[CART_FIELD.x, CART_FIELD.y], [130, -448], [3136, -448], [3136, -1150], [CART_YARD.x, CART_YARD.y]], ROUTE_YARD_FIELD = [...ROUTE_FIELD_YARD].reverse();
 const ESCORT_JOKES = ['Ноги не устали?', 'Я говорил, что у меня есть телега?', 'Садись — довезу быстрее!', 'Лошадка уже заскучала без тебя.', 'Ты так до вечера идти будешь!'];   // ЗАГЛУШКИ
 function makeCart(riders) {   // [0,0] — земля под серединой телеги; лошадка спереди (справа)
   const c = scene.add.container(0, 0);
@@ -3334,8 +3337,9 @@ function placeCart() {   // телега стоит там же, где ждёт
 }
 // mode: 'ride' — героиня едет с Змеем (камера за телегой, нажатие — быстрее); 'escort' — она идёт пешком, Змей медленно едет следом
 function startDrive(mode) {
-  const cam = scene.cameras.main, d3 = state.day3, to = d3.cartAt === 'yard' ? 'cow' : 'yard';
-  const route = to === 'yard' ? ROUTE_TO_YARD : ROUTE_TO_COW;
+  const cam = scene.cameras.main, d3 = state.day3, from = d3.cartAt;
+  const to = mode === 'solo' ? 'field' : from === 'yard' ? 'field' : 'yard';
+  const route = from === 'cow' ? ROUTE_TO_YARD : from === 'yard' ? ROUTE_YARD_FIELD : ROUTE_FIELD_YARD;
   if (parkedCart) { parkedCart.destroy(); parkedCart = null; }
   zmeyChar.setVisible(false); zmeyLabel.setVisible(false);
   Object.assign(ANCHORS.zmey, { x: -99999, y: -99999 });   // пока едет — с ним не поговорить
@@ -3343,12 +3347,12 @@ function startDrive(mode) {
   for (let i = 1; i < route.length; i++) { const d = Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]); seg.push(d); L += d; }
   const cart = makeCart(mode === 'ride' ? 'both' : 'zmey'); cart.setPosition(route[0][0], route[0][1]);
   Object.assign(ride, { active: true, mode, to, route, cart, seg, L, s: 0, t: 0, fast: false, dir: 1, dust: 0, said: 0, joke: 4, bubble: null,
-    first: d3.stage === 1, z0: cam.zoom, vmax: mode === 'ride' ? L / 9 : 150 });
+    first: d3.stage === 1, z0: cam.zoom, vmax: mode === 'ride' ? L / 9 : 260, wait: 0 });
   if (mode === 'ride') {
     stopWalking(); ui.open = true; player.setVisible(false); player.setPosition(route[0][0], route[0][1]);
     cam.zoomTo(ride.z0 * 0.8, 700, 'Sine.easeInOut');
     toast('Нажми на экран — поедем быстрее', 'info');
-  } else toast('Змей поехал следом', 'info');
+  } else if (mode === 'escort') toast('Змей поехал следом', 'info');
 }
 const RIDE_JOKES = [[1.2, 'Держись крепче!'], [4.2, 'Пешком бы до вечера шла!'], [7.2, 'Тпру-у… почти приехали!']];   // ЗАГЛУШКИ
 function rideSay(text) {
@@ -3362,8 +3366,9 @@ function updateRide(dt) {
   const r = ride, sec = Math.min(dt, 120) / 1000, ride_ = r.mode === 'ride';   // на медленных устройствах шаг крупнее — поездка всё равно ~10 с
   const k4 = ride_ && r.fast ? 4 : 1;
   r.t += sec * k4;
-  const ease = Math.min(1, r.t / 0.9) * Math.min(1, (r.L - r.s) / 260 + 0.12);
-  r.s = Math.min(r.L, r.s + r.vmax * ease * sec * k4);
+  let ease = Math.min(1, r.t / 0.9) * Math.min(1, (r.L - r.s) / 260 + 0.12), v = r.vmax * ease;
+  if (r.mode === 'escort') v = escortSpeed(r, sec);
+  r.s = Math.min(r.L, r.s + v * sec * k4);
   let k = 0, acc = 0; while (k < r.seg.length - 1 && acc + r.seg[k] < r.s) acc += r.seg[k++];
   const [ax, ay] = r.route[k], [bx, by] = r.route[k + 1], f = r.seg[k] ? (r.s - acc) / r.seg[k] : 1;
   const x = ax + (bx - ax) * f, y = ay + (by - ay) * f, c = r.cart;
@@ -3372,9 +3377,10 @@ function updateRide(dt) {
   c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
   c.bed.y = -bounce; c.riders.forEach((q, i) => { q.y = -26 - bounce - (i ? 0.5 : 0); });
   c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * (ride_ ? 16 : 9))) * 2.5;
-  c.wheels.forEach(w => { w.rotation += r.vmax * ease * sec * k4 / 17; });
+  c.wheels.forEach(w => { w.rotation += v * sec * k4 / 17; });
+  const still = v < 4; if (still) { c.bed.y = 0; c.pony.y = 0; }
   if (ride_) player.setPosition(x, y);   // камера и отсечение следят за героиней — она «сидит» в телеге
-  if (!REDUCED && (r.dust -= sec) <= 0) {   // пыль из-под колёс
+  if (!REDUCED && !still && (r.dust -= sec) <= 0) {   // пыль из-под колёс
     r.dust = ride_ ? 0.07 : 0.16;
     const d = scene.add.circle(x - r.dir * 40 + (Math.random() - 0.5) * 14, y - 4, 5 + Math.random() * 5, 0xC9A97A, 0.55).setDepth(y - 1);
     scene.tweens.add({ targets: d, x: d.x - r.dir * 26, y: d.y - 10 - Math.random() * 10, scale: 1.8, alpha: 0, duration: 650, onComplete: () => d.destroy() });
@@ -3389,31 +3395,53 @@ function updateRide(dt) {
 }
 function endRide() {
   const r = ride, cam = scene.cameras.main, d3 = state.day3;
-  r.active = false; r.armed = r.mode === 'ride'; if (r.bubble) { r.bubble.destroy(); r.bubble = null; }
+  r.active = false; r.armed = r.mode === 'ride' || r.mode === 'escort'; if (r.bubble) { r.bubble.destroy(); r.bubble = null; }
   r.cart.destroy();
   d3.cartAt = r.to; d3.stage = Math.max(d3.stage, 2);
   zmeyChar.setVisible(true); zmeyLabel.setVisible(true);
   placeZmey(false);   // Змей с телегой — на новой остановке
   progress();
   if (r.mode !== 'ride') return;
-  if (r.to === 'yard') player.setPosition(CART_YARD.x - 170, CART_YARD.y - 20); else player.setPosition(CART_COW.x + 190, CART_COW.y + 24);
+  if (r.to === 'yard') player.setPosition(CART_YARD.x - 170, CART_YARD.y - 20); else player.setPosition(CART_FIELD.x + 230, CART_FIELD.y - 30);
   player.setVisible(true); facing = r.to === 'yard' ? 1 : -1;
   cam.zoomTo(r.z0, 600, 'Sine.easeInOut');
   ui.open = false;
   // ЗАГЛУШКИ: реплики — черновик
-  if (r.first) showDialog([['zmey', 'Приехали! Быстрее ветра. Кетиль вон, у дома — иди, я подожду.']]);
-  else showDialog([['zmey', r.to === 'yard' ? 'Двор Кетиля, как заказывали!' : 'Ферма! Обращайтесь — Змей-извозчик всегда на месте.']]);
+  if (r.first) showDialog([['zmey', 'Приехали! Быстрее ветра. Кетиль вон, у дома — иди. А я буду ждать у поля, в начале дорожки.']],
+    () => scene.time.delayedCall(400, () => startDrive('solo')));   // Змей сам уезжает к своей стоянке у поля
+  else showDialog([['zmey', r.to === 'yard' ? 'Двор Кетиля, как заказывали!' : 'Поле! Обращайся — Змей-извозчик всегда на месте.']]);
+}
+// Едет следом: сначала быстро догоняет героиню, потом держится чуть позади с её скоростью.
+// Если она ушла с дороги — ждёт; если надолго (10 с) — едет к остановке сам.
+function escortSpeed(r, sec) {
+  let best = 1e9, sh = 0, acc = 0;
+  for (let i = 0; i < r.seg.length; i++) {   // где героиня на маршруте
+    const [ax, ay] = r.route[i], [bx, by] = r.route[i + 1], dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((player.x - ax) * dx + (player.y - ay) * dy) / l2));
+    const d = Math.hypot(player.x - ax - t * dx, player.y - ay - t * dy);
+    if (d < best) { best = d; sh = acc + t * r.seg[i]; }
+    acc += r.seg[i];
+  }
+  if (best > 380 || sh > r.L - 160) {   // ушла с дороги или уже у цели
+    if (sh > r.L - 160 && best <= 380) return 240;
+    r.wait += sec; return r.wait > 10 ? 200 : 0;
+  }
+  r.wait = 0;
+  const gap = sh - 150 - r.s;   // держится чуть позади: морда лошадки — в полутора шагах от героини
+  if (gap > 120) return 430;    // догоняет
+  return Math.max(0, Math.min(240, gap * 3));
 }
 // Ушла пешком от стоянки — Змей едет следом к другой остановке. Срабатывает, только если героиня сперва была у телеги
-// (иначе, приехав, он тут же развернулся бы обратно): из двора Кетиля — вышла за забор; от коровника — зашла в поле.
+// (иначе, приехав, он тут же развернулся бы обратно): из двора Кетиля — вышла за забор; от стоянки у поля — пошла по дорожке к Кетилю.
 function checkEscort() {
   const d3 = state.day3;
   if (d3.stage < 2 || ui.open || house.active || barn.active || reap.active || !player) return;
   const sp = cartSpot(); if (!sp) return;
   const dist = Math.hypot(player.x - sp.x, player.y - sp.y);
-  if (dist < 600) { ride.armed = true; return; }
+  if (d3.cartAt === 'cow') return;
+  if (dist < 600 || (d3.cartAt === 'field' && player.y > -20)) { ride.armed = true; return; }   // у поля: «взводится» и когда героиня на ферме
   if (!ride.armed) return;
-  if (d3.cartAt === 'yard' ? player.y > -985 : player.y < -20) startDrive('escort');
+  if (d3.cartAt === 'yard' ? player.y > -985 : (player.x > 700 && player.y < -380 && player.y > -560)) startDrive('escort');   // у поля — пошла по дорожке к Кетилю
 }
 // ===================== Торфинн: сторож поля =====================
 // Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
