@@ -267,14 +267,14 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="modal" id="modal" hidden></div>
   <div class="fade" id="fade"><div class="fade-text" id="fadeText"></div></div>
   <div class="rotate"><div class="phone"></div><div>Поверни телефон вертикально</div></div>
-  <div class="loading" id="loading">Загружаем ферму…</div>
+  <div class="loading" id="loading">Загружаем ферму…<small id="loadErr" style="display:block;font-size:13px;opacity:.7;margin-top:10px;max-width:90vw;word-break:break-word"></small></div>
 </div>
 
 <script src="lib/phaser.min.js"></script>
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 227;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 228;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -283,6 +283,8 @@ const WW = 3640 + 560;     // полная ширина карты (WORLD.w - WO
 const FARM_W = 2800;       // правый край фермы и пастбища (ниже поля карта не расширялась)
 const OZERO_X = 2000;     // локация «Скалы» (раньше «Озеро»): правая часть фермы между полем и пастбищем, отделена забором
 const SAVE_KEY = 'farm-prototype-v1';
+// v228: если запуск сломался — пишем ошибку прямо на экране загрузки (чтобы прислать скриншот)
+window.addEventListener('error', e => { const l = document.getElementById('loading'), m = document.getElementById('loadErr'); if (l && !l.hidden && m) m.textContent = 'Ошибка: ' + (e.message || e) + (e.lineno ? ' (строка ' + e.lineno + ')' : ''); });
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
 const app = $('app');
@@ -2653,7 +2655,7 @@ const THORKEL_LOOK = { skin: 0xE6B48C, legs: 0xD9CDB2, boots: 0x7A5A3A, hair: 's
 const TK_RIVER = { x: 430, y: -1250 }, TK_HOME = { x: 470, y: -1170 };   // у мостков / после квеста — у реки, рядом с Лейфом
 const thk = { char: null, lab: null, follow: false };
 function thorkelPut(x, y) {
-  if (!thk.char) { thk.char = makeChar(THORKEL_LOOK); thk.lab = nameLabel('Торкель', 0, 0); scene.npcs.push(thk.char); }
+  if (!thk.char) { thk.char = makeChar(THORKEL_LOOK); thk.lab = nameLabel('Торкель', 0, 0); if (scene.npcs) scene.npcs.push(thk.char); }   // v228: при запуске список жителей ещё не готов — добавим позже
   thk.char.setPosition(x, y).setDepth(y).setVisible(true); thk.lab.setPosition(x, y - 118).setVisible(true);
   Object.assign(ANCHORS.thorkel, { x, y });
 }
@@ -6109,6 +6111,7 @@ class FarmScene extends Phaser.Scene {
     torgelLab = nameLabel('Торгель', -290, 346);
     hunt.active = false; lanternOn = true;
     this.npcs = [grandpa, klara, zmey, torgel];
+    if (thk.char && thk.char.active && !this.npcs.includes(thk.char)) this.npcs.push(thk.char);   // v228: Торкель, поставленный раньше списка
     nanaminChar = null;
     buildPasture();
     drawWheat();
