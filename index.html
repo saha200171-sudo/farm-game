@@ -273,7 +273,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 211;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 212;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -345,7 +345,8 @@ const ANCHORS = {
   ketil:   { x: 2640, y: -510, reach: 78, mark: -128 },  // Кетиль в полевом лагере — в конце поперечной дорожки (день 2)
   thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
-  d4:      { x: 0, y: 0, reach: 80, mark: -112 },   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
+  d4:      { x: 0, y: 0, reach: 80, mark: -112 },
+  olmar3:  { x: -99999, y: -99999, reach: 80, mark: -118 },   // v212: Ольмар у скал (день 3)   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
   kale:    { x: 215, y: -1140, reach: 84, mark: -112 },   // v162: на берегу реки, перед своей лодкой   // Лейф, старый мореход (был Кейл)   // Арнхейнд, знаток трав — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
@@ -379,7 +380,7 @@ const freshState = () => ({
   // время суток меняется по сюжету: day → evening (после квеста Эйнара) → сон → morning → day
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
-  day3: { stage: 0, cartAt: 'cow' },
+  day3: { stage: 0, cartAt: 'cow', hint: 0 },   // v212: hint — сколько подсказок про Ольмара получено (0 Лейф → 1 жнецы → 2 Торфинн → 3 скалы)
   day4: { stage: 0 },   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }],
     // v190: «Обед для жнецов» (после жатвы, stage 6): хлеб у Сверкеля, вода из колодца, травяной отвар у Арнхейнд → раздать каждому жнецу его кружку
@@ -435,6 +436,8 @@ function questTarget() {
   if (d4 === 6) return 'iro';
   if (d4 === 5 || d4 === 7) return null;
   if (state.day3.stage === 1) return null;             // день 3: Змея ищем сами (или спрашиваем)
+  if (state.day3.stage === 6) return [ 'kale', null, 'thorfinn', 'olmar3' ][Math.min(3, state.day3.hint || 0)];   // v212: поиск Ольмара
+  if (state.day3.stage === 8) return 'klara';
   if (state.day3.stage >= 2 && state.day3.stage <= 5) return thresh.active ? null : 'ketil';   // день 3: Кетиль у своего дома (обмолот, веяние)
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
   { const L = state.day2.lunch;                        // день 2: обед для жнецов
@@ -485,7 +488,10 @@ function updateHud() {
     : d3 === 3 ? (thresh.active ? `Обмолот: ${thresh.hits} из ${THRESH_N}` : 'Помоги Кетилю с обмолотом — поговори с ним')
     : d3 === 4 ? 'Провей зерно — поговори с Кетилем'
     : d3 === 5 ? 'Поговори с Кетилем'
-    : d3 === 6 ? 'Найди Ольмара — он ушёл «за славой» (продолжение скоро)'
+    : d3 === 6 ? ['Найди Ольмара: спроси Лейфа у реки', 'Найди Ольмара: спроси жнецов в поле', 'Найди Ольмара: спроси Торфинна', 'Ольмар у скал, за курятником — уговори его вернуться'][Math.min(3, state.day3.hint || 0)]
+    : d3 === 7 ? 'Едем к Кетилю'
+    : d3 === 8 ? 'Проводи Ольмара до курятника'
+    : d3 === 9 ? 'Вечереет — пора домой спать'
     : d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
@@ -759,7 +765,7 @@ function devJump(day) {
     });
   }
   if (day >= 4) {   // день 3 пройден: Змей-извозчик у поля, у Кетиля побывали
-    s.time = { day: 4, phase: 'day' }; Object.assign(s.day3, { stage: 6, cartAt: 'field' }); s.items.grain = true;
+    s.time = { day: 4, phase: 'day' }; Object.assign(s.day3, { stage: 9, cartAt: 'field', hint: 3 }); s.items.grain = true;
   }
   if (day === 4.5) {   // ВРЕМЕННО: сразу к финалу квеста со статуей — статуя стоит в саду под покрывалом, дальше вечернее открытие
     s.day4.stage = 6; s.pos = { x: D4.ped.x + 40, y: D4.ped.y + 96 };
@@ -781,6 +787,7 @@ function resetGame() {
 function interact(id) {
   const s = state;
   if (id === 'grandpa') return askGrandpa();
+  if (id === 'olmar3') return talkOlmarRocks();
   if (id === 'klara') return talkKlara();
   if (id === 'nanamin') return talkNanamin();
   if (id === 'iro') return talkIro();
@@ -802,6 +809,7 @@ function interact(id) {
   if (id === 'd4') return day4Act();
   if (id.startsWith('herb')) return pickHerb(+id.slice(4));
   if (id === 'thorfinn' && state.day4.stage === 2) return day4Thorfinn();
+  if (id === 'thorfinn' && state.day3.stage === 6) return olmarHint('thorfinn');
   if (id === 'thorfinn' && state.day3.stage === 1) return showDialog([['thorfinn', 'Змей? У реки он, под старым дубом — там, где вы вчера у костра сидели. С телегой возится.']]);   // ЗАГЛУШКА: подсказка дня 3
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
@@ -935,6 +943,7 @@ const LEIF_TALES = [
 ];
 let leifTalks = 0, leifChar = null, leifLabel = null;
 function talkKale() {
+  if (state.day3.stage === 6) return olmarHint('kale');
   if (!leifTalks++) return showDialog([
     ['kale', 'О, новое лицо на моём берегу! Я Лейф. Когда-то я ходил за край моря, а теперь вот — сижу у реки да чиню лодку.'],
     ['kale', 'Знаешь, за морем есть земля — Винланд. Виноград там растёт прямо на деревьях, а лосось такой огромный, что одним можно накормить всю деревню!'],
@@ -1432,6 +1441,7 @@ function goToSleep(where) {
 // Ольмар (реплики — черновик): боится кур. Шаг 6 — «Загони кур» (во дворе), шаг 61 — собрать яйца в соломе
 function talkKlara() {
   const s = state;
+  if (olm.follow) return;
   if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Проезжал утром мимо курятника с телегой — в поле покатил. Спроси у Торфинна, он там всех видит.']]);   // ЗАГЛУШКА
   if (s.step === 5) return showDialog([
     ['klara', 'А, ты та новенькая. Я Ольмар, сын Кетиля. Курятник — моя забота… пока отец не доверит мне дело поважнее.'],
@@ -1445,6 +1455,8 @@ function talkKlara() {
 }
 const herd = { active: false, escT: 0, talkT: 4, squeakT: 0, bubble: null };
 const OLMAR = { x: 940, y: 320 };
+const OLMAR_LOOK = { skin: 0xEBC09A, dress: 0x3E5A86, tunic: true, sleeves: 0x9CA3A8, belt: 0x3A2A1E, buckle: 0xC9CDD0, legs: 0xD8C7A0, boots: 0x8A6A44,
+  hair: 'swept', hairColor: 0xD9A24A, tail: true, stubble: true, brows: true, smirk: true, noBlush: true, longsword: true, scabbard: 0x6B3A26 };   // v212: как у Ольмара на ферме
 function startHerd() {
   herd.active = true; herd.escT = 14; herd.talkT = 5;
   chickens.forEach((c, i) => {
@@ -2412,9 +2424,138 @@ function torgelNews() {
         ['ketil', 'Ольмар?! Вот же… Весь в меня. В молодости, говорят.'],
         ['zmey', '(шёпотом) В молодости он сено грузил.'],
         ['ketil', 'Наслушался моих историй — и туда же, «подвиги» искать…'],
-        ['ketil', 'Найди его, прошу. Он у меня горячий, но не злой — его словом надо, не силой.'],
-      ], () => { state.day3.stage = 6; progress(); toast('Новое задание: найди Ольмара'); });
+        ['ketil', 'Найди его, прошу. Начни с Лейфа — он у реки, всё видит. Он у меня горячий, но не злой — его словом надо, не силой.'],
+      ], () => { state.day3.stage = 6; state.day3.hint = 0; progress(); placeOlmar(); toast('Новое задание: найди Ольмара'); });
     } });
+}
+// ===================== День 3: поиск Ольмара (v212, схематично) =====================
+// Подсказки: Лейф (у реки) → жнецы (в поле) → Торфинн → Ольмар у скал «бьётся с троллем» (валуном). Уговорить словом.
+// Змей подкатывает телегу на троих → к Кетилю (признание «Железного Кулака») → до поля → пешком к курятнику, наступает вечер.
+const OLMAR_ROCKS = { x: 2410, y: 410 };
+const olm = { char: null, lab: null, sword: null, follow: false, ride: null };
+const OLMAR_HINTS = {   // ЗАГЛУШКИ: реплики — черновик
+  kale: [0, 'Ольмар? Пробегал утром с деревянным мечом — спрашивал, где водятся драконы. Я сказал: драконов нет, а вот жнецы в поле его видели. Спроси их.'],
+  reaper: [1, 'Ольмар? Махал мечом на пугало, кричал, что пойдёт биться с троллем. Торфинн его прогнал с поля — спроси Торфинна.'],
+  thorfinn: [2, 'Мелкий? Ушёл к скалам, за курятником — туда, где кончается дорожка. Сказал, там тролль живёт. Тролль, ага.'],
+};
+function olmarHint(who) {
+  const d3 = state.day3, key = who.startsWith('reaper') ? 'reaper' : who, [lvl, text] = OLMAR_HINTS[key];
+  if ((d3.hint || 0) < lvl) return showDialog([[who, 'Ольмар? Сегодня не попадался. Спроси лучше у ' + (d3.hint ? 'жнецов в поле' : 'Лейфа у реки') + '.']]);
+  showDialog([[who, text]], () => { if ((d3.hint || 0) === lvl) { d3.hint = lvl + 1; progress(); placeOlmar(); if (lvl === 2) toast('Ольмар у скал, за курятником', 'info'); } });
+}
+function placeOlmar() {   // Ольмар «воюет» у скал, пока его не нашли
+  const show = state.day3.stage === 6;
+  if (show && !olm.char) {
+    olm.char = makeChar(OLMAR_LOOK); olm.char.setPosition(OLMAR_ROCKS.x, OLMAR_ROCKS.y).setDepth(OLMAR_ROCKS.y); olm.char.bodyG.scaleX = 1;
+    olm.sword = scene.add.graphics(); olm.sword.fillStyle(0xA87A48, 1).fillRect(-2, -34, 4, 30).fillStyle(0x6E4A2C, 1).fillRect(-7, -6, 14, 4).fillRect(-2, -2, 4, 8);
+    olm.sword.setPosition(OLMAR_ROCKS.x + 16, OLMAR_ROCKS.y - 22).setDepth(OLMAR_ROCKS.y + 1);
+    if (!REDUCED) scene.tweens.add({ targets: olm.sword, angle: { from: -40, to: 40 }, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });   // машет мечом
+    olm.lab = nameLabel('Ольмар', OLMAR_ROCKS.x, OLMAR_ROCKS.y - 92);
+    Object.assign(ANCHORS.olmar3, { x: OLMAR_ROCKS.x, y: OLMAR_ROCKS.y });
+  }
+  if (!show && olm.char && !olm.follow) { olm.char.destroy(); olm.lab.destroy(); olm.sword.destroy(); olm.char = null; Object.assign(ANCHORS.olmar3, { x: -99999, y: -99999 }); }
+  if (klara) { const away = state.day3.stage >= 6 && state.day3.stage <= 8 && state.time.day === 3; klara.setVisible(!away && state.open.kuryatnik); klaraLabel.setVisible(!away && state.open.kuryatnik); }
+}
+function talkOlmarRocks() {
+  const say = (who, t, next) => showDialog([[who, t]], next);
+  showDialog([
+    ['klara', 'Стой! Не подходи — тут тролль! Видишь, какой огромный? Сейчас я его…'],
+    ['hero', 'Ольмар, это камень.'],
+    ['klara', 'Это ТРОЛЛЬ. Окаменевший. Отец бы такого одним ударом! А я… я только кур сторожу. Не вернусь, пока не совершу подвиг!'],
+  ], () => showChoice('klara', 'Ну? Что скажешь?', [
+    ['Отец за тебя волнуется', () => say('klara', 'Волнуется?.. За меня? Он же Железный Кулак, он ничего не боится…', back)],
+    ['Беречь свой дом — тоже подвиг', () => say('klara', 'Беречь… кур? Хм. Ну, без меня они бы и правда разбежались.', back)],
+    ['Тролль сегодня в плохом настроении', () => say('klara', 'Ты тоже заметила?! Ладно… отступим. Временно. Настоящие воины умеют ждать.', back)],
+  ], 2));
+  function back() {
+    say('zmey', 'Эй, герои! Карета подана. Троллей не беру — места только на троих.', () => {
+      olm.char.destroy(); olm.lab.destroy(); olm.sword.destroy(); olm.char = null; Object.assign(ANCHORS.olmar3, { x: -99999, y: -99999 });
+      state.day3.stage = 7; progress();
+      const yard = [[OLMAR_ROCKS.x - 60, OLMAR_ROCKS.y - 120], [1092, 252], [644, 252], [588, 200], [588, -448], [3136, -448], [3136, -1150], [CART_YARD.x, CART_YARD.y]];
+      cartRide(yard, 'Ольмар, а тролль-то с тобой не попрощался!', () => olmarAtKetil());
+    });
+  }
+}
+// поездка-сценка на телеге на троих (как перевозка статуи): камера едет за телегой
+function cartRide(route, joke, onEnd) {
+  if (parkedCart) { parkedCart.destroy(); parkedCart = null; }
+  zmeyChar.setVisible(false); zmeyLabel.setVisible(false);
+  const cart = makeCart('three'), seg = []; let L = 0;
+  for (let i = 1; i < route.length; i++) { const d = Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]); seg.push(d); L += d; }
+  cart.setPosition(route[0][0], route[0][1]);
+  stopWalking(); ui.open = true; player.setVisible(false);
+  olm.ride = { cart, route, seg, L, s: 0, t: 0, dir: 1, joke, said: false, bubble: null, onEnd };
+}
+function updateCartRide(dt) {
+  const r = olm.ride; if (!r) return;
+  const sec = Math.min(dt, 120) / 1000; r.t += sec;
+  const ease = Math.min(1, r.t / 0.8) * Math.min(1, (r.L - r.s) / 220 + 0.15);
+  r.s = Math.min(r.L, r.s + Math.max(430, r.L / 10) * ease * sec);
+  let k = 0, acc = 0; while (k < r.seg.length - 1 && acc + r.seg[k] < r.s) acc += r.seg[k++];
+  const [ax, ay] = r.route[k], [bx, by] = r.route[k + 1], f = r.seg[k] ? (r.s - acc) / r.seg[k] : 1;
+  const x = ax + (bx - ax) * f, y = ay + (by - ay) * f, c = r.cart;
+  if (Math.abs(bx - ax) > 1) r.dir = bx > ax ? 1 : -1;
+  c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
+  const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2; c.bed.y = -bounce; c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * 16)) * 2.5;
+  c.riders.forEach(q => { q.y = -26 - bounce; });
+  c.wheels.forEach(w => { w.rotation += 430 * ease * sec / 17; });
+  player.setPosition(x, y);
+  if (r.joke && !r.said && r.t > 1.4) {
+    r.said = true;
+    r.bubble = scene.add.text(0, 0, r.joke, { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '17px', color: '#2E2418', backgroundColor: '#FFFDF4', padding: { x: 10, y: 6 }, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
+    scene.time.delayedCall(3200, () => { if (r.bubble) { r.bubble.destroy(); r.bubble = null; } });
+  }
+  if (r.bubble) r.bubble.setPosition(x, y - 128);
+  if (r.s >= r.L) { olm.ride = null; if (r.bubble) r.bubble.destroy(); c.destroy(); r.onEnd(); }
+}
+function olmarAtKetil() {
+  state.day3.cartAt = 'yard'; zmeyChar.setVisible(true); zmeyLabel.setVisible(true); placeZmey(false);
+  player.setPosition(KETIL_HOME.x - 80, KETIL_HOME.y + 70).setVisible(true); facing = 1;
+  olm.char = makeChar(OLMAR_LOOK); olm.char.setPosition(KETIL_HOME.x - 30, KETIL_HOME.y + 60).setDepth(KETIL_HOME.y + 60); olm.char.bodyG.scaleX = 1;
+  olm.lab = nameLabel('Ольмар', olm.char.x, olm.char.y - 92); olm.follow = true;
+  ui.open = false;
+  showDialog([   // ЗАГЛУШКИ: реплики — черновик. Тёплая сцена отца и сына, конец шутки про Железного Кулака
+    ['ketil', 'Ольмар! Живой… Ну и напугал ты меня, сын.'],
+    ['klara', 'Я хотел совершить подвиг. Как ты, Железный Кулак.'],
+    ['ketil', 'Эх… Признаюсь тебе, раз уж так вышло. Не был я никаким великим воином. Разбойники мои были гусями, а щиты — соломенные.'],
+    ['zmey', '(шёпотом) Ну наконец-то.'],
+    ['ketil', 'Мой настоящий подвиг — эта ферма. И вы с братом. А храбрость — это беречь своих. Сегодня ты… ну, хотя бы вернулся.'],
+    ['klara', 'Значит… сторожить кур — это тоже по-геройски?'],
+    ['ketil', 'Ещё как. Без тебя они бы весь двор разнесли. Иди домой, герой.'],
+    ['zmey', 'Подвезу обоих до поля. А дальше пешочком — курятник рядом.'],
+  ], () => {
+    olm.char.destroy(); olm.lab.destroy(); olm.char = null;
+    cartRide([...ROUTE_YARD_FIELD], 'Держитесь крепче, герои!', olmarWalkHome);
+  });
+}
+function olmarWalkHome() {
+  state.day3.cartAt = 'field'; state.day3.stage = 8; progress();
+  zmeyChar.setVisible(true); zmeyLabel.setVisible(true); placeZmey(false); placeCart && placeCart();
+  player.setPosition(CART_FIELD.x + 230, CART_FIELD.y - 30).setVisible(true); facing = 1;
+  olm.char = makeChar(OLMAR_LOOK); olm.char.setPosition(player.x - 50, player.y).setDepth(player.y); olm.lab = nameLabel('Ольмар', olm.char.x, olm.char.y - 92);
+  olm.follow = true; ui.open = false;
+  showDialog([['klara', 'Пошли к курятнику. Куры, небось, без меня совсем распустились.']], () => {
+    scene.time.delayedCall(2500, () => { if (state.day3.stage === 8) startEvening(); });   // пока идут — день сменяется вечером
+  });
+}
+function updateOlmarFollow(dt) {
+  if (!olm.follow || !olm.char || olm.ride || state.day3.stage !== 8) return;
+  const c = olm.char, dx = player.x - 60 * facing - c.x, dy = player.y + 10 - c.y, d = Math.hypot(dx, dy);
+  if (d > 30) { const st = Math.min(d - 20, (d > 260 ? 360 : 230) * Math.min(dt, 100) / 1000); c.x += dx / d * st; c.y += dy / d * st; c.bodyG.scaleX = dx < 0 ? -1 : 1; c.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 85)) * 3; }
+  else c.bodyG.y = 0;
+  c.setDepth(c.y); olm.lab.setPosition(c.x, c.y - 92);
+  if (!ui.open && Math.hypot(player.x - OLMAR.x, player.y - OLMAR.y) < 170) olmarAtCoop();
+}
+function olmarAtCoop() {
+  state.day3.stage = 9; progress();
+  showDialog([
+    ['klara', 'Вот мы и дома. Видишь — куры уже спать пошли. Без меня бы не справились!'],
+    ['klara', 'Спасибо, что нашла меня. И… никому не говори про тролля, ладно?'],
+    ['hero', 'Обещаю. Спокойной ночи, герой.'],
+  ], () => {
+    olm.follow = false; if (olm.char) { olm.char.destroy(); olm.lab.destroy(); olm.char = null; }
+    placeOlmar(); progress(); toast('Вечереет — пора домой спать', 'info');
+  });
 }
 function afterPolish() {
   showDialog([
@@ -2625,6 +2766,7 @@ function hitTest(x, y) {
   if (!state.open.kuryatnik && x > 664 && x < 736 && y > 186 && y < 314) return 'gate';
   if (nanaminChar && nanaminChar.visible && near(800, 1545, 44)) return 'nanamin';
   if (d4Spot() && near(ANCHORS.d4.x, ANCHORS.d4.y - 35, 48)) return 'd4';
+  if (state.day3.stage === 6 && olm.char && near(ANCHORS.olmar3.x, ANCHORS.olmar3.y - 35, 48)) return 'olmar3';
   if (state.open.sad && near(943, 721, 50)) return 'iro';
   if (near(ANCHORS.kale.x, ANCHORS.kale.y - 35, 48)) return 'kale';
   if (thorfinnChar && thorfinnChar.visible && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
@@ -2722,6 +2864,8 @@ function nearest() {
     if (id === 'thorfinn' && (thor.mode !== 'idle' || !thorfinnChar || !thorfinnChar.visible)) continue;
     if (id === 'nanamin' && nanaminChar && !nanaminChar.visible) continue;
     if (id === 'd4' && !d4Spot()) continue;
+    if (id === 'olmar3' && !(state.day3.stage === 6 && olm.char)) continue;
+    if (id === 'klara' && olm.follow) continue;
     if (id === 'iro' && !state.open.sad) continue;
     if (id === 'chop' && !(state.nanamin.stage === 1 && state.nanamin.tools === 2)) continue;
     if (id === 'barn' && !(state.nanamin.stage === 1 && state.nanamin.tools === 4)) continue;
@@ -4583,19 +4727,23 @@ function makeCart(riders) {   // [0,0] — земля под серединой 
   pony.lineStyle(3, 0x5A3A1E, 1).lineBetween(34, -32, 56, -36).lineBetween(34, -26, 56, -30);                                             // оглобли
   const parts = [sh, pony];
   c.riders = [];
-  if (riders) {   // riders: 'both' — Змей и героиня, 'zmey' — один Змей
+  const big = riders === 'three';   // v212: вместительная телега — Змей, героиня и Ольмар
+  if (riders) {   // riders: 'both' — Змей и героиня, 'zmey' — один Змей, 'three' — Змей, героиня и Ольмар
     const z = makeChar(ZMEY_LOOK); z.setPosition(18, -26); z.bodyG.scaleX = 1; z.list[0].setVisible(false);
     const reins = scene.add.graphics(); reins.lineStyle(1.5, 0x3A2416, 1).lineBetween(30, -52, 110, -62);
-    if (riders === 'both') { const h = makeChar(HERO_LOOK); h.setPosition(-20, -26); h.bodyG.scaleX = 1; h.list[0].setVisible(false); parts.push(h); c.riders.push(h); }
+    if (riders === 'three') { const o = makeChar(OLMAR_LOOK); o.setPosition(-62, -26); o.bodyG.scaleX = 1; o.list[0].setVisible(false); parts.push(o); c.riders.push(o); }
+    if (riders === 'both' || big) { const h = makeChar(HERO_LOOK); h.setPosition(-20, -26); h.bodyG.scaleX = 1; h.list[0].setVisible(false); parts.push(h); c.riders.push(h); }
     parts.push(z, reins); c.riders.push(z);
   }
   const bed = scene.add.graphics();
-  bed.fillStyle(0x8A5E34, 1).fillRect(-44, -50, 84, 28);
-  bed.fillStyle(0xA9763F, 1).fillRect(-42, -48, 80, 7).fillRect(-42, -38, 80, 7);
-  bed.fillStyle(0x5E3D20, 1).fillRect(-46, -52, 88, 4).fillRect(-46, -24, 88, 4).fillRect(-46, -52, 5, 32).fillRect(37, -52, 5, 32);
+  const L = big ? -86 : -44;   // у большой телеги кузов длиннее назад
+  bed.fillStyle(0x8A5E34, 1).fillRect(L, -50, 40 - L, 28);
+  bed.fillStyle(0xA9763F, 1).fillRect(L + 2, -48, 36 - L, 7).fillRect(L + 2, -38, 36 - L, 7);
+  bed.fillStyle(0x5E3D20, 1).fillRect(L - 2, -52, 44 - L, 4).fillRect(L - 2, -24, 44 - L, 4).fillRect(L - 2, -52, 5, 32).fillRect(37, -52, 5, 32);
   if (!riders) bed.fillStyle(0xE3C46A, 1).fillEllipse(-4, -54, 70, 18);   // сено в пустой телеге
   parts.push(bed);
-  c.wheels = [-24, 24].map(wx => {
+  if (big) sh.setPosition(0, 0).setSize(240, 22);
+  c.wheels = (big ? [-62, 20] : [-24, 24]).map(wx => {
     const w = scene.add.graphics({ x: wx, y: -16 });
     w.fillStyle(0x6B4526, 1).fillCircle(0, 0, 17); w.fillStyle(0x8A5E34, 1).fillCircle(0, 0, 13);
     w.lineStyle(3, 0x5A3A1E, 1); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4; w.lineBetween(-13 * Math.cos(a), -13 * Math.sin(a), 13 * Math.cos(a), 13 * Math.sin(a)); }
@@ -4879,6 +5027,7 @@ function updateReapers(dt) {
 }
 function talkReaper(i) {
   const r = REAPERS[i], who = 'reaper' + i, d2 = state.day2;
+  if (state.day3.stage === 6) { r.talking = true; return olmarHint(who); }
   r.talking = true; r.c.bodyG.scaleX = player.x < r.c.x ? -1 : 1;
   const line = REAPER_LINES[i][r.talks++ % 2];
   // ЗАГЛУШКИ: реплики жнецов — черновик, заменим на твои
@@ -4906,7 +5055,7 @@ function talkKetil() {
   if (d3.stage === 3) return showDialog([['ketil', 'Ну что, продолжим молотить?']], startThresh);
   if (d3.stage === 4) return showDialog([['ketil', 'Зерно надо провеять — без ветра никак. Бери лопату!']], startWinnow);
   if (d3.stage === 5) return torgelNews();
-  if (d3.stage === 6) return showDialog([['ketil', 'Найди его, прошу. Он у меня горячий, но не злой — его словом надо, не силой.']]);
+  if (d3.stage === 6) return showDialog([['ketil', 'Найди его, прошу. Начни с Лейфа — он у реки, всё видит. Только словом, не силой.']]);
   // ЗАГЛУШКИ: реплики Кетиля — черновик, заменим на твои
   if (d2.stage === 2 || d2.stage === 3) return showDialog([
     ['ketil', 'А, ты, должно быть, та самая, что живёт у отца. Я Кетиль, это поле — моё.'],
@@ -5459,6 +5608,9 @@ class FarmScene extends Phaser.Scene {
     if (state.step === 6) startHerd();
     if (state.step === 61) { chickens.forEach(c => { c.mode = 'asleep'; c.setVisible(false); }); spawnEggs(8 - (state.items.eggs || 0)); }
     spawnHerbs();   // v190: травы для отвара Арнхейнд (если она уже попросила)
+    Object.assign(olm, { char: null, follow: false, ride: null }); if (state.day3.stage === 7) state.day3.stage = 6;   // v212: прервали поездку — Ольмар снова у скал
+    if (state.day3.stage === 8) state.day3.stage = 9;
+    placeOlmar();
     campfire = null; if (state.time.day === 2 && state.day2.fish.stage === 2) buildCampfire();   // v193: костёр догорает до утра
 
     // Сверкель (дед, отец Кетиля): лысый с пятнышками, седые пряди до плеч, седая бородка и усы, тяжёлые веки,
@@ -5473,6 +5625,7 @@ class FarmScene extends Phaser.Scene {
     klara.setPosition(940, 320).setDepth(320).setVisible(state.open.kuryatnik);
     klara.bodyG.scaleX = -1;
     klaraLabel = nameLabel('Ольмар', 940, 242).setVisible(state.open.kuryatnik);
+    placeOlmar();   // v212: в день 3, пока Ольмар «в походе», у курятника его нет
     // Змей: тёмные волнистые волосы, щетина, туника сливового цвета, серые штаны, высокие сапоги, меч на поясе
     const zmey = zmeyChar = makeChar({ skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
       hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true });
@@ -5592,6 +5745,8 @@ class FarmScene extends Phaser.Scene {
     updateRide(dt);
     updateDay4(dt);
     updateThresh(dt);
+    updateCartRide(dt);
+    updateOlmarFollow(dt);
     updateNight(time);
     updateFireflies(time);
     updateHunt(dt);
