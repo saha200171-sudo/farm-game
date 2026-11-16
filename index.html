@@ -272,7 +272,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 207;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 208;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1266,7 +1266,11 @@ function musicDecode(k) {
 function musicStart() {   // первое касание экрана (и каждое следующее — если телефон приостановил звук)
   if (music.started) { if (music.ctx && music.ctx.state === 'suspended' && !document.hidden) music.ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  music.started = true; music.ctx = new AC(); if (music.ctx.state === 'suspended') music.ctx.resume();
+  music.started = true;
+  // v208: «playback» — звук готовится крупными порциями с запасом: под нагрузкой телефон не «рвёт» музыку (были помехи раз в несколько секунд);
+  // частота как у файлов (44,1 кГц) — без пересчёта на лету
+  try { music.ctx = new AC({ latencyHint: 'playback', sampleRate: 44100 }); } catch (e) { try { music.ctx = new AC({ latencyHint: 'playback' }); } catch (e2) { music.ctx = new AC(); } }
+  if (music.ctx.state === 'suspended') music.ctx.resume();
   music.master = music.ctx.createGain(); music.master.gain.value = music.on ? 1 : 0; music.master.connect(music.ctx.destination);
   Object.keys(MUSIC).forEach(musicDecode);
   musicUpdate();
