@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 221;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 223;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1052,7 +1052,46 @@ function placeZmey(animate) {
     }
   };
   if (!animate) return put();
-  scene.tweens.add({ targets: [zmeyChar, zmeyLabel], alpha: 0, duration: 400, onComplete: () => { put(); scene.tweens.add({ targets: [zmeyChar, zmeyLabel], alpha: 1, duration: 500 }); } });
+  // v223: рядом — идёт пешком (рисованная походка); далеко (другой конец карты) — как раньше, тает и появляется
+  const path = Math.hypot(P.x - zmeyChar.x, P.y - zmeyChar.y) < 1600 && !nap ? findPath(zmeyChar.x, zmeyChar.y, P.x, P.y) : null;
+  if (!path) return scene.tweens.add({ targets: [zmeyChar, zmeyLabel], alpha: 0, duration: 400, onComplete: () => { put(); scene.tweens.add({ targets: [zmeyChar, zmeyLabel], alpha: 1, duration: 500 }); } });
+  zmeyChar.setPose('stand').setAngle(0); zmeyChar.list[0].setVisible(true);
+  if (placeZmey.napShadow) placeZmey.napShadow.setVisible(false);
+  if (zmeyZzz) { zmeyZzz.forEach(z => { scene.tweens.killTweensOf(z); z.destroy(); }); zmeyZzz = null; }
+  zmeyLabel.setVisible(true);
+  Object.assign(ANCHORS.zmey, { x: -99999, y: -99999 });   // пока идёт — заговорить нельзя
+  const step = i => {
+    if (i >= path.length) return put();
+    const [x, y] = path[i], d = Math.hypot(x - zmeyChar.x, y - zmeyChar.y);
+    scene.tweens.add({ targets: zmeyChar, x, y, duration: Math.max(60, d / 150 * 1000), ease: 'Linear',
+      onUpdate: () => { zmeyChar.setDepth(zmeyChar.y); zmeyLabel.setPosition(zmeyChar.x, zmeyChar.y - 78); },
+      onComplete: () => step(i + 1) });
+  };
+  step(0);
+}
+// v223: путь по карте в обход грядок, заборов и домов (поиск по сетке 20 по проходимым клеткам) + спрямление
+function findPath(x0, y0, x1, y1) {
+  const C = 20, key = (i, j) => i + ',' + j, cell = (x, y) => [Math.round(x / C), Math.round(y / C)];
+  const ok = (i, j) => walkable(i * C, j * C);
+  const near = (x, y) => { const [ci, cj] = cell(x, y); for (let r = 0; r < 8; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) if (Math.max(Math.abs(di), Math.abs(dj)) === r && ok(ci + di, cj + dj)) return [ci + di, cj + dj]; return null; };
+  const a = near(x0, y0), b = near(x1, y1); if (!a || !b) return null;
+  const prev = new Map([[key(...a), null]]), q = [a]; let found = false;
+  const lim = 9000, D = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  for (let h = 0; h < q.length && q.length < lim; h++) {
+    const [i, j] = q[h]; if (i === b[0] && j === b[1]) { found = true; break; }
+    for (const [di, dj] of D) {
+      const ni = i + di, nj = j + dj, k = key(ni, nj);
+      if (prev.has(k) || !ok(ni, nj) || (di && dj && (!ok(i + di, j) || !ok(i, j + dj)))) continue;
+      prev.set(k, [i, j]); q.push([ni, nj]);
+    }
+  }
+  if (!found) return null;
+  let pts = []; for (let c = b; c; c = prev.get(key(...c))) pts.push([c[0] * C, c[1] * C]); pts.reverse();
+  const los = (p, q2) => { const n = Math.ceil(Math.hypot(q2[0] - p[0], q2[1] - p[1]) / 8); for (let t = 1; t < n; t++) if (!walkable(p[0] + (q2[0] - p[0]) * t / n, p[1] + (q2[1] - p[1]) * t / n)) return false; return true; };
+  const out = [pts[0]]; let i = 0;
+  while (i < pts.length - 1) { let j = pts.length - 1; while (j > i + 1 && !los(pts[i], pts[j])) j--; out.push(pts[j]); i = j; }
+  out.push([x1, y1]);
+  return out;
 }
 // Торгель — сын хозяина фермы Кетиля: очень сильный и суровый, но без повода никого не трогает.
 // Реплика — ЗАГЛУШКА, позже заменим текстом от автора
@@ -3378,7 +3417,7 @@ function makeChar(look) {
 // ===================== Змей — рисованный (v219, Magnific + нарезка): ходьба в 3 стороны, дыхание, моргание, разговор, смех, сидит, дремлет =====================
 // Атлас assets/chars/zmey.webp: части в 0.5 от исходных поз. ZF: [x, y, w, h в атласе, место в позе x, y (исходные px)].
 const ZF = {"back-arm":[166,610,30,28,305,431],"back-body":[377,0,190,322,5,6],"back-fill":[810,330,107,42,88,511],"back-legL":[396,330,40,69,102,513],"back-legR":[438,330,42,68,205,515],"front-arm":[919,330,33,36,24,395],"front-blink":[198,610,73,24,71,191],"front-body":[0,0,193,328,6,6],"front-fill":[704,330,104,50,68,494],"front-legL":[570,330,44,64,82,503],"front-legR":[355,330,39,73,184,516],"side-blink":[273,610,26,22,79,169],"side-body":[195,0,180,328,6,6],"side-fill":[0,610,72,36,97,508],"side-legF":[301,330,52,75,120,512],"side-swordTip":[117,610,47,31,186,548],"front-laughA":[482,330,86,66,59,164],"front-laughB":[616,330,86,60,59,164],"sit-peek":[74,610,41,32,280,162],"sit":[569,0,250,303,5,5],"lie":[0,330,299,278,5,4]};
-const ZK = 0.1515, ZS = 0.5;   // мир на исходный пиксель (рост ≈ 100); масштаб атласа
+const ZK = 0.132, ZS = 0.5;   // мир на исходный пиксель (v222: рост ≈ 87 — чуть выше героини); масштаб атласа
 const ZA = { side: [166, 662], front: [172, 662], back: [195, 651], sit: [250, 611], lie: [300, 560] };   // точка у ног в позе
 const ZHEM = { side: 560, front: 560, back: 568 };   // линия подола: от неё «дышит» верх
 const PAINTED = [];
@@ -3459,7 +3498,14 @@ function updatePainted(dt) {
       continue;
     }
     if (z.pose === 'lie') { z.G.lie.scaleY = 1 + 0.018 * Math.sin(z.t * 1.75) * R; continue; }
-    const view = walking ? (Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side') : (talk || laugh ? 'front' : 'side');
+    // v223: стоит — смотрит на героиню, если она рядом или идёт разговор: сбоку — поворачивается к ней, снизу — лицом к камере
+    let view;
+    const hx = player ? player.x - c.x : 0, hy = player ? player.y - c.y : 0, hd = Math.hypot(hx, hy);
+    const inDlg = !$('sheet').hidden && hd < 320, looks = !walking && player && player.visible !== false && (hd < 200 || inDlg) && c === zmeyChar;
+    if (walking) view = Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side';
+    else if (laugh) view = 'front';
+    else if (looks) { view = hy > 0 && Math.abs(hy) > Math.abs(hx) * 1.2 ? 'front' : 'side'; if (Math.abs(hx) > 6) c.bodyG.scaleX = hx > 0 ? 1 : -1; }
+    else view = talk ? 'front' : 'side';
     if (walking && view === 'side' && Math.abs(z.mdx) > 0.05) c.bodyG.scaleX = z.mdx > 0 ? 1 : -1;
     if (view !== z.view) { z.view = view; zShow(c); }
     // моргание: раз в 2,5–6 с на 0,1 с, иногда дважды
