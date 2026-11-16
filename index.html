@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 225;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 226;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1325,22 +1325,26 @@ const MUSIC = { day: { file: 'assets/music/day.mp3', vol: 0.42 }, evening: { fil
   chase: { file: 'assets/music/chase.mp3?v=2', vol: 0.42 } };   // v225: новый, тревожнее (120 bpm)   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
 const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, started: false };
 try { music.on = localStorage.getItem('farmSound') !== 'off'; } catch (e) {}
-for (const k of Object.keys(MUSIC)) fetch(MUSIC[k].file).then(r => r.arrayBuffer()).then(ab => { music.raw[k] = ab; musicDecode(k); }).catch(() => {});
+for (const k of Object.keys(MUSIC)) fetch(MUSIC[k].file).then(r => r.arrayBuffer()).then(ab => { music.raw[k] = ab; musicUpdate(); }).catch(() => {});
 function musicWant() {
   if (!$('modal').hidden && $('modal').querySelector('.mg')) return 'game';   // открыта мини-игра
   if ((typeof barn !== 'undefined' && barn.active) || (typeof hunt !== 'undefined' && hunt.active)) return 'chase';   // прячемся от Торгеля
   return state.time.phase === 'evening' || state.time.night ? 'evening' : 'day';
 }
+// v226: распаковываем только нужную сейчас мелодию (каждая в памяти ≈ 50 МБ — четыре сразу роняли страницу на телефоне);
+// сжатый файл храним, а распакованную ненужную мелодию через несколько секунд после смены выбрасываем
 function musicDecode(k) {
-  if (!music.ctx || !music.raw[k] || music.buf[k]) return;
-  const ab = music.raw[k]; music.raw[k] = null;
+  if (!music.ctx || !music.raw[k] || music.buf[k] || music.decoding) return;
+  music.decoding = k;
+  const ab = music.raw[k].slice(0);
   music.ctx.decodeAudioData(ab, b => {
+    music.decoding = null;
     const d = b.getChannelData(0); let a = 0, z = d.length - 1;   // обрезаем тишину по краям — иначе в петле слышна пауза
     while (a < d.length && Math.abs(d[a]) < 0.003) a++;
     while (z > a && Math.abs(d[z]) < 0.003) z--;
-    music.buf[k] = { b, off: a / b.sampleRate, dur: (z - a) / b.sampleRate };
+    if (k === musicWant()) music.buf[k] = { b, off: a / b.sampleRate, dur: (z - a) / b.sampleRate };   // пока распаковывали, могла понадобиться другая — эту не держим
     musicUpdate();
-  }, () => {});
+  }, () => { music.decoding = null; });
 }
 function musicStart() {   // первое касание экрана (и каждое следующее — если телефон приостановил звук)
   if (music.started) { if (music.ctx && music.ctx.state === 'suspended' && !document.hidden) music.ctx.resume(); return; }
@@ -1351,7 +1355,6 @@ function musicStart() {   // первое касание экрана (и каж
   try { music.ctx = new AC({ latencyHint: 'playback', sampleRate: 44100 }); } catch (e) { try { music.ctx = new AC({ latencyHint: 'playback' }); } catch (e2) { music.ctx = new AC(); } }
   if (music.ctx.state === 'suspended') music.ctx.resume();
   music.master = music.ctx.createGain(); music.master.gain.value = music.on ? 1 : 0; music.master.connect(music.ctx.destination);
-  Object.keys(MUSIC).forEach(musicDecode);
   musicUpdate();
 }
 function musicLoop(k, fadeIn) {
@@ -1374,9 +1377,11 @@ function musicUpdate() {
   if (!music.ctx) return;
   const want = musicWant();
   if (music.cur && music.cur.k === want) return;
-  if (!music.buf[want]) return;   // ещё скачивается
+  if (!music.buf[want]) { musicDecode(want); return; }   // ещё скачивается или распаковывается
   const old = music.cur, quick = want === 'game' || want === 'chase' || (old && (old.k === 'game' || old.k === 'chase'));   // в мини-игру и обратно — быстрее
   music.cur = musicLoop(want, old ? (quick ? 1.2 : 3) : 2.5); musicFade(old, quick ? 1.2 : 3);
+  clearTimeout(music.freeT);
+  music.freeT = setTimeout(() => { for (const k in music.buf) if (!music.cur || k !== music.cur.k) delete music.buf[k]; }, 4500);   // старая доиграла — освобождаем память
 }
 function musicToggle() {
   music.on = !music.on;
@@ -5959,7 +5964,7 @@ function fitCamera() {
 }
 function resizeGame() {
   if (stick.id === null) idleStick();
-  if (!game) return;
+  if (!game || !game.isBooted || !game.canvas) return;   // v226: игра ещё не запустилась — не трогаем размеры
   const W = app.clientWidth, H = app.clientHeight;
   game.scale.resize(Math.round(W * DPR), Math.round(H * DPR));
   game.scale.setZoom(1 / DPR);
@@ -6238,6 +6243,7 @@ function boot() {
     // и без них мелкие травинки мерцают при движении
     render: { mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   });
+  game.events.once('ready', resizeGame);   // v226: размер, который мог смениться, пока игра запускалась
   if ('ResizeObserver' in window) new ResizeObserver(resizeGame).observe(app);
   window.addEventListener('resize', resizeGame);
 }
