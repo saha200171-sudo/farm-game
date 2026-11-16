@@ -243,7 +243,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
       </div><button class="ghost-btn" id="bagBtn" type="button" aria-expanded="false" hidden></button><div class="bag" id="bag" hidden></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -272,7 +272,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 206;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 207;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -569,17 +569,56 @@ function renderLine() {
   $('portrait').style.background = s.color;
   $('who').textContent = s.name;
   $('nextBtn').textContent = dlg.i === dlg.lines.length - 1 ? 'Хорошо' : 'Дальше';
+  dlg.who = who;
   typeText(text);
 }
 function typeText(text) {
   clearInterval(dlg.timer); dlg.timer = null; dlg.full = text;
   const el = $('line');
   if (REDUCED) { el.textContent = text; return; }
-  let n = 0; el.textContent = '';
+  let n = 0, tick = 0; el.textContent = '';
+  const v = VOICES[dlg.who];
   dlg.timer = setInterval(() => {
     n += 2; el.textContent = text.slice(0, n);
+    const add = text.slice(n - 2, n);   // v207: бормотание — короткий звук на каждые несколько букв
+    if (v && tick++ % v.every === 0 && /[A-Za-zА-Яа-яЁё]/.test(add)) voiceBlip(v, add, n / text.length, text);
     if (n >= text.length) { clearInterval(dlg.timer); dlg.timer = null; }
   }, 28);
+}
+// ===================== Голоса без слов (v207): бормотание кодом, у каждого — своя высота, тембр и темп =====================
+// f — высота (Гц), wave — тембр, every — звук на каждый N-й шаг печати, dur — длина звука (мс), cut — смягчающий фильтр (Гц), wob — «дрожание»
+const VOICES = {
+  grandpa:  { f: 150, wave: 'triangle', every: 3, dur: 80, cut: 1400, wob: 0.06, vol: 0.5 },   // Сверкель — неспешный, с хрипотцой
+  klara:    { f: 330, wave: 'triangle', every: 2, dur: 42, cut: 2600, wob: 0.09, vol: 0.4 },   // Ольмар — высокий, торопливый
+  nanamin:  { f: 190, wave: 'triangle', every: 2, dur: 58, cut: 1700, wob: 0.05, vol: 0.45 },  // Эйнар — мягкий, чуть застенчивый
+  thorfinn: { f: 235, wave: 'triangle', every: 2, dur: 48, cut: 2000, wob: 0.04, vol: 0.45 },  // Торфинн — молодой, отрывистый
+  ketil:    { f: 135, wave: 'sawtooth', every: 2, dur: 62, cut: 950, wob: 0.04, vol: 0.4 },    // Кетиль — низкий, уверенный
+  reaper0:  { f: 140, wave: 'sawtooth', every: 2, dur: 60, cut: 900, wob: 0.05, vol: 0.38 },   // Бьорн
+  reaper1:  { f: 300, wave: 'triangle', every: 2, dur: 50, cut: 2400, wob: 0.06, vol: 0.4 },   // Сигрид
+  reaper2:  { f: 170, wave: 'square', every: 2, dur: 55, cut: 900, wob: 0.05, vol: 0.28 },     // Арне — ворчливый, гнусавый
+  reaper3:  { f: 255, wave: 'sine', every: 3, dur: 75, cut: 2000, wob: 0.08, vol: 0.5 },       // Гудрун — пожилая, медленная
+  reaper4:  { f: 215, wave: 'triangle', every: 1, dur: 38, cut: 2200, wob: 0.07, vol: 0.38 },  // Ульф — тараторит
+  iro:      { f: 360, wave: 'sine', every: 2, dur: 62, cut: 2600, wob: 0.04, vol: 0.5 },       // Арнхейнд — светлый, мягкий
+  kale:     { f: 125, wave: 'triangle', every: 3, dur: 78, cut: 1300, wob: 0.07, vol: 0.5 },   // Лейф — тёплый, басовитый, рассказчик
+  zmey:     { f: 200, wave: 'square', every: 2, dur: 44, cut: 1300, wob: 0.06, vol: 0.28 },    // Змей — бойкий, с хитринкой
+  torgel:   { f: 105, wave: 'sawtooth', every: 2, dur: 70, cut: 750, wob: 0.03, vol: 0.42 },   // Торгель — низкий, грубый
+  hero:     { f: 320, wave: 'triangle', every: 2, dur: 48, cut: 2400, wob: 0.05, vol: 0.4 },   // героиня
+};
+let voicesOn = true;
+try { voicesOn = localStorage.getItem('farmVoices') !== 'off'; } catch (e) {}
+function voiceBlip(v, chunk, prog, text) {
+  if (!voicesOn || !music.ctx || music.ctx.state !== 'running' || !music.master) return;
+  const ctx = music.ctx, t = ctx.currentTime, d = v.dur / 1000;
+  let f = v.f * (1 + (Math.random() - 0.5) * 2 * v.wob);
+  if (/[аеёиоуыэюяaeiouy]/i.test(chunk)) f *= 1.18;   // гласные чуть выше — похоже на слоги
+  const end = text.trim().slice(-1);
+  if (prog > 0.82) f *= end === '?' ? 1 + (prog - 0.82) * 1.6 : end === '.' || end === '…' ? 1 - (prog - 0.82) * 0.6 : 1;   // вопрос — вверх, точка — вниз
+  const o = ctx.createOscillator(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = v.wave; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * 0.94, t + d);
+  flt.type = 'lowpass'; flt.frequency.value = v.cut;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.28 * v.vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+  o.connect(flt).connect(g).connect(music.master);
+  o.start(t); o.stop(t + d + 0.02);
 }
 // Мысли героини — отдельное окно (пунктир, курсив)
 function showThought(text, onEnd) { showDialog([['thought', text]], onEnd); }
@@ -1265,6 +1304,9 @@ function musicToggle() {
 }
 $('soundBtn').textContent = music.on ? 'Звук: вкл' : 'Звук: выкл'; $('soundBtn').setAttribute('aria-pressed', music.on);
 $('soundBtn').addEventListener('click', e => { e.stopPropagation(); musicToggle(); });
+// ВРЕМЕННО: включить/выключить бормотание в меню «Тест»
+$('voiceBtn').textContent = voicesOn ? 'Голоса: вкл' : 'Голоса: выкл';
+$('voiceBtn').addEventListener('click', e => { voicesOn = !voicesOn; try { localStorage.setItem('farmVoices', voicesOn ? 'on' : 'off'); } catch (_) {} $('voiceBtn').textContent = voicesOn ? 'Голоса: вкл' : 'Голоса: выкл'; });
 window.addEventListener('pointerdown', musicStart, { capture: true });
 window.addEventListener('keydown', musicStart, { capture: true });
 document.addEventListener('visibilitychange', () => {   // свернули игру — музыка на паузе
