@@ -221,6 +221,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .push-beat .dot{position:absolute;left:50%;top:50%;width:70px;height:70px;border-radius:50%;background:#86C46F;transform:translate(-50%,-50%) scale(.3)}
 .push-beat .word{position:absolute;left:0;right:0;bottom:-6px;text-align:center;font-family:var(--display);font-weight:600;font-size:20px;color:var(--ink)}
 .push-beat .word.go{color:#C9472F}
+#armCv,#tugCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 #winCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 #fishCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 .fish-bar{position:relative;height:22px;border:3px solid var(--wood);border-radius:999px;background:#EADFC8;overflow:hidden}
@@ -242,7 +243,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
     <div class="side"><button class="ghost-btn" id="soundBtn" type="button" aria-pressed="true">Звук: вкл</button><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
       <div class="dev-menu" id="devMenu" hidden>
         <div class="dev-title">Перейти к дню</div>
-        <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button></div>
+        <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button><button class="ghost-btn" type="button" data-day="5">День 5</button><button class="ghost-btn" type="button" data-day="6">День 6</button></div>
         <div class="dev-title">Быстрые тесты</div>
         <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
       </div><button class="ghost-btn" id="bagBtn" type="button" aria-expanded="false" hidden></button><div class="bag" id="bag" hidden></div></div>
@@ -273,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 212;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 214;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -310,6 +311,7 @@ const SPEAKERS = {
   kale:    { name: 'Лейф',         letter: 'Л', color: '#7A5A3A' },   // v191: Лейф вместо Кейла (внутреннее имя 'kale' оставлено — для сохранений)
   zmey:    { name: 'Змей',         letter: 'З', color: '#6E4D66' },
   torgel:  { name: 'Торгель',      letter: 'Т', color: '#8A3430' },
+  thorkel: { name: 'Торкель',      letter: 'Т', color: '#C0482E' },   // v213: великан-воин, дядя Торфинна
   thought: { name: 'Мысли героини', letter: '…', color: '#8FB3C9', thought: true },
   hero:    { name: 'Героиня',      letter: 'Я', color: '#4DA3D9' },
   test:    { name: 'Тест грядки',   letter: '⚙', color: '#8A8A8A' },   // ВРЕМЕННО: меню для теста грядок
@@ -346,7 +348,8 @@ const ANCHORS = {
   thorfinn: { x: 538, y: -540, reach: 72, mark: -118 },   // v181: слева от дороги // пост Торфинна у перекрёстка в поле (сам он двигается)
   iro:     { x: 943, y: 757, reach: 84, mark: -102 },
   d4:      { x: 0, y: 0, reach: 80, mark: -112 },
-  olmar3:  { x: -99999, y: -99999, reach: 80, mark: -118 },   // v212: Ольмар у скал (день 3)   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
+  olmar3:  { x: -99999, y: -99999, reach: 80, mark: -118 },   // v212: Ольмар у скал (день 3)
+  thorkel: { x: -99999, y: -99999, reach: 84, mark: -140 },   // v213: Торкель   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
   kale:    { x: 215, y: -1140, reach: 84, mark: -112 },   // v162: на берегу реки, перед своей лодкой   // Лейф, старый мореход (был Кейл)   // Арнхейнд, знаток трав — у пруда в саду
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
@@ -381,7 +384,8 @@ const freshState = () => ({
   time: { day: 1, phase: 'day' },
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
   day3: { stage: 0, cartAt: 'cow', hint: 0 },   // v212: hint — сколько подсказок про Ольмара получено (0 Лейф → 1 жнецы → 2 Торфинн → 3 скалы)
-  day4: { stage: 0 },   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
+  day4: { stage: 0 },
+  thork: { stage: 0 },   // v213: Торкель (утро дня 4): 1 — на реку, 2 — веди к Кетилю, 3 — армрестлинг, 4 — канат, 5 — признание, 6 — готово   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }],
     // v190: «Обед для жнецов» (после жатвы, stage 6): хлеб у Сверкеля, вода из колодца, травяной отвар у Арнхейнд → раздать каждому жнецу его кружку
     lunch: { on: false, bread: false, water: false, asked: false, herbs: [false, false, false], brew: false, served: [], done: false },
@@ -429,6 +433,10 @@ function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.wake === 'cowshed') return 'grandpa';   // v197–199: проснулась в коровнике
+  const tk = state.thork.stage;                        // день 4, утро: Торкель
+  if (tk === 1) return 'thorkel';
+  if (tk === 2) return 'ketil';
+  if (tk >= 3 && tk <= 5) return 'thorkel';
   const d4 = state.day4.stage;                         // день 4: подарок для Арнхейнд
   if (d4 === 1) return 'nanamin';
   if (d4 === 2) return 'thorfinn';
@@ -479,8 +487,11 @@ function questText() {
 function updateHud() {
   const d2 = state.day2.stage;
   const d3 = state.day3.stage, day3 = d3 > 0 || (state.time.day >= 3 && d2 >= 6), d4 = state.day4.stage;
-  $('questLabel').textContent = d4 ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
+  $('questLabel').textContent = state.time.day >= 5 ? `Задание · день ${state.time.day}` : d4 || (state.thork.stage > 0 && state.thork.stage < 6) ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
+  const TK = state.thork.stage;
   $('questText').textContent = hunt.active ? 'Проберись домой — не попадись Торгелю'
+    : state.time.day >= 5 ? (state.time.phase === 'evening' ? 'Вечереет — пора домой' : (state.time.day === 5 ? 'Задания пятого дня — скоро (подготовка к празднику)' : 'Задания шестого дня — скоро (праздник и финал)'))
+    : TK > 0 && TK < 6 ? ['', 'С реки доносится громовой хохот — сходи посмотреть', 'Отведи Торкеля к дому Кетиля', 'Состязание: армрестлинг с Торкелем', 'Состязание: перетягивание каната', 'Поговори с Торкелем'][TK]
     : state.wake === 'cowshed' ? 'Ночь в коровнике… Сходи к Сверкелю'
     : d4 ? D4_TEXT[d4] || ''
     : d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
@@ -613,6 +624,7 @@ const VOICES = {
   kale:     { f: 125, wave: 'triangle', every: 3, dur: 78, cut: 1300, wob: 0.07, vol: 0.5 },   // Лейф — тёплый, басовитый, рассказчик
   zmey:     { f: 200, wave: 'square', every: 2, dur: 44, cut: 1300, wob: 0.06, vol: 0.28 },    // Змей — бойкий, с хитринкой
   torgel:   { f: 105, wave: 'sawtooth', every: 2, dur: 70, cut: 750, wob: 0.03, vol: 0.42 },   // Торгель — низкий, грубый
+  thorkel:  { f: 118, wave: 'sawtooth', every: 2, dur: 66, cut: 1100, wob: 0.12, vol: 0.5 },   // Торкель — громкий, раскатистый, весёлый
   hero:     { f: 320, wave: 'triangle', every: 2, dur: 48, cut: 2400, wob: 0.05, vol: 0.4 },   // героиня
 };
 let voicesOn = true;
@@ -764,9 +776,14 @@ function devJump(day) {
       return { cut: [...Array(N).keys()], sheaves: Array.from({ length: n }, () => [q.stook.x, q.stook.y]), stook: [...Array(n).keys()] };
     });
   }
-  if (day >= 4) {   // день 3 пройден: Змей-извозчик у поля, у Кетиля побывали
+  if (day >= 5) {   // v214: дни 1–4 пройдены (Торкель, статуя); задания дней 5 и 6 — скоро
+    s.time = { day, phase: 'day' }; s.day4.stage = 8; s.thork.stage = 6;
+  }
+  if (day >= 4 && day < 5) {   // день 3 пройден: Змей-извозчик у поля, у Кетиля побывали
     s.time = { day: 4, phase: 'day' }; Object.assign(s.day3, { stage: 9, cartAt: 'field', hint: 3 }); s.items.grain = true;
   }
+  if (day >= 5) { Object.assign(s.day3, { stage: 9, cartAt: 'field', hint: 3 }); s.items.grain = true; }
+  if (day === 4.5) s.thork.stage = 6;
   if (day === 4.5) {   // ВРЕМЕННО: сразу к финалу квеста со статуей — статуя стоит в саду под покрывалом, дальше вечернее открытие
     s.day4.stage = 6; s.pos = { x: D4.ped.x + 40, y: D4.ped.y + 96 };
   }
@@ -775,7 +792,8 @@ function devJump(day) {
   if (day === 2.5) { setTimeout(startLunch, 700); }
   else if (day === 2.7) setTimeout(() => toast('Рыбалка: Змей ждёт на мостках', 'info'), 600);
   else if (day === 4.5) setTimeout(startUnveil, 700);
-  else if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startDay4, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
+  else if (day >= 5) setTimeout(() => toast(`День ${day}: задания этого дня — скоро`, 'info', 3000), 600);
+  else if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startThorkel, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
 function resetGame() {
   closeModal();
@@ -788,6 +806,7 @@ function interact(id) {
   const s = state;
   if (id === 'grandpa') return askGrandpa();
   if (id === 'olmar3') return talkOlmarRocks();
+  if (id === 'thorkel') return talkThorkel();
   if (id === 'klara') return talkKlara();
   if (id === 'nanamin') return talkNanamin();
   if (id === 'iro') return talkIro();
@@ -1402,6 +1421,7 @@ function goToSleep(where) {
     state.time.day += 1;
     state.time.phase = 'morning'; state.time.night = false; nightK = 0;
     placeKetil();   // с дня 3 Кетиль ждёт у своего дома
+    if (thk.char && state.thork.stage >= 6) thorkelPut(TK_HOME.x, TK_HOME.y);
     if (campfire) { if (campfire.sparks) campfire.sparks.remove(); campfire.destroy(); campfire = null; }   // костёр догорел за ночь
     d4.flies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); }); d4.flies = [];   // светлячки у статуи разлетелись к утру
     if (cow) { player.setPosition(HUNT.cowshed.x, HUNT.cowshed.y); facing = -1; } else { player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1; }
@@ -1429,7 +1449,7 @@ function goToSleep(where) {
     } else if (state.time.day === 3 && state.day3.stage === 0) {
       setTimeout(startDay3, 1300);
     } else if (state.time.day === 4 && state.day4.stage === 0) {
-      setTimeout(startDay4, 1300);
+      setTimeout(state.thork.stage >= 6 ? startDay4 : startThorkel, 1300);
     } else {
       setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
     }
@@ -2557,6 +2577,179 @@ function olmarAtCoop() {
     placeOlmar(); progress(); toast('Вечереет — пора домой спать', 'info');
   });
 }
+// ===================== День 4, утро: Торкель (v213, схематично) =====================
+// Великан-воин услышал про «Железного Кулака» и приплыл сразиться. Героиня выдумывает: «Сначала одолей ученицу».
+// Армрестлинг (тапать; когда наваливается — держать палец) → канат с Змеем и Торгелем (по команде — смахнуть вниз) →
+// Кетиль признаётся, Торкель хохочет; узнаёт Торфинна («Мелкий! Сын Торса!»). Остаётся на ферме, у реки.
+const THORKEL_LOOK = { skin: 0xE6B48C, legs: 0xD9CDB2, boots: 0x7A5A3A, hair: 'spiky', hairColor: 0xE8C850, headband: 0xC0482E, goatee: true, brows: true, grin: true, noBlush: true,
+  scale: 1.28, belt: 0x4A3020, buckle: 0xBFC3C6, dress: 0x7A8A5A, tunic: true, sleeves: 0x8A9A66, mail: 0x9EA4AA, mailTrim: 0xC9A040, furSkirt: 0x6B4A30, axes: true };
+const TK_RIVER = { x: 430, y: -1250 }, TK_HOME = { x: 470, y: -1170 };   // у мостков / после квеста — у реки, рядом с Лейфом
+const thk = { char: null, lab: null, follow: false };
+function thorkelPut(x, y) {
+  if (!thk.char) { thk.char = makeChar(THORKEL_LOOK); thk.lab = nameLabel('Торкель', 0, 0); scene.npcs.push(thk.char); }
+  thk.char.setPosition(x, y).setDepth(y).setVisible(true); thk.lab.setPosition(x, y - 118).setVisible(true);
+  Object.assign(ANCHORS.thorkel, { x, y });
+}
+function placeThorkel() {
+  const st = state.thork.stage, day = state.time.day;
+  if (!thk.char && !(day >= 4 && st >= 1)) return;
+  if (st === 1 || st === 2) { thk.follow = false; thorkelPut(TK_RIVER.x, TK_RIVER.y); if (st === 2) { state.thork.stage = 1; } }
+  else if (st >= 3 && st <= 5) thorkelPut(KETIL_HOME.x - 150, KETIL_HOME.y + 90);
+  else if (st >= 6) thorkelPut(TK_HOME.x, TK_HOME.y);
+}
+function startThorkel() {
+  state.thork.stage = 1; progress(); placeThorkel();
+  showThought('Что это? С реки доносится громовой хохот… Будто медведь смеётся. Надо посмотреть.');
+}
+function talkThorkel() {
+  const st = state.thork.stage;
+  if (st === 1) return showDialog([   // ЗАГЛУШКИ: реплики — черновик
+    ['kale', 'О нет… Только не он. Здравствуй, Торкель.'],
+    ['thorkel', 'Лейф, старый морской сухарь! Ха-ха! Но я не к тебе. Говорят, на этой ферме живёт ЖЕЛЕЗНЫЙ КУЛАК!'],
+    ['thorkel', 'Тот, что один разогнал десяток разбойников и ломает щиты голой рукой! Хочу с ним сразиться! Где он?'],
+    ['hero', '(Ой… Кетиль.) Я… могу показать дорогу.'],
+    ['thorkel', 'Веди, малышка! Ох, давно у меня не было хорошей драки!'],
+  ], () => { state.thork.stage = 2; thk.follow = true; progress(); toast('Отведи Торкеля к дому Кетиля', 'info'); });
+  if (st === 3) return showDialog([['thorkel', 'Ну что, ученица? Давай руку!']], startArmWrestle);
+  if (st === 4) return showDialog([['thorkel', 'Тащи ещё силачей — и за канат!']], startTug);
+  if (st === 5) return thorkelReveal();
+  const lines = ['Ха! Хорошая ферма. Тут бы ещё кого побороть…', 'Лейф опять про свой Винланд? Там хоть подраться есть с кем?', 'Мелкий вырос… Торфинн. Весь в отца. Только хмурый.'];
+  showDialog([['thorkel', lines[(talkThorkel.n = (talkThorkel.n || 0) + 1) % lines.length]]]);
+}
+function updateThorkelFollow(dt) {
+  if (!thk.follow || !thk.char || state.thork.stage !== 2) return;
+  const c = thk.char, dx = player.x - 80 * facing - c.x, dy = player.y + 14 - c.y, d = Math.hypot(dx, dy);
+  if (d > 34) { const st = Math.min(d - 24, (d > 280 ? 380 : 235) * Math.min(dt, 100) / 1000); c.x += dx / d * st; c.y += dy / d * st; c.bodyG.scaleX = dx < 0 ? -1 : 1; c.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 95)) * 3; }
+  else c.bodyG.y = 0;
+  c.setDepth(c.y); thk.lab.setPosition(c.x, c.y - 118); Object.assign(ANCHORS.thorkel, { x: c.x, y: c.y });
+}
+function thorkelAtKetil() {   // героиня подходит к дому — Кетиль выглядывает
+  thk.follow = false; thorkelPut(KETIL_HOME.x - 150, KETIL_HOME.y + 90); thk.char.bodyG.scaleX = 1;
+  showDialog([
+    ['thorkel', 'ЖЕЛЕЗНЫЙ КУЛАК! Выходи! Торкель пришёл помериться силой!'],
+    ['ketil', '(шёпотом, из-за двери) Это что… ТОТ САМЫЙ Торкель?! Он же быка одной рукой… Скажи, что меня нет! Что я в походе!'],
+    ['hero', 'Железный Кулак… сейчас занят. И вообще, он сначала испытывает учеников. Одолей меня — тогда поговоришь с ним.'],
+    ['thorkel', 'Ха-ха-ха! Ученица Железного Кулака! Вот это по-нашему! Давай, малышка, руку на бочку!'],
+  ], () => { state.thork.stage = 3; progress(); startArmWrestle(); });
+}
+// --- армрестлинг: тапать — давить; когда Торкель «наваливается» (красное) — держать палец. Он всё равно победит, но в восторге
+function startArmWrestle() {
+  if (ui.open) return;
+  openModal(`<div class="card mg chop"><div class="badge">Состязание</div><h2>Армрестлинг</h2>
+    <canvas id="armCv" width="300" height="240"></canvas>
+    <div class="fish-bar" id="armBar"><i></i></div>
+    <div class="chop-msg" id="armMsg">Тапай быстрее — дави!</div>
+    <div class="mg-stats"><span>Держись</span><span id="armT">0 с</span></div></div>`);
+  const cv = $('armCv'), ctx = cv.getContext('2d');
+  const A = { pos: 0, surge: false, st: 2000, hold: false, t: 0, held: 0, last: 0, done: false, raf: 0 };
+  window.__arm = A;
+  const msg = m => { $('armMsg').textContent = m; };
+  function draw() {
+    ctx.fillStyle = '#D9C49A'; ctx.fillRect(0, 0, 300, 240);
+    ctx.fillStyle = '#8A5E34'; ctx.fillRect(40, 170, 220, 50); ctx.fillStyle = '#6E4A2C'; ctx.fillRect(40, 170, 220, 8);   // бочка-стол
+    const ang = A.pos * 1.05, hx = 150 + Math.sin(ang) * 78, hy = 168 - Math.cos(ang) * 78;   // сцепленные кисти клонятся к проигрывающему
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#8A9A66'; ctx.lineWidth = 30; ctx.beginPath(); ctx.moveTo(96, 172); ctx.lineTo(108, 168); ctx.stroke();      // рукав Торкеля
+    ctx.strokeStyle = '#E6B48C'; ctx.lineWidth = 24; ctx.beginPath(); ctx.moveTo(104, 168); ctx.lineTo(hx - 6, hy + 4); ctx.stroke();  // рука Торкеля
+    ctx.strokeStyle = '#4DA3D9'; ctx.lineWidth = 20; ctx.beginPath(); ctx.moveTo(206, 172); ctx.lineTo(194, 168); ctx.stroke();     // рукав героини
+    ctx.strokeStyle = '#F5CBA7'; ctx.lineWidth = 15; ctx.beginPath(); ctx.moveTo(196, 168); ctx.lineTo(hx + 6, hy + 4); ctx.stroke(); // рука героини
+    ctx.fillStyle = '#E6B48C'; ctx.beginPath(); ctx.arc(hx, hy, 15, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#F5CBA7'; ctx.beginPath(); ctx.arc(hx + 6, hy - 2, 9, 0, 6.28); ctx.fill();
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = '#2E2418'; ctx.font = '800 15px Nunito, sans-serif'; ctx.fillText('Торкель', 20, 30); ctx.fillText('Ты', 250, 30);
+    if (A.surge) { ctx.fillStyle = 'rgba(224,85,58,0.25)'; ctx.fillRect(0, 0, 300, 240); }
+  }
+  function tick(now) {
+    if (A.done) return;
+    const dt = Math.min(0.1, (now - (A.last || now)) / 1000); A.last = now; A.t += dt;
+    if ((A.st -= dt * 1000) <= 0) { A.surge = !A.surge; A.st = A.surge ? 900 + Math.random() * 500 : 1300 + Math.random() * 900; }
+    A.pos -= dt * (A.surge ? (A.hold ? 0.05 : 0.9) : 0.22);
+    if (A.surge && A.hold) A.held += dt;
+    A.pos = Math.max(-1, Math.min(0.6, A.pos));
+    msg(A.surge ? (A.hold ? 'Держишь! Не отпускай!' : 'Наваливается — держи палец!') : 'Тапай быстрее — дави!');
+    $('armBar').firstChild.style.width = Math.round((A.pos + 1) / 1.6 * 100) + '%';
+    $('armT').textContent = Math.floor(A.t) + ' с';
+    draw();
+    if (A.t > 12 || A.pos <= -1) return finish();
+    A.raf = requestAnimationFrame(tick);
+  }
+  function finish() {
+    A.done = true; cancelAnimationFrame(A.raf); A.pos = -1; draw();
+    msg('Торкель всё-таки положил руку… но он в восторге!');
+    setTimeout(() => { closeModal(); afterArm(A.held); }, 1300);
+  }
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} A.hold = true; if (!A.surge) A.pos += 0.07; });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { A.hold = false; }));
+  window.__armTap = () => { if (!A.surge) A.pos += 0.07; };
+  A.raf = requestAnimationFrame(tick);
+}
+function afterArm(held) {
+  state.thork.stage = 4; progress();
+  showDialog([
+    ['thorkel', held > 1.5 ? 'ХА! Крепкая рука! Я аж вспотел! Ученица что надо!' : 'Ха-ха! Неплохо для малышки! Но мало, мало!'],
+    ['thorkel', 'Давай-ка по-настоящему! Тащи всех силачей фермы — и за канат! Я один против всех!'],
+    ['zmey', 'Кто тут звал силачей? Я, вообще-то, просто мимо проезжал…'],
+    ['torgel', 'Хм. Один против всех? Посмотрим.'],
+  ], startTug);
+}
+// --- перетягивание каната: по команде «ТЯНЕМ!» — смахнуть вниз. Рано — канат проскальзывает. 8 дружных рывков — Торкель падает от смеха
+function startTug() {
+  if (ui.open) return;
+  openModal(`<div class="card mg chop"><div class="badge">Состязание</div><h2>Перетягивание каната</h2>
+    <canvas id="tugCv" width="300" height="220"></canvas>
+    <div class="chop-msg" id="tugMsg">Жди команды — потом смахни вниз!</div>
+    <div class="mg-stats"><span>Героиня, Змей и Торгель</span><span id="tugN">Рывки: 0 из 8</span></div></div>`);
+  const cv = $('tugCv'), ctx = cv.getContext('2d');
+  const T = { pos: 0, go: false, gt: 1400, ok: 0, t: 0, last: 0, done: false, raf: 0, y0: null };
+  window.__tug = T;
+  const msg = m => { $('tugMsg').textContent = m; };
+  function draw() {
+    ctx.fillStyle = '#B9D49A'; ctx.fillRect(0, 0, 300, 220);
+    ctx.fillStyle = '#9C7A50'; ctx.fillRect(0, 150, 300, 70);
+    const mx = 150 + T.pos * 110;
+    ctx.strokeStyle = '#C9A76A'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(20, 120); ctx.lineTo(280, 120); ctx.stroke();   // канат
+    ctx.fillStyle = '#C0482E'; ctx.fillRect(mx - 4, 108, 8, 24);   // метка
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(150, 90); ctx.lineTo(150, 150); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#7A8A5A'; ctx.beginPath(); ctx.arc(40, 110, 18, 0, 6.28); ctx.fill();   // Торкель
+    ctx.fillStyle = '#E8C850'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(28 + i * 6, 96); ctx.lineTo(31 + i * 6, 80); ctx.lineTo(34 + i * 6, 96); ctx.fill(); }
+    [['#4DA3D9', 230], ['#6E4D66', 252], ['#7E2F2B', 274]].forEach(([c, x]) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, 112, 11, 0, 6.28); ctx.fill(); });   // героиня, Змей, Торгель
+    if (T.go) { ctx.fillStyle = '#C9472F'; ctx.font = '800 26px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ТЯНЕМ!', 150, 60); ctx.textAlign = 'left'; }
+  }
+  function tick(now) {
+    if (T.done) return;
+    const dt = Math.min(0.1, (now - (T.last || now)) / 1000); T.last = now; T.t += dt;
+    if ((T.gt -= dt * 1000) <= 0) { T.go = !T.go; T.gt = T.go ? 650 : 900 + Math.random() * 900; }
+    T.pos -= dt * 0.06; T.pos = Math.max(-1, Math.min(1, T.pos));
+    draw(); T.raf = requestAnimationFrame(tick);
+  }
+  function pull() {
+    if (T.done) return;
+    if (T.go) { T.ok++; T.pos += 0.14; T.go = false; T.gt = 900 + Math.random() * 700; $('tugN').textContent = `Рывки: ${T.ok} из 8`; msg('Раз-два — взяли!'); }
+    else { T.pos -= 0.08; msg('Рано! Канат проскользнул — жди команды'); }
+    if (T.ok >= 8) { T.done = true; cancelAnimationFrame(T.raf); T.pos = 1; draw(); msg('Торкель повалился на траву… от смеха!'); setTimeout(() => { closeModal(); afterTug(); }, 1400); }
+  }
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} T.y0 = e.clientY; });
+  cv.addEventListener('pointerup', e => { if (T.y0 !== null && e.clientY - T.y0 > 25) pull(); T.y0 = null; });   // смахнуть вниз
+  window.__tugPull = pull;
+  T.raf = requestAnimationFrame(tick);
+}
+function afterTug() { state.thork.stage = 5; progress(); thorkelReveal(); }
+function thorkelReveal() {
+  showDialog([
+    ['thorkel', 'Ха-ха-ха! Повалили! Меня! Вот это ферма! Ну всё — теперь подавай Железного Кулака!'],
+    ['ketil', '(выходит из дома) Торкель… Признаюсь. Нет никакого Железного Кулака. Разбойники были гусями, а щиты — соломенные.'],
+    ['thorkel', '…Гуси?'],
+    ['thorkel', 'ГУСИ?! ХА-ХА-ХА-ХА! Соломенные щиты! Ох, не могу… Лучшая история за весь год! Ты, хозяин, мне нравишься!'],
+    ['thorfinn', '(прибежал на шум) Что тут за… Торкель?!'],
+    ['thorkel', 'МЕЛКИЙ! Сын Торса! Ты ли это?! Вымахал-то как! А хмурый — весь в отца!'],
+    ['thorfinn', 'Я не мелкий… Здравствуй, Торкель.'],
+    ['thorkel', 'Решено: остаюсь у вас! Повеселимся до праздника. Лейф, двигайся — у реки места на двоих хватит!'],
+  ], () => {
+    state.thork.stage = 6; progress(); thorkelPut(TK_HOME.x, TK_HOME.y);
+    toast('Торкель остаётся на ферме — он у реки, рядом с Лейфом', 'info', 3200);
+    scene.time.delayedCall(1800, () => { if (state.day4.stage === 0) startDay4(); });
+  });
+}
 function afterPolish() {
   showDialog([
     ['nanamin', 'Она… прекрасна. Спасибо вам. Правда.'],
@@ -2767,6 +2960,7 @@ function hitTest(x, y) {
   if (nanaminChar && nanaminChar.visible && near(800, 1545, 44)) return 'nanamin';
   if (d4Spot() && near(ANCHORS.d4.x, ANCHORS.d4.y - 35, 48)) return 'd4';
   if (state.day3.stage === 6 && olm.char && near(ANCHORS.olmar3.x, ANCHORS.olmar3.y - 35, 48)) return 'olmar3';
+  if (thk.char && !thk.follow && near(ANCHORS.thorkel.x, ANCHORS.thorkel.y - 44, 54)) return 'thorkel';
   if (state.open.sad && near(943, 721, 50)) return 'iro';
   if (near(ANCHORS.kale.x, ANCHORS.kale.y - 35, 48)) return 'kale';
   if (thorfinnChar && thorfinnChar.visible && thor.mode === 'idle' && near(thorfinnChar.x, thorfinnChar.y - 35, 44)) return 'thorfinn';
@@ -2865,6 +3059,7 @@ function nearest() {
     if (id === 'nanamin' && nanaminChar && !nanaminChar.visible) continue;
     if (id === 'd4' && !d4Spot()) continue;
     if (id === 'olmar3' && !(state.day3.stage === 6 && olm.char)) continue;
+    if (id === 'thorkel' && (!thk.char || thk.follow)) continue;
     if (id === 'klara' && olm.follow) continue;
     if (id === 'iro' && !state.open.sad) continue;
     if (id === 'chop' && !(state.nanamin.stage === 1 && state.nanamin.tools === 2)) continue;
@@ -2932,6 +3127,11 @@ function makeChar(look) {
   const b = scene.make.graphics({ add: false });
   b.translateCanvas(CH_OX * CH_R, CH_OY * CH_R).scaleCanvas(CH_R, CH_R);
   if (look.cloak) b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -42, 36, 38, { tl: 12, tr: 12, bl: 4, br: 4 });   // плащ сзади, до колен
+  if (look.axes) {   // v213: два топора крест-накрест за спиной
+    b.lineStyle(3.5, 0x6E4A2C, 1).lineBetween(-22, -6, 20, -66).lineBetween(22, -6, -20, -66);
+    b.fillStyle(0xB9BEC2, 1).fillTriangle(20, -66, 32, -70, 26, -54).fillTriangle(-20, -66, -32, -70, -26, -54);
+    b.fillStyle(0x8E9398, 1).fillTriangle(20, -66, 26, -54, 22, -60).fillTriangle(-20, -66, -26, -54, -22, -60);
+  }
   if (look.hair === 'flowing') {   // длинные волнистые волосы за спиной — ниже плеч (рисуем до тела)
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 36, 30).fillRoundedRect(-18, -56, 36, 30, 8);
     b.fillTriangle(-18, -28, -12, -28, -16, -21).fillTriangle(12, -28, 18, -28, 16, -21);
@@ -2976,6 +3176,7 @@ function makeChar(look) {
   if (look.hood) b.fillStyle(look.hood, 1).fillEllipse(0, -44, 34, 16);   // откинутый капюшон за плечами
   if (look.hair === 'braid') b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30);   // коса: сзади — объём волос
   if (look.hair === 'shag') b.fillStyle(look.hairColor, 1).fillEllipse(0, -56, 36, 30);   // взлохмаченные до ушей
+  if (look.hair === 'spiky') b.fillStyle(look.hairColor, 1).fillEllipse(0, -58, 34, 26);   // v213: торчком — объём сзади
   if (look.hair === 'long') {   // длинные волосы сзади: до плеч, слегка расходятся
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 34, 30).fillTriangle(-17, -52, -9, -52, -15, -27).fillTriangle(17, -52, 9, -52, 15, -27);
   }
@@ -2996,6 +3197,15 @@ function makeChar(look) {
   if (look.hood) {   // v191: капюшон, опущенный на плечи: мягкий ворот вокруг шеи со складкой
     b.fillStyle(look.hood, 1).fillRoundedRect(-17, -45, 34, 11, 5).fillTriangle(-9, -36, 9, -36, 0, -29);
     b.fillStyle(0x000000, 0.16).fillRoundedRect(-12, -38, 24, 2, 1).fillTriangle(-3, -35, 3, -35, 0, -31);
+  }
+  if (look.furSkirt) {   // v213: меховая юбка поверх кольчужного подола — неровный край
+    b.fillStyle(look.furSkirt, 1).fillRect(-15, -24, 30, 9);
+    for (let k = 0; k < 6; k++) b.fillTriangle(-15 + k * 5, -15, -10 + k * 5, -15, -12.5 + k * 5, -9);
+  }
+  if (look.mail) {   // v213: кольчужный жилет с отделкой по краю
+    b.fillStyle(look.mail, 1).fillRoundedRect(-12, -41, 24, 18, { tl: 6, tr: 6, bl: 1, br: 1 });
+    b.fillStyle(0x000000, 0.13); for (let yy = -38; yy < -24; yy += 3) for (let xx = -10 + ((yy / 3) & 1) * 1.5; xx < 10; xx += 3) b.fillRect(xx, yy, 1.4, 1.4);
+    if (look.mailTrim) b.fillStyle(look.mailTrim, 1).fillRect(-12, -41, 2.2, 18).fillRect(9.8, -41, 2.2, 18).fillTriangle(-4, -41, 4, -41, 0, -34);
   }
   if (look.cloak) {   // плащ спереди: тяжёлый воротник-накидка на плечах и круглая застёжка
     b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -44, 36, 12, 6).fillTriangle(-18, -36, -6, -36, -15, -26).fillTriangle(18, -36, 6, -36, 15, -26);
@@ -3040,6 +3250,12 @@ function makeChar(look) {
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -64, 30, 11).fillRoundedRect(-17, -60, 6, 30, 3).fillRoundedRect(11, -60, 6, 30, 3);
     b.fillTriangle(-17, -34, -11, -34, -15, -26).fillTriangle(11, -34, 17, -34, 15, -26);
     b.fillStyle(0x000000, 0.08).fillRect(-6, -68, 2, 6).fillRect(1, -69, 2, 6).fillRect(6, -67, 2, 5);   // пряди, зачёсанные назад
+  } else if (look.hair === 'spiky') {
+    // v213: светлые волосы торчат вверх острыми прядями
+    b.fillStyle(look.hairColor, 1).fillEllipse(0, -63, 30, 12);
+    const sp = [[-14, -60, -10, -78], [-8, -63, -4, -86], [-2, -64, 2, -90], [4, -63, 9, -86], [10, -61, 15, -77], [-15, -58, -20, -70], [14, -58, 20, -70]];
+    for (const [x1, y1, xt, yt] of sp) b.fillTriangle(x1 - 4, y1, x1 + 4, y1, xt, yt);
+    b.fillStyle(0x000000, 0.1).fillTriangle(-3, -64, 1, -64, 1, -84).fillTriangle(5, -63, 8, -63, 9, -80);
   } else if (look.hair === 'shag') {
     // взлохмаченная чёлка прядями и волосы, закрывающие уши
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -62, 32, 15).fillRoundedRect(-17, -61, 7, 17, 3).fillRoundedRect(10, -61, 7, 17, 3);
@@ -3095,6 +3311,9 @@ function makeChar(look) {
     b.lineStyle(1.8, 0x2e2418, 1).beginPath().arc(0, -41, 3.5, 1.15 * Math.PI, 1.85 * Math.PI).strokePath();
   } else if (look.stern) {
     b.lineStyle(1.8, 0x2e2418, 1).lineBetween(-4, -44, 4, -44).lineBetween(-4, -44, -5, -43).lineBetween(4, -44, 5, -43);   // плотно сжатый рот
+  } else if (look.grin) {   // v213: широкая открытая улыбка с зубами
+    b.fillStyle(0x5A2A1E, 1).fillEllipse(0, -43.5, 11, 6.5);
+    b.fillStyle(0xFFFDF4, 1).fillRect(-4.5, -46.2, 9, 2.4);
   } else if (look.smirk) {
     // ухмылка: уголок рта приподнят с одной стороны
     b.lineStyle(1.7, 0x2e2418, 1).lineBetween(-3.5, -44.5, 2, -44.5).lineBetween(2, -44.5, 4.5, -46.5);
@@ -3116,6 +3335,10 @@ function makeChar(look) {
     b.fillStyle(0x000000, 0.12).fillRect(-0.6, -47.5, 1.2, 4);
   }
   if (look.glasses) b.lineStyle(1.5, 0x2e2418, 1).strokeCircle(-5, -51, 4.5).strokeCircle(5, -51, 4.5);
+  if (look.headband) {   // v213: повязка на лбу, концы узла торчат сбоку
+    b.fillStyle(look.headband, 1).fillRoundedRect(-16, -62, 32, 5, 2).fillTriangle(15, -61, 24, -64, 22, -56).fillTriangle(15, -59, 23, -52, 18, -51);
+    b.fillStyle(0xE8A050, 0.8).fillRect(-16, -60.5, 32, 1.2);
+  }
   b.generateTexture(key, CH_W * CH_R, CH_H * CH_R); b.destroy();
   const img = scene.add.image(0, 0, key).setOrigin(CH_OX / CH_W, CH_OY / CH_H).setScale(1 / CH_R);
   const body = scene.add.container(0, look.sit === 'ground' ? 9 : 0, [img]);   // сидя — ниже
@@ -5045,6 +5268,7 @@ function talkReaper(i) {
 }
 function talkKetil() {
   const d2 = state.day2, d3 = state.day3;
+  if (state.thork.stage === 2) return thorkelAtKetil();
   // ЗАГЛУШКИ: день 3 — задание у дома придумаем отдельно
   if (d3.stage === 1 || d3.stage === 2) return showDialog([
     ['ketil', d3.stage === 2 ? 'Добралась! Змей, небось, всю дорогу шутил? Вот он, мой дом.' : 'Пешком дошла? Ну ты упорная! В другой раз проси Змея — у него телега.'],
@@ -5626,6 +5850,7 @@ class FarmScene extends Phaser.Scene {
     klara.bodyG.scaleX = -1;
     klaraLabel = nameLabel('Ольмар', 940, 242).setVisible(state.open.kuryatnik);
     placeOlmar();   // v212: в день 3, пока Ольмар «в походе», у курятника его нет
+    Object.assign(thk, { char: null, follow: false }); placeThorkel();   // v213: Торкель
     // Змей: тёмные волнистые волосы, щетина, туника сливового цвета, серые штаны, высокие сапоги, меч на поясе
     const zmey = zmeyChar = makeChar({ skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
       hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true });
@@ -5747,6 +5972,7 @@ class FarmScene extends Phaser.Scene {
     updateThresh(dt);
     updateCartRide(dt);
     updateOlmarFollow(dt);
+    updateThorkelFollow(dt);
     updateNight(time);
     updateFireflies(time);
     updateHunt(dt);
