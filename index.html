@@ -112,6 +112,7 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
   max-height:100%;overflow:auto}
 .card h2{font-family:var(--display);font-weight:600;font-size:26px;margin:0;text-wrap:balance}
 .card p{margin:0;line-height:1.45;font-size:17px}
+.card.hunt-rules p{text-align:left}   /* v242: правила пряток — списком */
 .badge{align-self:center;font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tomato)}
 .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .mg-stats{display:flex;justify-content:space-between;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
@@ -274,7 +275,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 241;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 242;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1245,8 +1246,10 @@ function startHunt() {   // v201: Торгель уходит сторожить
     onUpdate: () => { T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94); T.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 110)) * 3; } });
   showThought('Он встал у двери… Не пустит меня домой, пока я не отдам фонарь. Ну уж нет, ночевать с коровами я не собираюсь. Надо как-то отвлечь его от двери.', () => {
     scene.tweens.killTweensOf(T); T.setPosition(px, py).setDepth(py); T.bodyG.y = 0; torgelLab.setPosition(px, py - 94);
-    Object.assign(hunt, { active: true, mode: 'patrol', pi: 1, t: 0, grace: 3000 });
-    progress(); toast('Выключи фонарь — без света Торгель тебя не видит', 'warn');
+    huntRules(() => {   // v242: окно-правила; с его появлением начинается тревожная музыка
+      Object.assign(hunt, { active: true, mode: 'patrol', pi: 1, t: 0, grace: 3000 });
+      progress();
+    });
   });
 }
 function endHunt(won) {
@@ -1261,6 +1264,16 @@ function huntMove(tx, ty, speed, dt) {
   if (Math.abs(dx) > 2) T.bodyG.scaleX = dx < 0 ? -1 : 1;
   T.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / (speed > 200 ? 70 : 110))) * 3;
   return d < 14;
+}
+function huntRules(onGo) {
+  openModal(`<div class="card mg hunt-rules"><div class="badge">Ночные прятки</div><h2>Не попадись Торгелю</h2>
+    <p>Торгель караулит дверь дома. Проберись внутрь, пока он не смотрит.</p>
+    <p>🏮 С фонарём он видит тебя издалека. Выключи свет кнопкой «Фонарь» внизу справа.</p>
+    <p>🌙 Без света он заметит тебя, только если подойдёшь совсем близко.</p>
+    <p>👀 Отмани его от двери: мелькни с фонарём подальше — он пойдёт проверить. А ты обойди и шмыгни в дом.</p>
+    <p>🐄 Поймает — ночуешь в коровнике.</p>
+    <div class="row"><button class="btn" id="huntGo" type="button">Попробую!</button></div></div>`);
+  $('huntGo').addEventListener('click', e => { e.stopPropagation(); onGo(); closeModal(); });   // сперва прятки, потом закрыть — музыка не скачет
 }
 function updateHunt(dt) {
   if (!hunt.active || !torgelNpc) return;
@@ -1350,6 +1363,7 @@ function musicFetch(k) {
 }
 function musicPrefetch() { musicFetch('day').then(() => musicFetch('evening')).then(() => setTimeout(() => musicFetch('game').then(() => musicFetch('chase')), 8000)); }
 function musicWant() {
+  if (!$('modal').hidden && $('modal').querySelector('.hunt-rules')) return 'chase';   // v242: правила пряток — уже тревожно
   if (!$('modal').hidden && $('modal').querySelector('.mg')) return 'game';   // открыта мини-игра
   if ((typeof barn !== 'undefined' && barn.active) || (typeof hunt !== 'undefined' && hunt.active)) return 'chase';   // прячемся от Торгеля
   return state.time.phase === 'evening' || state.time.night ? 'evening' : 'day';
