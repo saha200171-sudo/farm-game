@@ -47,7 +47,15 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
   display:flex;gap:8px;align-items:flex-start;justify-content:space-between;pointer-events:none}
 .quest{background:var(--paper);border:3px solid var(--wood);border-radius:14px;padding:8px 14px 10px;max-width:min(340px,64vw);
   box-shadow:0 4px 0 rgba(46,36,24,.35);display:flex;flex-direction:column;gap:2px}
-.quest .label{font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tomato)}
+.quest .label{font-size:15px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tomato);display:flex;gap:8px;align-items:center}
+/* v203: панель задания сворачивается в одну строку (нажать — раскрыть) */
+.quest{pointer-events:auto;cursor:pointer}
+.quest .qarrow::after{content:'▾';font-size:13px}
+.quest.collapsed .qarrow::after{content:'▸'}
+.quest.collapsed{padding:6px 12px}
+.quest.collapsed .text,.quest.collapsed .sub{display:none}
+.bag[hidden]{display:none}
+#bagBtn.flash{animation:pop .35s ease-out}
 .quest .text{font-family:var(--display);font-size:19px;font-weight:600;line-height:1.2;text-wrap:balance}
 .quest .sub{margin-top:6px;padding-top:6px;border-top:2px dashed #D9CBA8;font-family:var(--display);font-size:17px;font-weight:600;line-height:1.2;color:#3E5A7A}
 .side{display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
@@ -229,14 +237,14 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div id="game"></div>
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
-    <div class="quest"><div class="label" id="questLabel">Задание</div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
+    <div class="quest collapsed" id="questBox" role="button" tabindex="0" aria-expanded="false"><div class="label"><span id="questLabel">Задание</span><span class="qarrow" aria-hidden="true"></span></div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
     <div class="side"><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
       <div class="dev-menu" id="devMenu" hidden>
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button></div>
         <div class="dev-title">Быстрые тесты</div>
         <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
-      </div><div class="bag" id="bag"></div></div>
+      </div><button class="ghost-btn" id="bagBtn" type="button" aria-expanded="false" hidden></button><div class="bag" id="bag" hidden></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
   <div class="shelf" id="shelf" hidden></div>
@@ -264,7 +272,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 202;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 204;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -495,11 +503,21 @@ function updateHud() {
     if (state.items.lantern) chips.push(['Фонарь', '#F2B34A']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
-  if (state.time.day > 1 || state.time.phase !== 'day') {
-    const sky = { day: '#9FD3F0', evening: '#F2A66B', morning: '#F7D9C4' }[state.time.phase] || '#9FD3F0';
-    chips.unshift([`День ${state.time.day}`, sky]);
+  // v203: вещи — под кнопкой «День N · Вещи (n)»; список открывается по нажатию
+  const dayTxt = state.time.day > 1 || state.time.phase !== 'day' ? `День ${state.time.day}` : '';
+  const html = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
+  if ($('bag').innerHTML !== html) {
+    if (chips.length > hudBag.n) { const b = $('bagBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); }
+    $('bag').innerHTML = html;
   }
-  $('bag').innerHTML = chips.map(([t, c]) => `<span class="chip"><i style="background:${c}"></i>${t}</span>`).join('');
+  hudBag.n = chips.length;
+  const bb = $('bagBtn');
+  bb.hidden = !dayTxt && !chips.length;
+  bb.textContent = [dayTxt, chips.length ? `Вещи (${chips.length}) ${hudBag.open ? '▴' : '▾'}` : ''].filter(Boolean).join(' · ');
+  $('bag').hidden = !hudBag.open || !chips.length;
+  // задание: при смене текста раскрывается на 5 с
+  const qt = $('questText').textContent;
+  if (qt !== hudQuest.last) { if (hudQuest.last !== null) questPeek(); hudQuest.last = qt; }
   // второе задание — квест Эйнара
   const nm = state.nanamin, side = $('sideQuest');
   let sideText = {
@@ -517,6 +535,14 @@ function updateHud() {
   $('timeBtn').textContent = state.time.phase === 'evening' ? 'День' : 'Вечер';
 }
 function progress() { save(); updateHud(); }
+// v203: сворачиваемые панели
+const hudBag = { open: false, n: 0 }, hudQuest = { last: null, pinned: false, timer: null };
+function questOpen(open) { $('questBox').classList.toggle('collapsed', !open); $('questBox').setAttribute('aria-expanded', open); }
+function questPeek() { if (hudQuest.pinned) return; questOpen(true); clearTimeout(hudQuest.timer); hudQuest.timer = setTimeout(() => { if (!hudQuest.pinned) questOpen(false); }, 5000); }
+function questToggle(e) { if (e) e.stopPropagation(); clearTimeout(hudQuest.timer); const open = $('questBox').classList.contains('collapsed'); hudQuest.pinned = open; questOpen(open); }
+$('questBox').addEventListener('click', questToggle);
+$('questBox').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); questToggle(e); } });
+$('bagBtn').addEventListener('click', e => { e.stopPropagation(); hudBag.open = !hudBag.open; $('bagBtn').setAttribute('aria-expanded', hudBag.open); updateHud(); });
 
 let toastTimer;
 function toast(msg, kind) {
@@ -1111,7 +1137,7 @@ function updateHunt(dt) {
   if (!hunt.active || !torgelNpc) return;
   const T = torgelNpc; T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94);
   if (ui.open) return;
-  const ms = Math.min(dt, 60), d = Math.hypot(player.x - T.x, player.y - T.y);
+  const ms = Math.min(dt, 100), d = Math.hypot(player.x - T.x, player.y - T.y);   // по времени, как и героиня
   const blind = hunt.grace > 0; if (blind) hunt.grace -= ms;   // первые 3 с — фора, он героиню не замечает
   const see = !blind && ((lanternOn && d < HUNT.see) || d < HUNT.close), notice = !blind && lanternOn && d < HUNT.notice;
   if (see) { hunt.mode = 'chase'; hunt.tx = player.x; hunt.ty = player.y; }
@@ -2452,11 +2478,26 @@ function doAction() {
 bubble.addEventListener('click', doAction);
 
 // --- Персонажи ---
+// v204: персонаж рисуется фигурами ОДИН раз и «запекается» в картинку (кэш по виду): раньше телефон каждый кадр
+// заново разбивал на треугольники десятки фигур каждого персонажа — это и тормозило игру
+const CH_R = 3, CH_W = 96, CH_H = 150, CH_OX = 48, CH_OY = 125;   // картинка в 3 раза чётче карты; (OX, OY) — точка у ног
+const chKeys = new Map();
 function makeChar(look) {
   const c = scene.add.container(0, 0);
-  const shadow = scene.add.graphics();
-  shadow.fillStyle(0x1d2a12, 0.22).fillEllipse(0, 0, 36, 12);
-  const b = scene.add.graphics();
+  if (!scene.textures.exists('chShadow')) { const g = scene.make.graphics({ add: false }); g.fillStyle(0x1d2a12, 0.22).fillEllipse(18 * CH_R, 6 * CH_R, 36 * CH_R, 12 * CH_R); g.generateTexture('chShadow', 36 * CH_R, 12 * CH_R); g.destroy(); }
+  const shadow = scene.add.image(0, 0, 'chShadow').setScale(1 / CH_R);
+  const sig = JSON.stringify(look);
+  let key = chKeys.get(sig);
+  if (key && scene.textures.exists(key)) {   // такой персонаж уже нарисован — берём готовую картинку
+    const img = scene.add.image(0, 0, key).setOrigin(CH_OX / CH_W, CH_OY / CH_H).setScale(1 / CH_R);
+    const body = scene.add.container(0, look.sit === 'ground' ? 9 : 0, [img]);
+    if (look.scale) c.setScale(look.scale);
+    c.add([shadow, body]); c.bodyG = body;
+    return c;
+  }
+  key = 'ch' + chKeys.size; chKeys.set(sig, key);
+  const b = scene.make.graphics({ add: false });
+  b.translateCanvas(CH_OX * CH_R, CH_OY * CH_R).scaleCanvas(CH_R, CH_R);
   if (look.cloak) b.fillStyle(look.cloak, 1).fillRoundedRect(-18, -42, 36, 38, { tl: 12, tr: 12, bl: 4, br: 4 });   // плащ сзади, до колен
   if (look.hair === 'flowing') {   // длинные волнистые волосы за спиной — ниже плеч (рисуем до тела)
     b.fillStyle(look.hairColor, 1).fillEllipse(0, -55, 36, 30).fillRoundedRect(-18, -56, 36, 30, 8);
@@ -2642,9 +2683,11 @@ function makeChar(look) {
     b.fillStyle(0x000000, 0.12).fillRect(-0.6, -47.5, 1.2, 4);
   }
   if (look.glasses) b.lineStyle(1.5, 0x2e2418, 1).strokeCircle(-5, -51, 4.5).strokeCircle(5, -51, 4.5);
-  if (look.sit === 'ground') b.y = 9;   // сидя — ниже
-  c.add([shadow, b]);
-  c.bodyG = b;
+  b.generateTexture(key, CH_W * CH_R, CH_H * CH_R); b.destroy();
+  const img = scene.add.image(0, 0, key).setOrigin(CH_OX / CH_W, CH_OY / CH_H).setScale(1 / CH_R);
+  const body = scene.add.container(0, look.sit === 'ground' ? 9 : 0, [img]);   // сидя — ниже
+  c.add([shadow, body]);
+  c.bodyG = body;
   return c;
 }
 function nameLabel(text, x, y) {
@@ -4425,7 +4468,7 @@ function buildThorfinn() {
 }
 function updateThorfinn(dt) {
   const t = thorfinnChar; if (!t || !t.visible) return;   // день 4: Торфинн занят статуей
-  const step = sp => sp * Math.min(dt, 50) / 1000;
+  const step = sp => sp * Math.min(dt, 100) / 1000;
   const moveTo = (tx, ty, sp) => {
     const dx = tx - t.x, dy = ty - t.y, d = Math.hypot(dx, dy);
     if (d > 1) { const k = Math.min(1, step(sp) / d); t.x += dx * k; t.y += dy * k; if (Math.abs(dx) > 2) t.bodyG.scaleX = dx < 0 ? -1 : 1; }
@@ -5204,7 +5247,7 @@ class FarmScene extends Phaser.Scene {
     const mag = Math.hypot(v.x, v.y);
     if (mag > 0.05) {
       // скорость зависит от наклона джойстика; полная — с 70% наклона
-      const sp = (barn.active && barn.carry ? 205 : 240) * Math.min(1, mag / 0.7) * Math.min(dt, 50) / 1000;
+      const sp = (barn.active && barn.carry ? 205 : 240) * Math.min(1, mag / 0.7) * Math.min(dt, 100) / 1000;   // v203: скорость как раньше; шаг считается по времени до 100 мс кадра — на медленном телефоне героиня не замедляется
       const ux = v.x / mag, uy = v.y / mag;
       const nx = player.x + ux * sp, ny = player.y + uy * sp;
       if (Math.abs(ux) > 0.2) facing = ux < 0 ? -1 : 1;
