@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 228;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 230;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3504,7 +3504,8 @@ function updatePainted(dt) {
     if (!z.blinkAt) { z.blinkAt = now + 1500 + Math.random() * 3000; z.peekAt = now + 2000 + Math.random() * 3000; }
     const dx = z.lx === null ? 0 : c.x - z.lx, dy = z.ly === null ? 0 : c.y - z.ly, d = Math.hypot(dx, dy); z.lx = c.x; z.ly = c.y;
     if (d > 0.05 && d < 60) { z.moveT = 0.14; z.mdx = dx; z.mdy = dy; } else z.moveT -= sec;
-    const walking = z.pose === 'stand' && z.moveT > 0, talk = zSpeaking(), laugh = now < z.laughEnd;
+    const rider = !!c.parentContainer;   // v230: едет в телеге — телега подпрыгивает, но сам он не идёт
+    const walking = !rider && z.pose === 'stand' && z.moveT > 0, talk = zSpeaking(), laugh = now < z.laughEnd;
     if (z.hop > 0) z.hop = Math.max(0, z.hop - sec * 3.2);
     z.rig.y = -Math.sin(z.hop * Math.PI) * 6 * R;
     if (z.pose === 'sit') {   // сидит: дышит; время от времени приоткрывает глаз, рядом с героиней — смотрит
@@ -3519,8 +3520,9 @@ function updatePainted(dt) {
     // v223: стоит — смотрит на героиню, если она рядом или идёт разговор: сбоку — поворачивается к ней, снизу — лицом к камере
     let view;
     const hx = player ? player.x - c.x : 0, hy = player ? player.y - c.y : 0, hd = Math.hypot(hx, hy);
-    const inDlg = !$('sheet').hidden && hd < 320, looks = !walking && player && player.visible !== false && (hd < 200 || inDlg) && c === zmeyChar;
-    if (walking) view = Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side';
+    const inDlg = !$('sheet').hidden && hd < 500, looks = !walking && player && player.visible !== false && (hd < 380 || inDlg) && (c === zmeyChar || c.parentContainer == null);   // v229: видит героиню дальше
+    if (rider) view = 'side';   // правит лошадкой — боком, по ходу телеги
+    else if (walking) view = Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side';
     else if (laugh) view = 'front';
     else { view = 'front'; if (looks && Math.abs(hx) > 6) c.bodyG.scaleX = hx > 0 ? 1 : -1; }   // v224: стоит лицом к камере; взгляд — в сторону героини
     if (walking && view === 'side' && Math.abs(z.mdx) > 0.05) c.bodyG.scaleX = z.mdx > 0 ? 1 : -1;
