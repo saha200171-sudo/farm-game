@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 230;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 231;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -5358,7 +5358,8 @@ const THOR_LINES = [
 ];
 // сжатый участок (жатва дня 2) — уже не пшеница: по стерне ходить можно, Торфинн не гоняет
 const wheatReaped = i => reap.P.some((P, k) => REAP_PLOTS[k].wi === i && P.bushes.length > 0 && P.n === P.bushes.length);
-function inWheat(x, y) { return WHEAT.some(([wx, wy, w, h], i) => !wheatReaped(i) && x > wx - 4 && x < wx + w + 4 && y > wy - 4 && y < wy + h + 4); }
+const WHEAT_TOP_FREE = 46;   // v231: сверху можно немного зайти в колосья — Торфинн гонит, только если зашла глубже
+function inWheat(x, y) { return WHEAT.some(([wx, wy, w, h], i) => !wheatReaped(i) && x > wx - 4 && x < wx + w + 4 && y > wy + WHEAT_TOP_FREE && y < wy + h + 4); }
 function wheatExit(x, y) {
   const r = WHEAT.find(([wx, wy, w, h]) => x > wx - 4 && x < wx + w + 4 && y > wy - 4 && y < wy + h + 4);
   if (!r) return { x, y };
