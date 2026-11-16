@@ -6,8 +6,8 @@
 <title>Ферма Кетиля</title>
 <meta name="theme-color" content="#4F8A3A">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icons/icon-192.png?v=2">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+<link rel="icon" type="image/png" href="icons/icon-192.png?r=2">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?r=2">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 233;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 234;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1334,10 +1334,17 @@ function updateNight(time) {
 // Петля без шва: за 4 с до конца трек начинается заново, а старый плавно гаснет. День ⇄ вечер — плавный переход 3 с.
 const MUSIC = { day: { file: 'assets/music/day.mp3', vol: 0.42 }, evening: { file: 'assets/music/evening.mp3', vol: 0.4 },
   game: { file: 'assets/music/minigame.mp3', vol: 0.4 },
-  chase: { file: 'assets/music/chase.mp3?v=2', vol: 0.42 } };   // v225: новый, тревожнее (120 bpm)   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
-const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, started: false };
+  chase: { file: 'assets/music/chase2.mp3', vol: 0.42 } };   // v225: новый, тревожнее (120 bpm)   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
+const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, started: false, fetching: {} };
 try { music.on = localStorage.getItem('farmSound') !== 'off'; } catch (e) {}
-for (const k of Object.keys(MUSIC)) fetch(MUSIC[k].file).then(r => r.arrayBuffer()).then(ab => { music.raw[k] = ab; musicUpdate(); }).catch(() => {});
+// v234: музыку качаем не сразу, а после того как ферма загрузилась (раньше 12 МБ мелодий отнимали скорость у картинок при запуске);
+// день и вечер — по очереди сразу после запуска, мини-игры и погоню — когда понадобятся
+function musicFetch(k) {
+  if (music.raw[k] || music.fetching[k]) return Promise.resolve();
+  music.fetching[k] = fetch(MUSIC[k].file).then(r => r.arrayBuffer()).then(ab => { music.raw[k] = ab; musicUpdate(); }).catch(() => {}).finally(() => { music.fetching[k] = null; });
+  return music.fetching[k];
+}
+function musicPrefetch() { musicFetch('day').then(() => musicFetch('evening')).then(() => setTimeout(() => musicFetch('game').then(() => musicFetch('chase')), 8000)); }
 function musicWant() {
   if (!$('modal').hidden && $('modal').querySelector('.mg')) return 'game';   // открыта мини-игра
   if ((typeof barn !== 'undefined' && barn.active) || (typeof hunt !== 'undefined' && hunt.active)) return 'chase';   // прячемся от Торгеля
@@ -1346,7 +1353,8 @@ function musicWant() {
 // v226: распаковываем только нужную сейчас мелодию (каждая в памяти ≈ 50 МБ — четыре сразу роняли страницу на телефоне);
 // сжатый файл храним, а распакованную ненужную мелодию через несколько секунд после смены выбрасываем
 function musicDecode(k) {
-  if (!music.ctx || !music.raw[k] || music.buf[k] || music.decoding) return;
+  if (!music.raw[k]) { musicFetch(k); return; }   // ещё не скачана — скачаем и тогда распакуем
+  if (!music.ctx || music.buf[k] || music.decoding) return;
   music.decoding = k;
   const ab = music.raw[k].slice(0);
   music.ctx.decodeAudioData(ab, b => {
@@ -6179,6 +6187,7 @@ class FarmScene extends Phaser.Scene {
     updateHud();
     releaseStick();
     $('loading').hidden = true;
+    if (!musicPrefetch.done) { musicPrefetch.done = true; setTimeout(musicPrefetch, 300); }   // v234: музыка — после загрузки фермы
     if (state.step === 0) this.time.delayedCall(700, () => toast('Коснись экрана и веди пальцем, чтобы идти', 'info'));
   }
 
