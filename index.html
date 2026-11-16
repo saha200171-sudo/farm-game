@@ -275,7 +275,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 243;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 244;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3566,7 +3566,7 @@ function updatePainted(dt) {
     if (rider) view = 'side';   // правит лошадкой — боком, по ходу телеги
     else if (walking) view = Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side';
     else if (laugh) view = 'front';
-    else { view = 'front'; if (looks && Math.abs(hx) > 6) c.bodyG.scaleX = hx > 0 ? 1 : -1; }   // v224: стоит лицом к камере; взгляд — в сторону героини
+    else { view = 'front'; if (looks && Math.abs(hx) > 6) c.bodyG.scaleX = hx > 0 ? -1 : 1; }   /* v244: на картинке анфас он смотрит влево — отражаем, чтобы взгляд был к героине */   // v224: стоит лицом к камере; взгляд — в сторону героини
     if (walking && view === 'side' && Math.abs(z.mdx) > 0.05) c.bodyG.scaleX = z.mdx > 0 ? 1 : -1;
     if (view !== z.view) { z.view = view; zShow(c); }
     // моргание: раз в 2,5–6 с на 0,1 с, иногда дважды
