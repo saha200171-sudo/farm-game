@@ -275,7 +275,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 242;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 243;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -992,10 +992,12 @@ function talkZmey() {
   ], () => startDrive('ride'));
   if (d3 >= 2) {   // Змей-извозчик: подвезти до другой остановки или пройтись пешком (он поедет следом)
     const back = state.day3.cartAt === 'yard';
-    if (back && zmeyChar.zp && zmeyChar.zp.pose === 'lie') { zmeyChar.setAngle(0); zmeyChar.wakeUp(); if (zmeyZzz) { zmeyZzz.forEach(z => z.destroy()); zmeyZzz = null; } if (placeZmey.napShadow) placeZmey.napShadow.setVisible(false); zmeyChar.list[0].setVisible(true); zmeyLabel.setVisible(true).setPosition(zmeyChar.x, zmeyChar.y - 78); }   // v236: будим под дубом
+    if (back && zmeyChar.zp && zmeyChar.zp.pose === 'lie') { zmeyChar.setAngle(0); zmeyChar.setPose('sit'); zmeyChar.zp.hop = 1; /* v243: будим — садится и смотрит одним глазом */ if (zmeyZzz) { zmeyZzz.forEach(z => z.destroy()); zmeyZzz = null; } if (placeZmey.napShadow) placeZmey.napShadow.setVisible(false); zmeyChar.list[0].setVisible(true); zmeyLabel.setVisible(true).setPosition(zmeyChar.x, zmeyChar.y - 78); }   // v236: будим под дубом
     return showChoice('zmey', back ? 'Ну что, обратно к полю? Подвезу с ветерком!' : 'К Кетилю? Садись — домчу быстрее ветра!', [
-      ['Подвези, пожалуйста', () => startDrive('ride')],
-      ['Пройдусь пешком', () => showDialog([['zmey', 'Как знаешь! Я тогда следом поеду — вдруг передумаешь.']], () => startDrive('escort'))],
+      ['Подвези, пожалуйста', () => { if (back) { zmeyChar.setPose('stand'); zmeyChar.zp.hop = 1; scene.time.delayedCall(450, () => startDrive('ride')); } else startDrive('ride'); }],
+      ['Пройдусь пешком', () => back
+        ? showDialog([['zmey', 'Как знаешь! Тогда я ещё поваляюсь. Пойдёшь по дорожке к полю — догоню.']], () => { ride.campArmed = true; placeZmey(false); zLieDown(8); })
+        : showDialog([['zmey', 'Как знаешь! Я тогда следом поеду — вдруг передумаешь.']], () => startDrive('escort'))],
     ]);
   }
   if (zmeyNapping()) {
@@ -1032,6 +1034,17 @@ function wakeZmey() {
   });
 }
 // Змей на своём месте: дремлет под деревом (до знакомства) или стоит у колодца
+// v243: ложится через «сидит» (как встаёт — через «сидит»): на миг садится, потом ложится; тень и «z z z» — когда лёг
+function zLieDown(angle) {
+  const z = zmeyChar; z.setAngle(0).setPose('sit'); z.zp.hop = 1;
+  const sh = placeZmey.napShadow, zz = zmeyZzz || [];
+  if (sh) sh.setAlpha(0); zz.forEach(t => t.setVisible(false));
+  scene.time.delayedCall(450, () => {
+    if (!z.active || z.zp.pose !== 'sit') return;
+    z.setPose('lie').setAngle(angle); z.zp.hop = 0.6;
+    if (sh) sh.setAlpha(1); zz.forEach(t => t.setVisible(true));
+  });
+}
 function placeZmey(animate) {
   const d3 = state.day3.stage, nap = zmeyNapping() && !d3, at = state.day3.cartAt;
   const fishing = !d3 && state.time.day === 2 && state.day2.fish.stage === 1;
@@ -1067,7 +1080,7 @@ function placeZmey(animate) {
   zmeyLabel.setVisible(true);
   Object.assign(ANCHORS.zmey, { x: -99999, y: -99999 });   // пока идёт — заговорить нельзя
   const step = i => {
-    if (i >= path.length) return put();
+    if (i >= path.length) { put(); if (lie) zLieDown(nap ? 0 : 8); return; }   // v243: дошёл — садится, потом ложится
     const [x, y] = path[i], d = Math.hypot(x - zmeyChar.x, y - zmeyChar.y);
     scene.tweens.add({ targets: zmeyChar, x, y, duration: Math.max(60, d / 150 * 1000), ease: 'Linear',
       onUpdate: () => { zmeyChar.setDepth(zmeyChar.y); zmeyLabel.setPosition(zmeyChar.x, zmeyChar.y - 78); },
@@ -5216,6 +5229,7 @@ let parkedCart = null;
 const cartSpot = () => !state.day3.stage ? null : ({ yard: CART_YARD, field: CART_FIELD, cow: CART_COW })[state.day3.cartAt];
 const ROUTE_TO_YARD = [...RIDE_ROUTE, [CART_YARD.x, CART_YARD.y]];   // первая поездка: от коровника
 const ROUTE_FIELD_YARD = [[CART_FIELD.x, CART_FIELD.y], [130, -448], [CART_YARD.x, CART_YARD.y]], ROUTE_YARD_FIELD = [...ROUTE_FIELD_YARD].reverse();
+const CAMP_ESCORT_X = 2255;   // v243: дальше этой точки дорожки (к полю) Змей просыпается и едет следом
 const ROUTE_KETIL_FIELD = [[CART_KETIL.x, CART_KETIL.y], [3136, -1150], [3136, -448], [130, -448], [CART_FIELD.x, CART_FIELD.y]];   // сцена с Ольмаром
 const ESCORT_JOKES = ['Ноги не устали?', 'Я говорил, что у меня есть телега?', 'Садись — довезу быстрее!', 'Лошадка уже заскучала без тебя.', 'Ты так до вечера идти будешь!'];   // ЗАГЛУШКИ
 function makeCart(riders) {   // [0,0] — земля под серединой телеги; лошадка спереди (справа)
@@ -5388,8 +5402,9 @@ function checkEscort() {
   if (dist < 600 || (d3.cartAt === 'yard' && inYard) || (d3.cartAt === 'field' && player.y > -20)) ride.armed = true;
   if (!ride.armed) return;
   if (d3.cartAt === 'yard') {   // v236: побывала во дворе Кетиля и пошла обратно мимо лагеря — Змей просыпается и едет следом
-    if (inYard) ride.yardVisit = true;
-    if (ride.yardVisit && !inYard && player.x < CART_YARD.x - 160 && player.y > -620) { ride.yardVisit = false; startDrive('escort'); }
+    const onPath = player.y > -570 && player.y < -360;
+    if (player.x > CART_YARD.x - 150 && player.y < -380) ride.campArmed = true;   // была у лагеря (или во дворе Кетиля)
+    if (ride.campArmed && onPath && player.x < CAMP_ESCORT_X) { ride.campArmed = false; startDrive('escort'); }   // перешла середину дорожки — едет следом
   }
   else if (player.x > 700 && player.y < -380 && player.y > -560) startDrive('escort');                // у поля — пошла по дорожке к Кетилю
 }
