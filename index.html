@@ -272,7 +272,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 208;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 209;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3792,10 +3792,21 @@ function bakeBigGraphics() {
     bakeRestoreHooked = true;
     scene.game.renderer.on && scene.game.renderer.on('restorewebgl', () => {
       for (const [rt, o, ox, oy] of BAKED) if (rt.active && o.active) { rt.clear(); rt.draw(o, -ox, -oy); }
+      refreshCanvasTextures();
     });
+    // v209: телефон после сворачивания не всегда возвращает картинки-полотна (дорожки у лагеря Кетиля стали чёрными) —
+    // при возвращении в игру заново отправляем их на видеокарту (быстро, незаметно)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(refreshCanvasTextures, 300); });
   }
 }
 const BAKED = [];   // [картинка, исходный рисунок, сдвиг x, y]
+function refreshCanvasTextures() {   // все картинки, нарисованные кодом на холсте (дорожки, персонажи, свет), — снова на видеокарту
+  if (!scene || !scene.textures) return;
+  for (const k of scene.textures.getTextureKeys()) {
+    const t = scene.textures.get(k);
+    if (t instanceof Phaser.Textures.CanvasTexture) { try { t.refresh(); } catch (e) {} }
+  }
+}
 let bakeRestoreHooked = false;
 let cullTimer = 0;
 function updateCull(dt, force) {
