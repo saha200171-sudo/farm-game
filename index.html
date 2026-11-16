@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 220;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 221;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1282,12 +1282,14 @@ function updateNight(time) {
 // Web Audio: дорожки скачиваются заранее, звук включается после первого касания (так требуют браузеры на телефоне).
 // Петля без шва: за 4 с до конца трек начинается заново, а старый плавно гаснет. День ⇄ вечер — плавный переход 3 с.
 const MUSIC = { day: { file: 'assets/music/day.mp3', vol: 0.42 }, evening: { file: 'assets/music/evening.mp3', vol: 0.4 },
-  game: { file: 'assets/music/minigame.mp3', vol: 0.4 } };   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
+  game: { file: 'assets/music/minigame.mp3', vol: 0.4 },
+  chase: { file: 'assets/music/chase.mp3', vol: 0.42 } };   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
 const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, started: false };
 try { music.on = localStorage.getItem('farmSound') !== 'off'; } catch (e) {}
 for (const k of Object.keys(MUSIC)) fetch(MUSIC[k].file).then(r => r.arrayBuffer()).then(ab => { music.raw[k] = ab; musicDecode(k); }).catch(() => {});
 function musicWant() {
   if (!$('modal').hidden && $('modal').querySelector('.mg')) return 'game';   // открыта мини-игра
+  if ((typeof barn !== 'undefined' && barn.active) || (typeof hunt !== 'undefined' && hunt.active)) return 'chase';   // прячемся от Торгеля
   return state.time.phase === 'evening' || state.time.night ? 'evening' : 'day';
 }
 function musicDecode(k) {
@@ -1334,7 +1336,7 @@ function musicUpdate() {
   const want = musicWant();
   if (music.cur && music.cur.k === want) return;
   if (!music.buf[want]) return;   // ещё скачивается
-  const old = music.cur, quick = want === 'game' || (old && old.k === 'game');   // в мини-игру и обратно — быстрее
+  const old = music.cur, quick = want === 'game' || want === 'chase' || (old && (old.k === 'game' || old.k === 'chase'));   // в мини-игру и обратно — быстрее
   music.cur = musicLoop(want, old ? (quick ? 1.2 : 3) : 2.5); musicFade(old, quick ? 1.2 : 3);
 }
 function musicToggle() {
@@ -6140,6 +6142,7 @@ class FarmScene extends Phaser.Scene {
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
     this.npcs.forEach((n, i) => { if (!n.painted) n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
     updatePainted(dt);
+    if ((this.musT = (this.musT || 0) + dt) > 250) { this.musT = 0; musicUpdate(); }   // v221: смена музыки по ходу игры (амбар, прятки)
     henVisits(dt);
     chickens.forEach(c => { if (herd.active) herdHen(c, dt); else updateHen(c, dt); c.setDepth(c.depthFix || c.y); });
     updateHerd(dt); updateEggs();
