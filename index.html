@@ -272,7 +272,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 204;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 205;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -758,6 +758,7 @@ function interact(id) {
   if (id === 'd4') return day4Act();
   if (id.startsWith('herb')) return pickHerb(+id.slice(4));
   if (id === 'thorfinn' && state.day4.stage === 2) return day4Thorfinn();
+  if (id === 'thorfinn' && state.day3.stage === 1) return showDialog([['thorfinn', 'Змей? У реки он, под старым дубом — там, где вы вчера у костра сидели. С телегой возится.']]);   // ЗАГЛУШКА: подсказка дня 3
   if (id === 'thorfinn') return showDialog([
     // ЗАГЛУШКА: реплика Торфинна при обычном разговоре — заменим на твою
     ['thorfinn', 'Я Торфинн, слежу за полем. Ходи только по дорожкам — и мы поладим.'],
@@ -909,7 +910,7 @@ function talkZmey() {
   ], startFishing);
   // ЗАГЛУШКИ: реплики Змея в день 3 — черновик
   if (d3 === 1) return showDialog([
-    ['zmey', 'О, напарница! Нашла меня. Я тут телегу чиню — колесо скрипело, как Торфинн на жнецов.'],
+    ['zmey', 'О, напарница! Нашла меня. Я тут, у вчерашнего костра, телегу чиню — колесо скрипело, как Торфинн на жнецов.'],
     ['hero', 'Кетиль зовёт меня к себе. Подвезёшь?'],
     ['zmey', 'К Кетилю? Через всю ферму и поле? Садись! Только держись крепче — лошадка у меня с характером.'],
   ], () => startDrive('ride'));
@@ -992,7 +993,7 @@ function talkTorgel() {
 function talkNanamin() {
   const nm = state.nanamin;
   if (state.day4.stage === 1) return day4Einar();
-  if (state.day3.stage === 1) return showDialog([['nanamin', 'Змей? У коровника он, с телегой возится. Вон там, левее.']]);   // ЗАГЛУШКА
+  if (state.day3.stage === 1) return showDialog([['nanamin', 'Змей? Сегодня не видел. Спроси в поле, у Торфинна.']]);   // ЗАГЛУШКА
   if (nm.stage < 3) return nanaminThought();
   if (nm.stage === 3) return showDialog([
     // ЗАГЛУШКА: реплики Эйнара после квеста — заменим на твои
@@ -1312,7 +1313,7 @@ function goToSleep(where) {
 // Ольмар (реплики — черновик): боится кур. Шаг 6 — «Загони кур» (во дворе), шаг 61 — собрать яйца в соломе
 function talkKlara() {
   const s = state;
-  if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Заходил, бормотал что-то про корову Эйнара. Наверное, на пастбище.']]);   // ЗАГЛУШКА
+  if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Проезжал утром мимо курятника с телегой — в поле покатил. Спроси у Торфинна, он там всех видит.']]);   // ЗАГЛУШКА
   if (s.step === 5) return showDialog([
     ['klara', 'А, ты та новенькая. Я Ольмар, сын Кетиля. Курятник — моя забота… пока отец не доверит мне дело поважнее.'],
     ['klara', 'Куры… э-э… решили прогуляться. Все шесть. Я их, конечно, сам выпустил. Для разминки.'],
@@ -2260,7 +2261,8 @@ function startUnveil() {
 let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], gateG, zmeyChar, zmeyLabel, zmeyZzz;
 // День 1: пока героиня не представилась, Змей дремлет на корнях большого дуба в левом нижнем углу огорода
 const ZMEY_NAP = { x: -468, y: 903 }, ZMEY_POST = { x: 228, y: 588 }, ZMEY_JETTY = { x: 420, y: -1290 };   // v192: на мостках — рыбалка
-const ZMEY_COW = { x: 48, y: 1562 }, ZMEY_YARD = { x: 3292, y: -1126 }, ZMEY_FIELD = { x: 40, y: -394 };   // + у поля: начало поперечной дорожки   // день 3: у коровника с телегой → во дворе Кетиля
+const ZMEY_COW = { x: -250, y: -705 },   // v205: день 3 — Змей с телегой у реки, на месте вчерашних посиделок у костра (было у коровника)
+      ZMEY_YARD = { x: 3292, y: -1126 }, ZMEY_FIELD = { x: 40, y: -394 };   // + у поля: начало поперечной дорожки   // день 3: у коровника с телегой → во дворе Кетиля
 const zmeyNapping = () => !state.day3.stage && (state.step <= 3 || state.step === 31);
 let saveMs = 0, facing = 1, nearId = null;
 const chickens = [];
@@ -4259,9 +4261,9 @@ function updateReap(dt) {
 // ===================== Телега Змея (день 3): схематично, кодом; поездка от коровника до двора Кетиля =====================
 // Камера едет за телегой (героиня невидимо «сидит» в ней — так работают камера и отсечение), колёса крутятся, пыль,
 // Змей шутит в облачках. Нажатие — перемотка (быстрее в 4 раза).
-const CART_COW = { x: -120, y: 1590 }, CART_YARD = { x: 3300, y: -1160 }, CART_FIELD = { x: -14, y: -420 };
+const CART_COW = { x: -410, y: -690 }, CART_YARD = { x: 3300, y: -1160 }, CART_FIELD = { x: -14, y: -420 };
 const HERO_LOOK = { skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A };
-const RIDE_ROUTE = [[-120, 1590], [100, 1490], [140, 1372], [364, 1372], [364, 1260], [644, 1260], [644, 420], [588, 420], [588, -448], [3136, -448], [3136, -1150]];
+const RIDE_ROUTE = [[-410, -690], [-80, -650], [40, -560], [130, -448], [3136, -448], [3136, -1150]];   // v205: от места у костра — на поперечную дорожку и к Кетилю
 const ride = { active: false, armed: true };
 let parkedCart = null;
 const cartSpot = () => !state.day3.stage ? null : ({ yard: CART_YARD, field: CART_FIELD, cow: CART_COW })[state.day3.cartAt];
