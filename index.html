@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 218;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 219;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -592,6 +592,7 @@ function renderLine() {
   $('who').textContent = s.name;
   $('nextBtn').textContent = dlg.i === dlg.lines.length - 1 ? 'Хорошо' : 'Дальше';
   dlg.who = who;
+  zLaughCheck(who, text);
   typeText(text);
 }
 function typeText(text) {
@@ -1005,7 +1006,7 @@ function talkZmey() {
 function wakeZmey() {
   const s = state;
   if (zmeyZzz) { zmeyZzz.forEach(z => { scene.tweens.killTweensOf(z); z.destroy(); }); zmeyZzz = null; }
-  scene.tweens.add({ targets: zmeyChar, angle: 0, y: ZMEY_NAP.y, duration: 350, ease: 'Back.easeOut' });   // вскакивает
+  zmeyChar.wakeUp(); zmeyChar.setAngle(0).setPosition(zmeyChar.x, ZMEY_NAP.y);   // v219: просыпается — садится и вскакивает
   zmeyChar.list[0].setVisible(true); if (placeZmey.napShadow) placeZmey.napShadow.setVisible(false);
   zmeyChar.bodyG.scaleX = player.x < zmeyChar.x ? -1 : 1;
   ANCHORS.zmey.mark = -118;   // встал — значок задания над головой, а не на лице
@@ -1032,7 +1033,7 @@ function placeZmey(animate) {
   const fishing = !d3 && state.time.day === 2 && state.day2.fish.stage === 1;
   const P = d3 ? (at === 'yard' ? ZMEY_YARD : at === 'field' ? ZMEY_FIELD : ZMEY_COW) : fishing ? ZMEY_JETTY : nap ? ZMEY_NAP : ZMEY_POST;
   const put = () => {
-    zmeyChar.setPosition(P.x, P.y).setDepth(nap ? 990 : P.y).setAngle(nap ? -84 : 0);   // спит на корнях дуба — поверх них
+    zmeyChar.setPosition(P.x, P.y).setDepth(nap ? 990 : P.y).setAngle(0); zmeyChar.setPose(nap ? 'lie' : 'stand');   // спит на корнях дуба — поверх них (v219: поза «лежит»)
     zmeyChar.bodyG.scaleX = P === ZMEY_YARD || P === ZMEY_POST ? -1 : 1;
     placeCart();
     zmeyChar.list[0].setVisible(!nap);   // своя тень у ног повернулась бы вместе с телом и торчала вниз «лишней ногой»
@@ -2261,7 +2262,7 @@ function campfireScene(n) {
     zmeyChar.setVisible(false); zmeyLabel.setVisible(false); if (leifChar) leifChar.setVisible(false); if (leifLabel) leifLabel.setVisible(false);
     const h = makeChar({ ...HERO_LOOK, sit: 'ground' }); h.setPosition(CAMP_HERO.x, CAMP_HERO.y).setDepth(CAMP_HERO.y); h.bodyG.scaleX = 1;
     const l = makeChar({ ...LEIF_LOOK, sit: 'rock' }); l.setPosition(CAMP_LEIF.x, CAMP_LEIF.y).setDepth(CAMP_LEIF.y + 20); l.bodyG.scaleX = -1; l.list[0].setVisible(false);
-    const z = makeChar(ZMEY_LOOK); z.setPosition(CAMP_ZMEY.x, CAMP_ZMEY.y).setDepth(CAMP_ZMEY.y).setAngle(-84); z.list[0].setVisible(false);
+    const z = makeChar(ZMEY_LOOK); z.setPosition(CAMP_ZMEY.x, CAMP_ZMEY.y).setDepth(CAMP_ZMEY.y).setPose('lie'); z.list[0].setVisible(false);
     const zs = scene.add.ellipse(CAMP_ZMEY.x - 34, CAMP_ZMEY.y + 14, 92, 18, 0x1d2a12, 0.22).setDepth(CAMP_ZMEY.y - 1);
     tmp = [h, l, z, zs];
     cam.stopFollow(); cam.centerOn(CAMPFIRE.x, CAMPFIRE.y - 30); campfireScene.z0 = cam.zoom; cam.setZoom(cam.zoom * 1.15);
@@ -3131,6 +3132,7 @@ bubble.addEventListener('click', doAction);
 const CH_R = 3, CH_W = 96, CH_H = 150, CH_OX = 48, CH_OY = 125;   // картинка в 3 раза чётче карты; (OX, OY) — точка у ног
 const chKeys = new Map();
 function makeChar(look) {
+  if (look === ZMEY_LOOK || look.painted === 'zmey') return makeZmey();   // v219: Змей — рисованный
   const c = scene.add.container(0, 0);
   if (!scene.textures.exists('chShadow')) { const g = scene.make.graphics({ add: false }); g.fillStyle(0x1d2a12, 0.22).fillEllipse(18 * CH_R, 6 * CH_R, 36 * CH_R, 12 * CH_R); g.generateTexture('chShadow', 36 * CH_R, 12 * CH_R); g.destroy(); }
   const shadow = scene.add.image(0, 0, 'chShadow').setScale(1 / CH_R);
@@ -3365,6 +3367,127 @@ function makeChar(look) {
   c.add([shadow, body]);
   c.bodyG = body;
   return c;
+}
+// ===================== Змей — рисованный (v219, Magnific + нарезка): ходьба в 3 стороны, дыхание, моргание, разговор, смех, сидит, дремлет =====================
+// Атлас assets/chars/zmey.webp: части в 0.5 от исходных поз. ZF: [x, y, w, h в атласе, место в позе x, y (исходные px)].
+const ZF = {"back-arm":[166,610,30,28,305,431],"back-body":[377,0,190,322,5,6],"back-fill":[810,330,107,42,88,511],"back-legL":[396,330,40,69,102,513],"back-legR":[438,330,42,68,205,515],"front-arm":[919,330,33,36,24,395],"front-blink":[198,610,73,24,71,191],"front-body":[0,0,193,328,6,6],"front-fill":[704,330,104,50,68,494],"front-legL":[570,330,44,64,82,503],"front-legR":[355,330,39,73,184,516],"side-blink":[273,610,26,22,79,169],"side-body":[195,0,180,328,6,6],"side-fill":[0,610,72,36,97,508],"side-legF":[301,330,52,75,120,512],"side-swordTip":[117,610,47,31,186,548],"front-laughA":[482,330,86,66,59,164],"front-laughB":[616,330,86,60,59,164],"sit-peek":[74,610,41,32,280,162],"sit":[569,0,250,303,5,5],"lie":[0,330,299,278,5,4]};
+const ZK = 0.1515, ZS = 0.5;   // мир на исходный пиксель (рост ≈ 100); масштаб атласа
+const ZA = { side: [166, 662], front: [172, 662], back: [195, 651], sit: [250, 611], lie: [300, 560] };   // точка у ног в позе
+const ZHEM = { side: 560, front: 560, back: 568 };   // линия подола: от неё «дышит» верх
+const PAINTED = [];
+function zPart(view, name, piv) {   // картинка части; piv — ось поворота в координатах позы
+  const tex = scene.textures.get('zmeyAtlas'), f = ZF[name];
+  if (!tex.has(name)) tex.add(name, 0, f[0], f[1], f[2], f[3]);
+  const [ax, ay] = ZA[view], im = scene.add.image(0, 0, 'zmeyAtlas', name).setScale(1 / ZS);
+  if (piv) { im.setOrigin((piv[0] - f[4]) / (f[2] / ZS), (piv[1] - f[5]) / (f[3] / ZS)); im.setPosition(piv[0] - ax, piv[1] - ay); }
+  else { im.setOrigin(0, 0); im.setPosition(f[4] - ax, f[5] - ay); }
+  im.bx = im.x; im.by = im.y;   // исходное место — от него считаются сдвиги анимации
+  return im;
+}
+function zUpper(view, names) {   // верх тела — растягивается от подола (дыхание)
+  const hem = ZHEM[view] - ZA[view][1], g = scene.add.container(0, hem);
+  for (const n of names) { const im = zPart(view, n[0], n[1]); im.y -= hem; im.by = im.y; g.add(im); }
+  g.by = hem;
+  return g;
+}
+function makeZmey() {
+  const c = scene.add.container(0, 0);
+  if (!scene.textures.exists('chShadow')) { const g = scene.make.graphics({ add: false }); g.fillStyle(0x1d2a12, 0.22).fillEllipse(18 * CH_R, 6 * CH_R, 36 * CH_R, 12 * CH_R); g.generateTexture('chShadow', 36 * CH_R, 12 * CH_R); g.destroy(); }
+  const shadow = scene.add.image(0, 0, 'chShadow').setScale(1 / CH_R);
+  const rig = scene.add.container(0, 0).setScale(ZK);
+  const P = {}, G = {};
+  // бок (картинка смотрит влево — разворачиваем: по умолчанию вправо, как у остальных)
+  P.legB = zPart('side', 'side-legF', [168, 552]).setTint(0xB3B0B6); P.fillS = zPart('side', 'side-fill'); P.legF = zPart('side', 'side-legF', [168, 552]);
+  P.upS = zUpper('side', [['side-body'], ['side-blink']]); P.blinkS = P.upS.list[1];
+  P.sword = zPart('side', 'side-swordTip', [200, 545]);
+  G.side = scene.add.container(0, 0, [P.legB, P.fillS, P.legF, P.upS, P.sword]).setScale(-1, 1);
+  // анфас
+  P.fillF = zPart('front', 'front-fill'); P.lLF = zPart('front', 'front-legL'); P.lRF = zPart('front', 'front-legR');
+  P.upF = zUpper('front', [['front-arm', [58, 412]], ['front-body'], ['front-blink'], ['front-laughA'], ['front-laughB']]);
+  [P.armF, , P.blinkF, P.laA, P.laB] = P.upF.list;
+  G.front = scene.add.container(0, 0, [P.fillF, P.lLF, P.lRF, P.upF]);
+  // спиной
+  P.fillB = zPart('back', 'back-fill'); P.lLB = zPart('back', 'back-legL'); P.lRB = zPart('back', 'back-legR');
+  P.upB = zUpper('back', [['back-arm', [330, 438]], ['back-body']]); P.armB = P.upB.list[0];
+  G.back = scene.add.container(0, 0, [P.fillB, P.lLB, P.lRB, P.upB]);
+  // сидит (с открытым глазом — «подглядывает») и лежит (голова влево, как прежний спящий Змей)
+  P.peek = zPart('sit', 'sit-peek'); G.sit = scene.add.container(0, 0, [zPart('sit', 'sit'), P.peek]);
+  G.lie = scene.add.container(-40 / ZK, 10 / ZK, [zPart('lie', 'lie')]).setScale(-1, 1);
+  for (const k in G) rig.add(G[k]);
+  const body = scene.add.container(0, 0, [rig]);
+  c.add([shadow, body]); c.bodyG = body; c.painted = true;
+  c.zp = { P, G, rig, pose: 'stand', view: 'side', lx: null, ly: null, moveT: 0, mdx: 0, mdy: 0, ph: 0, t: Math.random() * 5, blinkAt: 0, blinkEnd: 0, peekAt: 0, peekEnd: 0, laughEnd: 0, hop: 0 };
+  c.setPose = p => { c.zp.pose = p; zShow(c); return c; };
+  c.wakeUp = () => {   // лежит → садится → встаёт (рывками, с подскоком)
+    c.setPose('sit'); c.zp.hop = 1;
+    scene.time.delayedCall(420, () => { if (c.active) { c.setPose('stand'); c.zp.hop = 1; } });
+  };
+  zShow(c); PAINTED.push(c);
+  return c;
+}
+function zShow(c) {
+  const z = c.zp, v = z.pose === 'stand' ? z.view : z.pose;
+  for (const k in z.G) z.G[k].setVisible(k === v);
+}
+function zSpeaking() { return !$('sheet').hidden && dlg.who === 'zmey'; }
+function updatePainted(dt) {
+  const now = scene.time.now, sec = Math.min(dt, 100) / 1000, R = REDUCED ? 0 : 1;
+  for (let i = PAINTED.length - 1; i >= 0; i--) {
+    const c = PAINTED[i];
+    if (!c.active) { PAINTED.splice(i, 1); continue; }
+    if (!c.visible) continue;
+    const z = c.zp, P = z.P; z.t += sec;
+    if (!z.blinkAt) { z.blinkAt = now + 1500 + Math.random() * 3000; z.peekAt = now + 2000 + Math.random() * 3000; }
+    const dx = z.lx === null ? 0 : c.x - z.lx, dy = z.ly === null ? 0 : c.y - z.ly, d = Math.hypot(dx, dy); z.lx = c.x; z.ly = c.y;
+    if (d > 0.05 && d < 60) { z.moveT = 0.14; z.mdx = dx; z.mdy = dy; } else z.moveT -= sec;
+    const walking = z.pose === 'stand' && z.moveT > 0, talk = zSpeaking(), laugh = now < z.laughEnd;
+    if (z.hop > 0) z.hop = Math.max(0, z.hop - sec * 3.2);
+    z.rig.y = -Math.sin(z.hop * Math.PI) * 6 * R;
+    if (z.pose === 'sit') {   // сидит: дышит; время от времени приоткрывает глаз, рядом с героиней — смотрит
+      z.G.sit.scaleY = 1 + 0.013 * Math.sin(z.t * 2.1) * R;
+      const near = player && Math.hypot(player.x - c.x, player.y - c.y) < 170;
+      if (now > z.peekAt) { z.peekEnd = now + 700 + Math.random() * 900; z.peekAt = z.peekEnd + 2500 + Math.random() * 4000; }
+      if (now > z.blinkAt) { z.blinkEnd = now + 110; z.blinkAt = now + (Math.random() < 0.25 ? 260 : 2500 + Math.random() * 3500); }   // открытый глаз иногда моргает
+      P.peek.setVisible((near || talk || now < z.peekEnd) && now >= z.blinkEnd);
+      continue;
+    }
+    if (z.pose === 'lie') { z.G.lie.scaleY = 1 + 0.018 * Math.sin(z.t * 1.75) * R; continue; }
+    const view = walking ? (Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side') : (talk || laugh ? 'front' : 'side');
+    if (walking && view === 'side' && Math.abs(z.mdx) > 0.05) c.bodyG.scaleX = z.mdx > 0 ? 1 : -1;
+    if (view !== z.view) { z.view = view; zShow(c); }
+    // моргание: раз в 2,5–6 с на 0,1 с, иногда дважды
+    if (now > z.blinkAt) { z.blinkEnd = now + 100; z.blinkAt = now + (Math.random() < 0.25 ? 260 : 2500 + Math.random() * 3500); }
+    const blink = now < z.blinkEnd && !laugh;
+    if (walking) z.ph += sec * 2 * Math.PI / 0.62; else z.ph = 0;
+    const s = Math.sin(z.ph), cs = Math.cos(z.ph);
+    let bob = walking ? -Math.abs(s) * 14 * R : 0;
+    if (!walking && talk && !laugh) bob = -Math.abs(Math.sin(z.t * 2 * Math.PI * 1.8)) * 7 * R;
+    const breath = walking ? 1 : 1 + 0.012 * Math.sin(z.t * 2 * Math.PI / 2.4) * R;
+    if (view === 'side') {   // ноги: шаг вперёд-назад + подъём ступни (картинка смотрит влево: вперёд = -x)
+      P.legF.setPosition(P.legF.bx - 18 * s, P.legF.by - 12 * Math.max(0, cs)); P.legF.angle = 7 * s;
+      P.legB.setPosition(P.legB.bx - 10 + 18 * s, P.legB.by - 12 * Math.max(0, -cs)); P.legB.angle = -7 * s;
+      P.fillS.y = P.fillS.by + bob; P.upS.y = P.upS.by + bob; P.upS.scaleY = breath;
+      P.sword.y = P.sword.by + bob; P.sword.angle = 3 * s; P.blinkS.setVisible(blink);
+    } else {
+      const F = view === 'front', up = F ? P.upF : P.upB, lL = F ? P.lLF : P.lLB, lR = F ? P.lRF : P.lRB, fl = F ? P.fillF : P.fillB;
+      lL.y = lL.by - Math.max(0, s) * 30; lR.y = lR.by - Math.max(0, -s) * 30;
+      let shake = 0, ang = walking ? 1.6 * s : 0, sq = 1;
+      if (laugh && F) {   // хохочет: «ХА» / «ха» по очереди, подпрыгивает, плечи трясутся
+        const ph = z.t * 2 * Math.PI * 3.2; bob = -Math.abs(Math.sin(ph)) * 13 * R; shake = 2.5 * Math.sin(ph * 2.7) * R; ang = 2 * Math.sin(ph / 2) * R; sq = 1 - 0.025 * Math.abs(Math.cos(ph)) * R;
+        const wide = Math.abs(Math.sin(ph)) > 0.45; P.laA.setVisible(wide); P.laB.setVisible(!wide);
+      } else if (F) { P.laA.setVisible(false); P.laB.setVisible(false); }
+      fl.y = fl.by + bob; up.y = up.by + bob; up.x = shake; up.scaleY = breath * sq;
+      (F ? P.armF : P.armB).angle = walking ? (F ? 10 : -10) * s : (talk && !laugh ? 4 * Math.sin(z.t * 6) : 0);
+      z.G[view].angle = ang;
+      if (F) P.blinkF.setVisible(blink);
+    }
+  }
+}
+// Змей смеётся, когда в его реплике есть смех
+const ZMEY_LAUGH = ['Шучу. Или нет', 'Не я. Наверное', 'Охрана должна быть сытой', 'кто-то повыше', 'Чистая работа, сообщница'];   // шутки, после которых он хохочет
+function zLaughCheck(who, text) {
+  if (who === 'zmey' && (/(ха-ха|хах|ха!|хи-хи)/i.test(text) || ZMEY_LAUGH.some(k => text.includes(k))))
+    PAINTED.forEach(c => { c.zp.laughEnd = scene.time.now + 2000; });
 }
 function nameLabel(text, x, y) {
   return scene.add.text(x, y, text, {
@@ -5827,6 +5950,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowSeraya', 'assets/cows/cow-seraya.png');
     this.load.image('cowPalevaya', 'assets/cows/cow-palevaya.png');
     this.load.image('fence', 'assets/fence/fence.png');
+    this.load.image('zmeyAtlas', 'assets/chars/zmey.webp');
     for (const k of Object.keys(CRAG_SRC)) this.load.image('crag-' + k, 'assets/rocks/crag-' + k + '.webp');
     for (const k of new Set([...[...GARDEN, ...ROCK_SCENE].map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', ...DECOR_KINDS.map(d => d[0])])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
     this.load.image('river-water', 'assets/river/water.webp');
@@ -5904,8 +6028,8 @@ class FarmScene extends Phaser.Scene {
     placeOlmar();   // v212: в день 3, пока Ольмар «в походе», у курятника его нет
     Object.assign(thk, { char: null, follow: false }); placeThorkel();   // v213: Торкель
     // Змей: тёмные волнистые волосы, щетина, туника сливового цвета, серые штаны, высокие сапоги, меч на поясе
-    const zmey = zmeyChar = makeChar({ skin: 0xD9A57A, dress: 0x6E4D66, tunic: true, belt: 0x232020, buckle: 0xBFC3C6, legs: 0x9DA2A6, boots: 0x4F4A33,
-      hair: 'wavy', hairColor: 0x2B1E1A, stubble: true, brows: true, smirk: true, noBlush: true, sword: true });
+    PAINTED.length = 0;   // после «Заново» старые рисованные персонажи уничтожены вместе со сценой
+    const zmey = zmeyChar = makeChar(ZMEY_LOOK);   // v219: рисованный Змей
     zmeyLabel = nameLabel('Змей', 228, 510);
     placeZmey.napShadow = null;   // после «Заново» старая тень уничтожена вместе со сценой
     parkedCart = null; ride.active = false;
@@ -6009,7 +6133,8 @@ class FarmScene extends Phaser.Scene {
     player.setDepth(house.active ? HY + HH + 100 : playerDepth(player.x, player.y));   // в доме героиня всегда перед мебелью (мебель стоит у стены), но за размытым передним планом
     player.bodyG.scaleX = facing;
     player.bodyG.y = moving && !REDUCED ? -Math.abs(Math.sin(time / 85)) * 3 : 0;
-    this.npcs.forEach((n, i) => { n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
+    this.npcs.forEach((n, i) => { if (!n.painted) n.bodyG.y = REDUCED ? 0 : Math.sin(time / 500 + i) * 1.2; });
+    updatePainted(dt);
     henVisits(dt);
     chickens.forEach(c => { if (herd.active) herdHen(c, dt); else updateHen(c, dt); c.setDepth(c.depthFix || c.y); });
     updateHerd(dt); updateEggs();
