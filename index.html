@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 223;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 225;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1322,7 +1322,7 @@ function updateNight(time) {
 // Петля без шва: за 4 с до конца трек начинается заново, а старый плавно гаснет. День ⇄ вечер — плавный переход 3 с.
 const MUSIC = { day: { file: 'assets/music/day.mp3', vol: 0.42 }, evening: { file: 'assets/music/evening.mp3', vol: 0.4 },
   game: { file: 'assets/music/minigame.mp3', vol: 0.4 },
-  chase: { file: 'assets/music/chase.mp3', vol: 0.42 } };   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
+  chase: { file: 'assets/music/chase.mp3?v=2', vol: 0.42 } };   // v225: новый, тревожнее (120 bpm)   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
 const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, started: false };
 try { music.on = localStorage.getItem('farmSound') !== 'off'; } catch (e) {}
 for (const k of Object.keys(MUSIC)) fetch(MUSIC[k].file).then(r => r.arrayBuffer()).then(ab => { music.raw[k] = ab; musicDecode(k); }).catch(() => {});
@@ -3462,7 +3462,7 @@ function makeZmey() {
   for (const k in G) rig.add(G[k]);
   const body = scene.add.container(0, 0, [rig]);
   c.add([shadow, body]); c.bodyG = body; c.painted = true;
-  c.zp = { P, G, rig, pose: 'stand', view: 'side', lx: null, ly: null, moveT: 0, mdx: 0, mdy: 0, ph: 0, t: Math.random() * 5, blinkAt: 0, blinkEnd: 0, peekAt: 0, peekEnd: 0, laughEnd: 0, hop: 0 };
+  c.zp = { P, G, rig, pose: 'stand', view: 'front', lx: null, ly: null, moveT: 0, mdx: 0, mdy: 0, ph: 0, t: Math.random() * 5, blinkAt: 0, blinkEnd: 0, peekAt: 0, peekEnd: 0, laughEnd: 0, hop: 0 };
   c.setPose = p => { c.zp.pose = p; zShow(c); return c; };
   c.wakeUp = () => {   // лежит → садится → встаёт (рывками, с подскоком)
     c.setPose('sit'); c.zp.hop = 1;
@@ -3504,8 +3504,7 @@ function updatePainted(dt) {
     const inDlg = !$('sheet').hidden && hd < 320, looks = !walking && player && player.visible !== false && (hd < 200 || inDlg) && c === zmeyChar;
     if (walking) view = Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side';
     else if (laugh) view = 'front';
-    else if (looks) { view = hy > 0 && Math.abs(hy) > Math.abs(hx) * 1.2 ? 'front' : 'side'; if (Math.abs(hx) > 6) c.bodyG.scaleX = hx > 0 ? 1 : -1; }
-    else view = talk ? 'front' : 'side';
+    else { view = 'front'; if (looks && Math.abs(hx) > 6) c.bodyG.scaleX = hx > 0 ? 1 : -1; }   // v224: стоит лицом к камере; взгляд — в сторону героини
     if (walking && view === 'side' && Math.abs(z.mdx) > 0.05) c.bodyG.scaleX = z.mdx > 0 ? 1 : -1;
     if (view !== z.view) { z.view = view; zShow(c); }
     // моргание: раз в 2,5–6 с на 0,1 с, иногда дважды
