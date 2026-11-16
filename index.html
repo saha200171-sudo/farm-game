@@ -221,6 +221,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .push-beat .dot{position:absolute;left:50%;top:50%;width:70px;height:70px;border-radius:50%;background:#86C46F;transform:translate(-50%,-50%) scale(.3)}
 .push-beat .word{position:absolute;left:0;right:0;bottom:-6px;text-align:center;font-family:var(--display);font-weight:600;font-size:20px;color:var(--ink)}
 .push-beat .word.go{color:#C9472F}
+#winCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 #fishCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 .fish-bar{position:relative;height:22px;border:3px solid var(--wood);border-radius:999px;background:#EADFC8;overflow:hidden}
 .fish-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:#86C46F;transition:background .15s}
@@ -272,7 +273,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 209;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 211;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -434,7 +435,7 @@ function questTarget() {
   if (d4 === 6) return 'iro';
   if (d4 === 5 || d4 === 7) return null;
   if (state.day3.stage === 1) return null;             // день 3: Змея ищем сами (или спрашиваем)
-  if (state.day3.stage === 2) return 'ketil';          // день 3: Кетиль у своего дома
+  if (state.day3.stage >= 2 && state.day3.stage <= 5) return thresh.active ? null : 'ketil';   // день 3: Кетиль у своего дома (обмолот, веяние)
   if (state.day2.stage === 1) return 'fieldGate';      // день 2: в поле
   { const L = state.day2.lunch;                        // день 2: обед для жнецов
     if (state.day2.stage === 6 && L.on && !L.done) {
@@ -481,7 +482,10 @@ function updateHud() {
     : d4 ? D4_TEXT[d4] || ''
     : d3 === 1 ? 'Найди Змея — он подвезёт тебя к Кетилю'
     : d3 === 2 ? 'Поговори с Кетилем у его дома'
-    : d3 === 3 ? 'Задание у дома Кетиля — скоро'
+    : d3 === 3 ? (thresh.active ? `Обмолот: ${thresh.hits} из ${THRESH_N}` : 'Помоги Кетилю с обмолотом — поговори с ним')
+    : d3 === 4 ? 'Провей зерно — поговори с Кетилем'
+    : d3 === 5 ? 'Поговори с Кетилем'
+    : d3 === 6 ? 'Найди Ольмара — он ушёл «за славой» (продолжение скоро)'
     : d2 === 1 ? 'Сходи в поле за домом Сверкеля и помоги людям'
     : d2 === 2 ? 'Найди в поле людей, которым нужна помощь'
     : d2 === 3 ? 'Найди Кетиля в лагере на дальнем краю поля'
@@ -500,7 +504,8 @@ function updateHud() {
     if (state.items.net) chips.push(['Старая сеть', '#8C7A5C']);
     if (state.items.fish) chips.push([`Рыба × ${state.items.fish}`, '#6E9FB8']);
     if (state.items.shell) chips.push(['Ракушка из Винланда', '#E8C9B0']);
-    if (state.items.lantern) chips.push(['Фонарь', '#F2B34A']); }
+    if (state.items.lantern) chips.push(['Фонарь', '#F2B34A']);
+    if (state.items.grain && state.time.day === 3) chips.push(['Мешок зерна', '#D9B45A']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
   // v203: вещи — под кнопкой «День N · Вещи (n)»; список открывается по нажатию
@@ -545,12 +550,12 @@ $('questBox').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key 
 $('bagBtn').addEventListener('click', e => { e.stopPropagation(); hudBag.open = !hudBag.open; $('bagBtn').setAttribute('aria-expanded', hudBag.open); updateHud(); });
 
 let toastTimer;
-function toast(msg, kind) {
+function toast(msg, kind, ms) {
   const el = $('toast');
   el.textContent = msg;
   el.className = 'toast show' + (kind ? ' ' + kind : '');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.className = 'toast' + (kind ? ' ' + kind : ''); }, 2400);
+  toastTimer = setTimeout(() => { el.className = 'toast' + (kind ? ' ' + kind : ''); }, ms || 2400);
 }
 
 // --- Диалоги ---
@@ -754,7 +759,7 @@ function devJump(day) {
     });
   }
   if (day >= 4) {   // день 3 пройден: Змей-извозчик у поля, у Кетиля побывали
-    s.time = { day: 4, phase: 'day' }; Object.assign(s.day3, { stage: 3, cartAt: 'field' });
+    s.time = { day: 4, phase: 'day' }; Object.assign(s.day3, { stage: 6, cartAt: 'field' }); s.items.grain = true;
   }
   if (day === 4.5) {   // ВРЕМЕННО: сразу к финалу квеста со статуей — статуя стоит в саду под покрывалом, дальше вечернее открытие
     s.day4.stage = 6; s.pos = { x: D4.ped.x + 40, y: D4.ped.y + 96 };
@@ -1387,6 +1392,7 @@ function goToSleep(where) {
   setTimeout(() => {
     state.time.day += 1;
     state.time.phase = 'morning'; state.time.night = false; nightK = 0;
+    placeKetil();   // с дня 3 Кетиль ждёт у своего дома
     if (campfire) { if (campfire.sparks) campfire.sparks.remove(); campfire.destroy(); campfire = null; }   // костёр догорел за ночь
     d4.flies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); }); d4.flies = [];   // светлячки у статуи разлетелись к утру
     if (cow) { player.setPosition(HUNT.cowshed.x, HUNT.cowshed.y); facing = -1; } else { player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1; }
@@ -2248,6 +2254,168 @@ function campfireScene(n) {
     toast('Получено: ракушка и фонарь');
   }), 3300);
 }
+// ===================== День 3: обмолот и веяние у Кетиля (v210, схематично) =====================
+// Обмолот — прямо во дворе (как жатва): на снопах по очереди «созревают» колосья (золотое свечение) — тапнуть, когда свечение полное.
+// Веяние — окно: держать — набрать зерно на лопату, отпустить в порыв ветра — мякина улетает, зерно в мешок. Пока работаем — байки «Железного Кулака».
+const TOK = { x: 2840, y: -1240 }, THRESH_N = 10;
+const IRON_FIST = [   // ЗАГЛУШКИ: реплики — черновик
+  'Кетиль: «Однажды я один отбился от десятка разбойников!» — Змей шёпотом: «Это были гуси».',
+  'Кетиль: «Мой кулак ломал щиты!» — Змей: «Щит был из соломы. На празднике».',
+  'Кетиль: «Сам ярл просил меня о помощи!» — Змей: «Сено ему грузить».',
+];
+const thresh = { active: false, hits: 0, sheaves: [], spawnT: 0, z0: 1, said: 0 };
+function startThresh() {
+  if (thresh.active) return;
+  const cam = scene.cameras.main;
+  Object.assign(thresh, { active: true, hits: 0, spawnT: 400, said: 0, z0: cam.zoom });
+  stopWalking(); document.body.classList.add('reaping');
+  player.setPosition(TOK.x, TOK.y + 108); facing = 1;
+  cam.stopFollow(); cam.pan(TOK.x, TOK.y - 10, 600, 'Sine.easeInOut'); cam.zoomTo(thresh.z0 * 1.25, 600, 'Sine.easeInOut');
+  if (!thresh.ground) {   // утоптанная площадка
+    thresh.ground = scene.add.graphics().setDepth(GROUND - 6);
+    thresh.ground.fillStyle(0x8A6A44, 0.55).fillEllipse(TOK.x, TOK.y, 330, 140).fillStyle(0x9C7A50, 0.5).fillEllipse(TOK.x, TOK.y - 4, 280, 110);
+  }
+  thresh.ground.setVisible(true);
+  thresh.sheaves.forEach(q => { q.img.destroy(); q.glow.destroy(); });
+  thresh.sheaves = [];
+  for (let i = 0; i < 6; i++) {   // шесть снопов на току
+    const a = i / 6 * Math.PI * 2 + 0.3, x = TOK.x + Math.cos(a) * 118, y = TOK.y + Math.sin(a) * 44;
+    const img = scene.add.image(x, y, 'sheaf').setOrigin(0.5, 0.8).setScale(0.26).setAngle(90 + (Math.random() - 0.5) * 20).setDepth(y);
+    const glow = scene.add.image(x, y - 4, 'firefly').setTint(0xFFD050).setBlendMode(Phaser.BlendModes.ADD).setDepth(y + 1).setAlpha(0).setScale(0.5);
+    thresh.sheaves.push({ img, glow, x, y, t: -1, cool: Math.random() * 600 });
+  }
+  progress(); toast('Тапни по снопу, когда колосья засветятся ярко', 'info', 3200);
+}
+function updateThresh(dt) {
+  if (!thresh.active || ui.open) return;
+  const ms = Math.min(dt, 100);
+  const glowing = thresh.sheaves.filter(q => q.t >= 0).length;
+  if ((thresh.spawnT -= ms) <= 0 && glowing < 2) {   // зажигаем следующий сноп
+    const free = thresh.sheaves.filter(q => q.t < 0 && q.cool <= 0);
+    if (free.length) { free[Math.floor(Math.random() * free.length)].t = 0; thresh.spawnT = 500 + Math.random() * 500; }
+  }
+  for (const q of thresh.sheaves) {
+    if (q.t < 0) { q.cool -= ms; continue; }
+    q.t += ms;
+    const k = Math.min(1, q.t / 1100), ready = q.t >= 1000 && q.t <= 1800;
+    q.glow.setScale(0.5 + k * 1.7).setAlpha(ready ? 0.95 : 0.25 + k * 0.45);
+    if (q.t > 1800) { q.glow.setAlpha(0); q.t = -1; q.cool = 700; }   // не успела — гаснет
+  }
+}
+function threshTap(x, y) {
+  let best = null, bd = 60;
+  for (const q of thresh.sheaves) { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } }
+  if (!best || best.t < 0) return;
+  if (best.t < 1000) { floatText(best.x, best.y - 40, 'Рано!'); return; }
+  // удар цепом: палка опускается на сноп, зерно сыплется
+  best.t = -1; best.cool = 900; best.glow.setAlpha(0);
+  const flail = scene.add.graphics().setDepth(best.y + 2).setPosition(best.x, best.y - 50);
+  flail.lineStyle(4, 0x6E4A2C, 1).lineBetween(0, 0, 0, -60).lineStyle(6, 0x8A6A44, 1).lineBetween(0, 0, 18, 22);
+  flail.setAngle(-70);
+  scene.tweens.add({ targets: flail, angle: 10, duration: 140, ease: 'Quad.easeIn', onComplete: () => scene.tweens.add({ targets: flail, alpha: 0, duration: 200, onComplete: () => flail.destroy() }) });
+  scene.time.delayedCall(140, () => {
+    scene.tweens.add({ targets: best.img, scaleY: 0.45, duration: 80, yoyo: true });
+    for (let i = 0; i < 9; i++) {
+      const g = scene.add.circle(best.x + (Math.random() - 0.5) * 20, best.y - 10, 2, 0xE8C060, 1).setDepth(best.y + 3);
+      scene.tweens.add({ targets: g, x: g.x + (Math.random() - 0.5) * 70, y: best.y + 6 + Math.random() * 14, duration: 380 + Math.random() * 200, ease: 'Quad.easeOut', onComplete: () => scene.tweens.add({ targets: g, alpha: 0, duration: 500, delay: 400, onComplete: () => g.destroy() }) });
+    }
+  });
+  thresh.hits++; progress();
+  if (thresh.hits % 3 === 0 && thresh.said < IRON_FIST.length) toast(IRON_FIST[thresh.said++], 'info', 4200);
+  if (thresh.hits >= THRESH_N) endThresh();
+}
+function floatText(x, y, t) {
+  const tx = scene.add.text(x, y, t, { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '16px', color: '#2E2418', backgroundColor: '#FFFDF4', padding: { x: 6, y: 3 }, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
+  scene.tweens.add({ targets: tx, y: y - 22, alpha: 0, duration: 800, delay: 300, onComplete: () => tx.destroy() });
+}
+function endThresh() {
+  const cam = scene.cameras.main;
+  thresh.active = false; document.body.classList.remove('reaping');
+  thresh.sheaves.forEach(q => q.glow.setAlpha(0));
+  cam.zoomTo(thresh.z0, 500, 'Sine.easeInOut'); cam.startFollow(player, false, 1, 1);
+  state.day3.stage = 4; progress();
+  scene.time.delayedCall(600, () => showDialog([
+    ['ketil', 'Вот это рука! Весь ток обмолотили. Теперь зерно надо провеять — отделить от мякины.'],
+    ['ketil', 'Бери лопату и подбрасывай, когда ветер дунет. Ленточка на столбе подскажет.'],
+  ], startWinnow));
+}
+function startWinnow() {
+  if (ui.open) return;
+  openModal(`<div class="card mg chop" id="winCard"><div class="badge">Мини-игра</div><h2>Веяние</h2>
+    <canvas id="winCv" width="300" height="300"></canvas>
+    <div class="fish-bar" id="winBar"><i></i></div>
+    <div class="chop-msg" id="winMsg">Держи палец — набери зерно, отпусти в порыв ветра</div>
+    <div class="mg-stats"><span>Ленточка покажет ветер</span><span id="winN">Мешок: 0 из 5</span></div></div>`);
+  const cv = $('winCv'), ctx = cv.getContext('2d'), W = 300, H = 300;
+  const V = { hold: false, scoop: 0, gust: false, gt: 1500 + Math.random() * 1200, ok: 0, parts: [], t: 0, last: 0, done: false, raf: 0 };
+  window.__win = V;
+  const msg = t => { $('winMsg').textContent = t; };
+  function draw() {
+    ctx.fillStyle = '#B9D49A'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#9C7A50'; ctx.beginPath(); ctx.ellipse(150, 250, 140, 40, 0, 0, 6.28); ctx.fill();   // ток
+    ctx.fillStyle = '#6E4A2C'; ctx.fillRect(40, 60, 6, 170);   // столб с ленточкой
+    ctx.strokeStyle = '#C9472F'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(46, 66);
+    if (V.gust) { for (let i = 1; i <= 6; i++) ctx.lineTo(46 + i * 12, 66 + Math.sin(V.t * 18 + i) * 4); }   // ветер — ленточка вытянулась
+    else { ctx.lineTo(50, 90 + Math.sin(V.t * 2) * 2); ctx.lineTo(48, 110); }
+    ctx.stroke();
+    ctx.fillStyle = '#D9C49A'; ctx.beginPath(); ctx.moveTo(220, 260); ctx.lineTo(290, 260); ctx.lineTo(280, 190); ctx.lineTo(230, 190); ctx.fill();   // мешок
+    ctx.fillStyle = '#E8C060'; ctx.fillRect(232, 260 - V.ok * 13, 46, V.ok * 13);
+    ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(110, 270); ctx.lineTo(150, 200); ctx.stroke();   // лопата
+    ctx.fillStyle = '#8A6A44'; ctx.beginPath(); ctx.ellipse(158, 194, 20, 9, -0.5, 0, 6.28); ctx.fill();
+    if (V.scoop > 0) { ctx.fillStyle = '#E8C060'; ctx.beginPath(); ctx.ellipse(158, 190, 16 * V.scoop + 2, 6 * V.scoop + 1, -0.5, 0, 6.28); ctx.fill(); }
+    for (const p of V.parts) { ctx.fillStyle = p.c; ctx.globalAlpha = p.a; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  function tick(now) {
+    if (V.done) return;
+    const dt = Math.min(0.1, (now - (V.last || now)) / 1000); V.last = now; V.t += dt;
+    if ((V.gt -= dt * 1000) <= 0) { V.gust = !V.gust; V.gt = V.gust ? 1300 + Math.random() * 500 : 1500 + Math.random() * 1800; }
+    if (V.hold) V.scoop = Math.min(1, V.scoop + dt * 1.8);
+    $('winBar').firstChild.style.width = Math.round(V.scoop * 100) + '%';
+    for (const p of V.parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.fade) p.a = Math.max(0, p.a - dt * 0.8); }
+    V.parts = V.parts.filter(p => p.a > 0 && p.y < H + 10 && p.x < W + 20);
+    draw(); V.raf = requestAnimationFrame(tick);
+  }
+  function toss() {
+    if (V.scoop < 0.6) { msg('Набери побольше — подержи палец подольше'); return; }
+    const gust = V.gust; V.scoop = 0;
+    for (let i = 0; i < 26; i++) {   // зерно и мякина
+      const chaff = i % 2 === 0;
+      V.parts.push({ x: 158, y: 188, vx: (gust && chaff ? 160 + Math.random() * 120 : (Math.random() - 0.3) * 60), vy: -220 - Math.random() * 80, g: chaff ? (gust ? 140 : 420) : 520, r: chaff ? 2.4 : 1.8, c: chaff ? '#E9DDBA' : '#E8C060', a: 1, fade: chaff && gust });
+    }
+    if (gust) { V.ok++; $('winN').textContent = `Мешок: ${V.ok} из 5`; msg(V.ok >= 5 ? 'Мешок полон!' : 'Отлично! Мякину унесло ветром'); }
+    else msg('Кетиль: «Ветра жди! Мякина-то обратно летит»');
+    if (V.ok >= 5) { V.done = true; cancelAnimationFrame(V.raf); setTimeout(() => { closeModal(); afterWinnow(); }, 1100); }
+  }
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} V.hold = true; });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { if (V.hold) { V.hold = false; toss(); } }));
+  window.__winToss = () => toss();   // для теста
+  V.raf = requestAnimationFrame(tick);
+}
+function afterWinnow() {
+  state.items.grain = true; state.day3.stage = 5; progress(); toast('Получено: мешок зерна');
+  showDialog([
+    ['ketil', 'Чистое, золотое! Отнесём отцу — к зиме будет хлеб из нашего зерна.'],
+  ], () => scene.time.delayedCall(400, torgelNews));
+}
+// Торгель приносит весть: Ольмар сбежал «за славой»
+function torgelNews() {
+  const T = torgelNpc; if (!T) return;
+  ui.open = true; stopWalking();
+  T.setPosition(3136, -1010); torgelLab.setPosition(T.x, T.y - 94);
+  const tx = KETIL_HOME.x - 70, ty = KETIL_HOME.y + 70;
+  T.bodyG.scaleX = -1;
+  scene.tweens.add({ targets: T, x: tx, y: ty, duration: 1600, ease: 'Sine.easeInOut', onUpdate: () => { T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94); T.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 70)) * 3; },
+    onComplete: () => { T.bodyG.y = 0; ui.open = false;
+      showDialog([   // ЗАГЛУШКИ: реплики — черновик
+        ['torgel', 'Отец! Мелкий опять сбежал. Взял деревянный меч — «за славой», говорит.'],
+        ['ketil', 'Ольмар?! Вот же… Весь в меня. В молодости, говорят.'],
+        ['zmey', '(шёпотом) В молодости он сено грузил.'],
+        ['ketil', 'Наслушался моих историй — и туда же, «подвиги» искать…'],
+        ['ketil', 'Найди его, прошу. Он у меня горячий, но не злой — его словом надо, не силой.'],
+      ], () => { state.day3.stage = 6; progress(); toast('Новое задание: найди Ольмара'); });
+    } });
+}
 function afterPolish() {
   showDialog([
     ['nanamin', 'Она… прекрасна. Спасибо вам. Правда.'],
@@ -2473,6 +2641,12 @@ function withinReach(id) {
 zone.addEventListener('pointerdown', e => {
   if (ride.active && ride.mode === 'ride') { ride.fast = true; e.preventDefault(); return; }   // поездка на телеге: нажатие — быстрее
   if (!$('devMenu').hidden) devMenu(false);
+  if (thresh.active && scene) {   // v210: обмолот — тап по снопу
+    e.preventDefault();
+    const r0 = zone.getBoundingClientRect(), cam = scene.cameras.main, z = cam.zoom / DPR;
+    threshTap(cam.worldView.x + (e.clientX - r0.left) / z, cam.worldView.y + (e.clientY - r0.top) / z);
+    return;
+  }
   if (ui.open || stick.id !== null) return;
   e.preventDefault();
   const r = zone.getBoundingClientRect();
@@ -4652,6 +4826,14 @@ const REAPER_LINES = [
   ['В мои годы уже тяжело нагибаться, но урожай сам себя не соберёт.', 'Я на этом поле жну дольше, чем Кетиль на свете живёт.'],
   ['Я самый быстрый жнец! Ну… почти самый.', 'Спорим, я дожну свой ряд раньше Бьорна?'],
 ];
+let ketilChar = null, ketilLab = null;
+// v210: Кетиль на своём месте по дню (в лагере — день 2, у дома — с дня 3); раньше место выбиралось только при загрузке
+function placeKetil() {
+  Object.assign(ANCHORS.ketil, state.time.day >= 3 ? KETIL_HOME : KETIL_CAMP);
+  if (!ketilChar) return;
+  ketilChar.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); ketilChar.bodyG.scaleX = state.time.day >= 3 ? 1 : -1;
+  ketilLab.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y - 92);
+}
 function buildFieldCamp() {
   const tx = scene.textures.get('barn');
   for (const [k, f] of Object.entries(BARN_FRAMES)) if (!tx.has(k)) tx.add(k, 0, ...f);
@@ -4665,9 +4847,9 @@ function buildFieldCamp() {
     scene.add.image(x, b - dh * 0.1, 'coopShadow').setDisplaySize(w * 1.05, dh * 0.22).setDepth(GROUND - 8);
   }
   if (state.time.day >= 3) Object.assign(ANCHORS.ketil, KETIL_HOME); else Object.assign(ANCHORS.ketil, KETIL_CAMP);   // день 3 — Кетиль дома
-  const k = makeChar(KETIL_CLOAK); k.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); k.bodyG.scaleX = state.time.day >= 3 ? 1 : -1;
+  const k = ketilChar = makeChar(KETIL_CLOAK); k.setPosition(ANCHORS.ketil.x, ANCHORS.ketil.y).setDepth(ANCHORS.ketil.y); k.bodyG.scaleX = state.time.day >= 3 ? 1 : -1;
   scene.npcs.push(k);
-  nameLabel('Кетиль', ANCHORS.ketil.x, ANCHORS.ketil.y - 92);
+  ketilLab = nameLabel('Кетиль', ANCHORS.ketil.x, ANCHORS.ketil.y - 92);
   const rnd = mulberry32(7);
   REAPERS.forEach((r, i) => {
     r.c = makeChar(REAPER_LOOKS[i]);
@@ -4717,9 +4899,14 @@ function talkKetil() {
   // ЗАГЛУШКИ: день 3 — задание у дома придумаем отдельно
   if (d3.stage === 1 || d3.stage === 2) return showDialog([
     ['ketil', d3.stage === 2 ? 'Добралась! Змей, небось, всю дорогу шутил? Вот он, мой дом.' : 'Пешком дошла? Ну ты упорная! В другой раз проси Змея — у него телега.'],
-    ['ketil', 'Дело у меня к тебе есть, по хозяйству. Расскажу чуть позже — эта часть ещё в работе.'],
-  ], () => { d3.stage = 3; progress(); });
-  if (d3.stage === 3) return showDialog([['ketil', 'Скоро расскажу, что за дело. Не уходи далеко!']]);
+    ['ketil', 'Снопы со вчерашней жатвы подсохли — пора молотить. Поможешь? Бей цепом по колосьям, когда они «созреют» — засветятся.'],
+    ['ketil', 'А я пока расскажу, как в молодости… Эх, было время! Меня ведь не зря Железным Кулаком прозвали.'],
+    ['zmey', '(шёпотом) Сейчас начнётся…'],
+  ], () => { d3.stage = 3; progress(); startThresh(); });
+  if (d3.stage === 3) return showDialog([['ketil', 'Ну что, продолжим молотить?']], startThresh);
+  if (d3.stage === 4) return showDialog([['ketil', 'Зерно надо провеять — без ветра никак. Бери лопату!']], startWinnow);
+  if (d3.stage === 5) return torgelNews();
+  if (d3.stage === 6) return showDialog([['ketil', 'Найди его, прошу. Он у меня горячий, но не злой — его словом надо, не силой.']]);
   // ЗАГЛУШКИ: реплики Кетиля — черновик, заменим на твои
   if (d2.stage === 2 || d2.stage === 3) return showDialog([
     ['ketil', 'А, ты, должно быть, та самая, что живёт у отца. Я Кетиль, это поле — моё.'],
@@ -5369,7 +5556,7 @@ class FarmScene extends Phaser.Scene {
 
   update(time, dt) {
     let moving = house.active ? houseMove(dt) : false;
-    const v = ui.open || house.active || reap.active ? { x: 0, y: 0 } : inputVector();
+    const v = ui.open || house.active || reap.active || thresh.active ? { x: 0, y: 0 } : inputVector();
     const mag = Math.hypot(v.x, v.y);
     if (mag > 0.05) {
       // скорость зависит от наклона джойстика; полная — с 70% наклона
@@ -5404,6 +5591,7 @@ class FarmScene extends Phaser.Scene {
     updateReap(dt);
     updateRide(dt);
     updateDay4(dt);
+    updateThresh(dt);
     updateNight(time);
     updateFireflies(time);
     updateHunt(dt);
