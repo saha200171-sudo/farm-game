@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 217;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 218;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1915,10 +1915,10 @@ function cookDone() {
 
 // ===================== День 4: подарок для Арнхейнд — статуя в саду (схематично, без картинок) =====================
 // Эйнар хочет поблагодарить Арнхейнд памятным подарком; Торфинн охотно помогает (знает о его чувствах).
-// Камень — из скал (мини-игра «раз-два — взяли!»), шлифовка статуи (мини-игра), Змей везёт в сад,
+// Камень — из скал (мини-игра «раз-два — взяли!»), шлифовка статуи (мини-игра), Торкель несёт в сад на руках (v218),
 // героиня отвлекает Арнхейнд, вечером — открытие со светлячками. ЗАГЛУШКИ: все реплики — черновик.
 const D4_TEXT = { 1: 'Эйнар просил зайти к нему на пастбище', 2: 'Попроси Торфинна помочь', 3: 'Встреться с Эйнаром у скал', 4: 'Отшлифуй статую',
-  5: 'Змей везёт статую в сад', 6: 'Отвлеки Арнхейнд, пока ставят статую', 7: 'Открытие статуи', 8: 'День 4 завершён — стемнело, пора домой' };
+  5: 'Торкель несёт статую в сад', 6: 'Отвлеки Арнхейнд, пока ставят статую', 7: 'Открытие статуи', 8: 'День 4 завершён — стемнело, пора домой' };
 const D4 = {
   stone: { x: 2470, y: 500 }, road: { x: 2330, y: 262 }, ped: { x: 1785, y: 690 },   // v194: статуя — справа в саду, между дубом и высокими скалами
   rocks: { einar: { x: 2405, y: 522 }, thor: { x: 2535, y: 526 } },   // v216: полянка среди новых скал
@@ -1973,6 +1973,7 @@ function d4Put(c, lab, p, face) { c.setVisible(!!p); lab.setVisible(!!p); if (!p
 // расставляет участников квеста по этапу (оригиналы Эйнара и Торфинна прячутся, пока они заняты статуей)
 function placeDay4() {
   if (!d4.built) return;
+  if (state.day4.stage === 5 && !d4.ride) { state.day4.stage = 6; progress(); }   // перезапуск посреди переноса — статуя уже в саду
   const st = state.day4.stage, busy = d4Busy();
   if (nanaminChar) nanaminChar.setVisible(!busy); if (einarLabel) einarLabel.setVisible(!busy);
   if (thorfinnChar) thorfinnChar.setVisible(!busy); if (thorfinnLabel) thorfinnLabel.setVisible(!busy);
@@ -2756,48 +2757,64 @@ function thorkelReveal() {
 function afterPolish() {
   showDialog([
     ['nanamin', 'Она… прекрасна. Спасибо вам. Правда.'],
-    ['thorfinn', 'Позовём Змея — пусть отвезёт в сад. Только осторожно!'],
-    ['zmey', 'Кто тут звал лучшего извозчика фермы? Грузите. Аккуратно, аккуратно…'],
+    ['thorfinn', 'Тяжёлая… На тележке растрясём. Позовём Торкеля — он и лошадь на руках унесёт.'],
+    ['thorkel', 'Кто звал Торкеля? Эту каменную красавицу — в сад? Ха! Да она легче моего топора!'],
+    ['nanamin', 'Только осторожно! Пожалуйста…'],
+    ['thorkel', 'Торкель нежен, как ягнёнок. Иди за мной, малая, — дорогу покажешь!'],
   ], startStatueRide);
 }
-// --- перевозка: Змей везёт статую в сад (как поездка дня 3, но с грузом)
+// --- перенос (v218): Торкель несёт статую под покрывалом над головой, героиня идёт следом
+const D4_CARRY_JOKES = ['Раз-два, раз-два! Эй, статуя, не щекочись!', 'Это что — тяжело? Я в Англии бочку эля так нёс. Полную!', 'Расступись, гуси! Груз идёт!'];
 function startStatueRide() {
-  const cart = makeCart('both'), r = D4.route, seg = []; let L = 0;
+  const r = D4.route, seg = []; let L = 0;
   for (let i = 1; i < r.length; i++) { const d = Math.hypot(r[i][0] - r[i - 1][0], r[i][1] - r[i - 1][1]); seg.push(d); L += d; }
-  const st = scene.add.graphics(); d4Statue(st, true); st.setScale(0.45).setPosition(-8, -40); cart.addAt(st, cart.list.indexOf(cart.bed));   // статуя под покрывалом в телеге
+  const tk = makeChar(THORKEL_LOOK);
+  const st = scene.add.graphics(); d4Statue(st, true); st.setScale(0.75);   // статуя под покрывалом — у Торкеля над головой
+  if (thk.char) { thk.char.setVisible(false); thk.lab.setVisible(false); }
   d4.statue.setVisible(false); d4.einar.setVisible(false); d4.eLab.setVisible(false); d4.thor.setVisible(false); d4.tLab.setVisible(false);
-  stopWalking(); ui.open = true; player.setVisible(false);
-  d4.ride = { cart, seg, L, s: 0, t: 0, dir: -1, said: false, bubble: null };
+  stopWalking(); ui.open = true;
+  d4.ride = { tk, st, seg, L, s: 0, t: 0, dir: -1, joke: 0, bubble: null };
   state.day4.stage = 5; progress();
+}
+function d4RouteAt(s) {   // точка маршрута на расстоянии s от начала
+  const r = d4.ride; let k = 0, acc = 0; while (k < r.seg.length - 1 && acc + r.seg[k] < s) acc += r.seg[k++];
+  const [ax, ay] = D4.route[k], [bx, by] = D4.route[k + 1], f = r.seg[k] ? Math.max(0, s - acc) / r.seg[k] : 1;
+  return [ax + (bx - ax) * f, ay + (by - ay) * f, bx - ax];
 }
 function updateDay4(dt) {
   const r = d4.ride; if (!r) return;
   const sec = Math.min(dt, 120) / 1000; r.t += sec;
-  const ease = Math.min(1, r.t / 0.8) * Math.min(1, (r.L - r.s) / 220 + 0.15);
-  r.s = Math.min(r.L, r.s + 430 * ease * sec);
-  let k = 0, acc = 0; while (k < r.seg.length - 1 && acc + r.seg[k] < r.s) acc += r.seg[k++];
-  const [ax, ay] = D4.route[k], [bx, by] = D4.route[k + 1], f = r.seg[k] ? (r.s - acc) / r.seg[k] : 1;
-  const x = ax + (bx - ax) * f, y = ay + (by - ay) * f, c = r.cart;
-  if (Math.abs(bx - ax) > 1) r.dir = bx > ax ? 1 : -1;
-  c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
-  const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2; c.bed.y = -bounce; c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * 16)) * 2.5;
-  c.wheels.forEach(w => { w.rotation += 430 * ease * sec / 17; });
-  player.setPosition(x, y);
-  if (!r.said && r.t > 1.4) {   // ЗАГЛУШКА: шутка Змея
-    r.said = true;
-    r.bubble = scene.add.text(0, 0, 'Это что, я в полный рост? Нет? Жаль.', { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '17px', color: '#2E2418',
+  r.s = Math.min(r.L, r.s + 250 * Math.min(1, r.t / 0.6) * sec);
+  const [x, y, ddx] = d4RouteAt(r.s), c = r.tk;
+  if (Math.abs(ddx) > 1) r.dir = ddx > 0 ? 1 : -1;
+  const bob = REDUCED ? 0 : Math.abs(Math.sin(r.t * 7.5)) * 3;
+  c.setPosition(x, y).setDepth(y); c.bodyG.scaleX = r.dir; c.bodyG.y = -bob;
+  r.st.setPosition(x + r.dir * 2, y - 100 - bob + (REDUCED ? 0 : Math.sin(r.t * 3) * 1.5)).setDepth(y + 1).setAngle(REDUCED ? 0 : Math.sin(r.t * 2.2) * 3);   // чуть покачивается
+  const [px, py, pdx] = d4RouteAt(Math.max(0, r.s - 95));   // героиня идёт следом
+  player.setPosition(px, py + 6).setDepth(py + 6); if (Math.abs(pdx) > 1) { facing = pdx > 0 ? 1 : -1; if (player.bodyG) player.bodyG.scaleX = facing; }
+  if (player.bodyG) player.bodyG.y = REDUCED || r.s - 95 <= 0 ? 0 : -Math.abs(Math.sin(r.t * 8)) * 3;
+  if (r.joke < D4_CARRY_JOKES.length && r.t > 1.2 + r.joke * 3.4) {   // шутки Торкеля по дороге
+    if (r.bubble) r.bubble.destroy();
+    r.bubble = scene.add.text(0, 0, D4_CARRY_JOKES[r.joke++], { fontFamily: 'Nunito, system-ui, sans-serif', fontStyle: '800', fontSize: '17px', color: '#2E2418',
       backgroundColor: '#FFFDF4', padding: { x: 10, y: 6 }, resolution: 3 }).setOrigin(0.5, 1).setDepth(6000);
-    scene.time.delayedCall(3200, () => { if (r.bubble) { r.bubble.destroy(); r.bubble = null; } });
+    const b = r.bubble; scene.time.delayedCall(2800, () => { if (r.bubble === b) { b.destroy(); r.bubble = null; } });
   }
-  if (r.bubble) r.bubble.setPosition(x, y - 128);
+  if (r.bubble) r.bubble.setPosition(x, y - 200);
   if (r.s >= r.L) {
-    d4.ride = null; if (r.bubble) r.bubble.destroy(); c.destroy();
-    player.setPosition(1640, 770).setVisible(true); facing = -1; ui.open = false;
+    d4.ride = null; if (r.bubble) r.bubble.destroy();
+    if (player.bodyG) player.bodyG.y = 0;
+    player.setPosition(1585, 795); facing = 1; if (player.bodyG) player.bodyG.scaleX = 1;
+    c.bodyG.y = 0; r.st.destroy();
     d4Next(6);
     showDialog([
-      ['zmey', 'Доставлено! Ни царапинки. Ну, почти.'],
-      ['nanamin', 'Мы с Торфинном поставим её на постамент. Уведи Арнхейнд, ладно? Чтобы не увидела раньше времени.'],
-    ], () => toast('Новое задание: отвлеки Арнхейнд'));
+      ['thorkel', 'Доставлено! Ни царапинки. Ставлю аккуратно… вот так. Эх, даже жалко отпускать — хорошая девица, молчаливая.'],
+      ['nanamin', 'Спасибо, Торкель! Мы с Торфинном поставим её на постамент. Уведи Арнхейнд, ладно? Чтобы не увидела раньше времени.'],
+      ['thorkel', 'А я — к реке. Если что тяжёлое — зовите Торкеля!'],
+    ], () => {
+      c.destroy(); ui.open = false;
+      if (thk.char) thorkelPut(TK_HOME.x, TK_HOME.y);
+      toast('Новое задание: отвлеки Арнхейнд');
+    });
   }
 }
 // --- отвлечь Арнхейнд: три разговора, проиграть нельзя
