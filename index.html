@@ -274,7 +274,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 226;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 227;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1221,8 +1221,18 @@ function buildTimeLayer() {
 const HUNT = { door: { x: 210, y: 350 }, patrol: [[110, 372], [300, 380]], cowshed: { x: 120, y: 1540 }, see: 230, notice: 480, close: 70 };
 const hunt = { active: false, mode: 'patrol', pi: 0, tx: 0, ty: 0, t: 0, hinted: false, grace: 0 };
 let lanternOn = true, torgelNpc = null, torgelLab = null;
+// v227: ночью Торгель стоит, привалившись к стене домика (у прохода к дому Сверкеля); днём — на своём месте у дровника
+const TORGEL_HOME = { x: -290, y: 440 }, TORGEL_WALL = { x: -60, y: 396 };
+function placeTorgel() {
+  if (!torgelNpc || hunt.active) return;
+  const P = state.time.night ? TORGEL_WALL : TORGEL_HOME, T = torgelNpc;
+  scene.tweens.killTweensOf(T);
+  T.setPosition(P.x, P.y).setDepth(P.y); T.bodyG.scaleX = 1; T.bodyG.angle = state.time.night ? -6 : 0;   // опёрся плечом о стену слева
+  torgelLab.setPosition(P.x, P.y - 94);
+}
 function startHunt() {   // v201: Торгель уходит сторожить дверь (пока открыта мысль героини), потом 3 с форы
   const T = torgelNpc, [px, py] = HUNT.patrol[0];
+  T.bodyG.angle = 0;   // отлип от стены
   state.day2.torgel = 'hunt';
   T.bodyG.scaleX = px > T.x ? 1 : -1;
   scene.tweens.add({ targets: T, x: px, y: py, duration: 1800, ease: 'Sine.easeInOut',
@@ -1416,6 +1426,7 @@ function applyTime(instant) {
   if (ph === 'evening') spawnFireflies(); else clearFireflies();
   musicUpdate();
   henTime(ph === 'evening', instant);   // вечером курочки уходят спать в курятник, утром выходят
+  placeTorgel();   // v227: ночью — у стены домика
 }
 // Светлячки: мерцают и медленно летают над травой
 // Появляются плавно, маленькими группками по 4–6 штук, одна группа за другой
@@ -1477,8 +1488,8 @@ function goToSleep(where) {
     if (campfire) { if (campfire.sparks) campfire.sparks.remove(); campfire.destroy(); campfire = null; }   // костёр догорел за ночь
     d4.flies.forEach(f => { scene.tweens.killTweensOf(f); f.destroy(); }); d4.flies = [];   // светлячки у статуи разлетелись к утру
     if (cow) { player.setPosition(HUNT.cowshed.x, HUNT.cowshed.y); facing = -1; } else { player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 30); facing = 1; }
-    if (torgelNpc) { torgelNpc.setPosition(-290, 440).setDepth(440); torgelNpc.bodyG.scaleX = 1; torgelLab.setPosition(-290, 346); }   // Торгель — снова на своём месте
     hunt.active = false; lanternOn = true;
+    placeTorgel();   // Торгель — снова на своём месте
     if (cow) state.wake = 'cowshed';
     scene.cameras.main.centerOn(player.x, player.y);
     applyTime(true);
@@ -2981,7 +2992,7 @@ function solids() {
   if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
   if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 150, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
-  if (!hunt.active) list.push([-312, 430, 44, 16]);   // Торгель (пока ловит героиню ночью — он ходит, место свободно)
+  if (!hunt.active && torgelNpc) list.push([torgelNpc.x - 22, torgelNpc.y - 10, 44, 16]);   // Торгель (пока ловит героиню ночью — он ходит, место свободно)
   list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Лейф
   list.push(...CAMP_SOLIDS, [ANCHORS.ketil.x - 20, ANCHORS.ketil.y - 12, 40, 16]);   // полевой лагерь и Кетиль
   return list;
