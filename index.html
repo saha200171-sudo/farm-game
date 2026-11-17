@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 256;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 257;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -5340,23 +5340,16 @@ function updateReap(dt) {
     g.lineStyle(2 + 6 * f, 0xFFF6D8, 0.7 * f).lineBetween(a.x, a.y, b.x, b.y);
   }
 }
-// ===================== Лошадь — рисованная (v245): части из PSD, риг костей, рысь / стоит / бьёт копытом =====================
-// Атлас assets/chars/horse.webp: части в 0.5. HF: [x, y, w, h в атласе, место на холсте 800×604 x, y]. Лошадь смотрит вправо.
-const HF = {"hindFar-hoof":[92,259,50,44,214,464],"hindFar-cannon":[425,163,42,50,192,390],"hindFar-gaskin":[205,259,38,36,192,346],"hindFar-thigh":[0,259,46,50,205,274],"tail":[0,0,60,161,62,191],"foreFar-shin":[235,163,34,62,471,410],"foreFar-knee":[361,259,20,26,490,398],"foreFar-hoof":[245,259,49,28,462,496],"foreFar-top1":[127,163,52,68,458,210],"foreFar-top2":[271,163,32,62,487,304],"body":[150,0,208,110,163,146],"neck":[62,0,86,125,485,60],"mane":[360,0,84,104,463,62],"earFar":[405,259,12,16,652,47],"head":[67,163,58,82,620,64],"earNear":[296,259,12,28,631,41],"hindNear-hoof":[375,163,48,61,71,445],"hindNear-cannon":[48,259,42,50,94,373],"hindNear-gaskin":[144,259,59,42,109,320],"hindNear-thigh":[0,163,65,94,129,169],"foreNear-shin":[305,163,34,62,439,427],"foreNear-knee":[383,259,20,26,458,415],"foreNear-hoof":[310,259,49,28,430,513],"foreNear-top1":[181,163,52,68,426,227],"foreNear-top2":[341,163,32,62,455,321]};
+// ===================== Лошадь — шайр (v257): нарезка пользователя из PSD «Новая_лошадка» + шарниры; рысь / лёгкий галоп / стоит / бьёт копытом =====================
+// Атлас assets/chars/horse.webp: части в 0.5. HF: [x, y, w, h в атласе, место на холсте 800×605 x, y, кость]. Лошадь смотрит вправо. Порядок ключей — снизу вверх.
+const HF = {"hindFar-jFetlock":[560,229,30,29,207,452,"hF3"],"hindFar-hoof":[58,229,50,43,193,466,"hF4"],"hindFar-jHock":[58,279,26,27,215,380,"hF2"],"hindFar-jThigh":[291,229,36,36,232,297,"hF1"],"hindFar-cannon":[515,150,28,54,209,390,"hF3"],"hindFar-jStifle":[329,229,36,36,269,252,"hF1"],"hindFar-gaskin":[254,150,60,61,212,304,"hF2"],"hindFar-thigh":[0,150,69,77,209,195,"hF1"],"tail":[0,0,54,148,69,186,"tail"],"jHip":[533,0,86,82,136,166,"root"],"jWithers":[371,0,90,90,391,148,"root"],"foreFar-jFetlock":[0,279,27,28,473,448,"fF3"],"foreFar-hoof":[162,229,48,40,459,472,"fF4"],"foreFar-jKnee":[114,279,26,26,483,395,"fF2"],"foreFar-shin":[262,229,27,37,477,409,"fF3"],"foreFar-jElbow":[473,229,32,33,486,301,"fF1"],"foreFar-top2":[378,150,35,60,486,311,"fF2"],"foreFar-top1":[575,150,56,48,472,248,"fF1"],"body":[157,0,212,112,155,152,"root"],"jPoll":[451,150,62,58,559,66,"neck"],"neck":[56,0,99,116,442,87,"neck"],"foreNear-jFetlock":[29,279,27,28,418,465,"fN3"],"foreNear-hoof":[212,229,48,40,403,488,"fN4"],"foreNear-jKnee":[142,279,26,26,427,412,"fN2"],"foreNear-shin":[367,229,28,36,421,426,"fN3"],"foreNear-jElbow":[507,229,33,33,430,317,"fN1"],"foreNear-top2":[415,150,34,60,431,328,"fN2"],"foreNear-top1":[0,229,56,48,416,264,"fN1"],"earFar":[170,279,14,20,653,47,"earF"],"head":[463,0,68,90,598,68,"head"],"earNear":[542,229,16,33,618,41,"earN"],"mane":[142,150,110,68,407,67,"mane"],"hindNear-jFetlock":[592,229,29,29,132,465,"hN3"],"hindNear-hoof":[110,229,50,42,118,479,"hN4"],"hindNear-jHock":[86,279,26,27,139,393,"hN2"],"hindNear-jThigh":[397,229,36,36,157,310,"hN1"],"hindNear-cannon":[545,150,28,54,133,403,"hN3"],"hindNear-jStifle":[435,229,36,36,193,265,"hN1"],"hindNear-gaskin":[316,150,60,61,137,317,"hN2"],"hindNear-thigh":[71,150,69,77,133,208,"hN1"]};
 // кости: [родитель, ось x, y на холсте]; углы поз — в градусах, по часовой
-const HB = { root: [null, 370, 300], neck: ['root', 505, 275], mane: ['neck', 540, 95], head: ['neck', 648, 125], earN: ['head', 646, 92], earF: ['head', 662, 77], tail: ['root', 168, 200],
-  fN1: ['root', 478, 250], fN2: ['fN1', 486, 335], fN3: ['fN2', 478, 440], fN4: ['fN3', 472, 520],
-  fF1: ['root', 510, 233], fF2: ['fF1', 518, 318], fF3: ['fF2', 510, 423], fF4: ['fF3', 504, 503],
-  hN1: ['root', 183, 209], hN2: ['hN1', 178, 354], hN3: ['hN2', 138, 401], hN4: ['hN3', 121, 469],
-  hF1: ['root', 232, 304], hF2: ['hF1', 234, 370], hF3: ['hF2', 219, 414], hF4: ['hF3', 244, 486] };
+const HB = {root: [null, 375.2, 257.2], neck: ["root", 480.2, 238.3], mane: ["neck", 519.2, 141.6], head: ["neck", 620.6, 123.9], earN: ["head", 634.8, 101.5], earF: ["head", 667.8, 82.6], tail: ["root", 162.8, 202.9], hN1: ["root", 202.9, 236.0], hN2: ["hN1", 228.9, 300.9], hN3: ["hN2", 164.0, 418.9], hN4: ["hN3", 160.5, 493.2], hF1: ["root", 278.5, 223.0], hF2: ["hF1", 304.4, 287.9], hF3: ["hF2", 239.5, 405.9], hF4: ["hF3", 236.0, 480.2], fN1: ["root", 474.3, 280.8], fN2: ["fN1", 462.5, 349.3], fN3: ["fN2", 453.1, 437.8], fN4: ["fN3", 444.8, 492.0], fF1: ["root", 529.8, 264.3], fF2: ["fF1", 518.0, 332.7], fF3: ["fF2", 508.6, 421.2], fF4: ["fF3", 500.3, 475.5] };
 const HK = 0.18, HS = 0.5;   // мир на пиксель холста (v247: поменьше — холка ниже Змея); масштаб атласа
-const H_ONE = { body: 'root', neck: 'neck', mane: 'mane', head: 'head', earNear: 'earN', earFar: 'earF', tail: 'tail' };
-const H_SEG = { top1: 1, top2: 2, knee: 3, shin: 3, hoof: 4, thigh: 1, gaskin: 2, cannon: 3 };
-const H_LEG = { foreNear: 'fN', foreFar: 'fF', hindNear: 'hN', hindFar: 'hF' };
-const hBone = n => H_ONE[n] || H_LEG[n.split('-')[0]] + H_SEG[n.split('-')[1]];
+const hBone = n => HF[n][6];
 const hEase = t => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, t)));
 const hPulse = (t, t0, d) => t < t0 || t > t0 + d ? 0 : Math.sin(Math.PI * (t - t0) / d);
-function makeHorse() {
+function makeHorse(gallop) {   // gallop — в повозке с седоками лёгкий галоп вместо рыси
   const tex = scene.textures.get('horseAtlas'), c = scene.add.container(0, 0);
   c.ims = [];
   for (const n of Object.keys(HF)) {   // порядок ключей — снизу вверх
@@ -5365,6 +5358,7 @@ function makeHorse() {
     im.bone = hBone(n); im.rx = f[4]; im.ry = f[5]; c.add(im); c.ims.push(im);
   }
   c.hs = { t: Math.random() * 10, ph: 0, mv: 0, ev: {}, nx: { ear: 2 + Math.random() * 3, earF: 4 + Math.random() * 4, tail: 3 + Math.random() * 4, paw: 3 + Math.random() * 4 } };   // состояние (у контейнера свои поля — next и т.п.)
+  c.hs.gallop = !!gallop;
   c.tick = (dt, speed) => horseTick(c, dt, speed);
   horsePose(c, {});
   return c;
@@ -5389,13 +5383,22 @@ function hLegH(ph, s, p) {   // задняя: перенос — сгиб ска
   let hp, f; if (ph < 0.5) { hp = -12 + 26 * (ph / 0.5); f = 0; } else { const q = (ph - 0.5) / 0.5; hp = 14 - 26 * hEase(q); f = Math.sin(Math.PI * q); }
   p[s + '1'] = hp - 6 * f; p[s + '2'] = 14 * f; p[s + '3'] = -42 * f; p[s + '4'] = 34 * f;
 }
+function hLegFC(ph, s, p) {   // лёгкий галоп: опора 0.42 цикла, перенос со сгибом
+  const st = 0.42, A = 18; let sh, f; if (ph < st) { sh = -A + 2 * A * ph / st; f = 0; } else { const q = (ph - st) / (1 - st); sh = A - 2 * A * hEase(q); f = Math.sin(Math.PI * q); }
+  p[s + '1'] = sh - 4 * f; p[s + '2'] = -10 * f; p[s + '3'] = 88 * f; p[s + '4'] = 32 * f;
+}
+function hLegHC(ph, s, p) {
+  const st = 0.42, A = 16; let hp, f; if (ph < st) { hp = -A + 2 * A * ph / st; f = 0; } else { const q = (ph - st) / (1 - st); hp = A - 2 * A * hEase(q); f = Math.sin(Math.PI * q); }
+  p[s + '1'] = hp - 8 * f; p[s + '2'] = 18 * f; p[s + '3'] = -50 * f; p[s + '4'] = 38 * f;
+}
+const H_CANTER = [['hF', 0, hLegHC], ['hN', 0.16, hLegHC], ['fF', 0.24, hLegFC], ['fN', 0.40, hLegFC]];   // 3 такта: дальняя задняя, диагональ, ведущая передняя; потом «полёт»
 const H_PAW_UP = { fN1: -20, fN2: -6, fN3: 84, fN4: 36 }, H_PAW_SCR = { fN1: 2, fN3: 26, fN4: -16 };
 const H_PAW = [[0, {}], [0.35, H_PAW_UP], [0.7, H_PAW_SCR], [0.95, H_PAW_UP], [1.3, H_PAW_SCR], [1.55, H_PAW_UP], [1.9, H_PAW_SCR], [2.3, {}]];
 function horseTick(h, dt, speed) {   // speed — скорость телеги (мир/с): от неё темп рыси; стоит — дышит, уши, хвост, иногда бьёт копытом
   if (REDUCED) return;
   const H = h.hs, sec = Math.min(dt, 120) / 1000, moving = speed > 4; H.t += sec;
   H.mv += ((moving ? 1 : 0) - H.mv) * Math.min(1, sec * 6);
-  if (moving) H.ph = (H.ph + sec * Math.min(2.6, speed / 95)) % 1;
+  if (moving) H.ph = (H.ph + sec * (H.gallop ? Math.min(2.2, speed / 200) : Math.min(2.6, speed / 95))) % 1;
   const t = H.t, ev = H.ev, nx = H.nx;
   const p = { dy: 0.8 * Math.sin(2 * Math.PI * t / 2), head: 1.5 * Math.sin(2 * Math.PI * t / 4), tail: 2.5 * Math.sin(Math.PI * t) };
   for (const k in nx) nx[k] -= sec;
@@ -5417,11 +5420,17 @@ function horseTick(h, dt, speed) {   // speed — скорость телеги 
       p.neck = 10 * kk; p.head += 8 * kk; p.earN = (p.earN || 0) - 14 * kk; p.earF = (p.earF || 0) - 14 * kk;
     }
   }
-  if (H.mv > 0.01) {   // рысь: диагональные пары; корпус подпрыгивает, грива чуть запаздывает
-    const q = {}, ph = H.ph, w = H.mv;
-    hLegF(ph, 'fN', q); hLegH(ph, 'hF', q); hLegF((ph + 0.5) % 1, 'fF', q); hLegH((ph + 0.5) % 1, 'hN', q);
-    Object.assign(q, { dy: -5 * Math.abs(Math.sin(2 * Math.PI * ph)), root: 0.8 * Math.sin(4 * Math.PI * ph), neck: -4 + 2.5 * Math.sin(4 * Math.PI * ph + 1),
-      head: -2 * Math.sin(4 * Math.PI * ph + 1.4), tail: -14 + 4 * Math.sin(4 * Math.PI * ph), mane: 2.5 * Math.sin(4 * Math.PI * ph - 0.9), earN: -6, earF: -6 });
+  if (H.mv > 0.01) {
+    const q = {}, ph = H.ph, w = H.mv, P2 = 2 * Math.PI;
+    if (H.gallop) {   // лёгкий галоп: корпус качается «лошадкой-качалкой», шея кивает, хвост отлетает назад
+      for (const [s, o, fn] of H_CANTER) fn((ph - o + 1) % 1, s, q);
+      Object.assign(q, { root: -2.2 * Math.cos(P2 * (ph - 0.05)), dy: -3 - 3.5 * Math.cos(P2 * (ph - 0.85)), neck: 3 + 5 * Math.cos(P2 * (ph - 0.5)),
+        head: -3 * Math.cos(P2 * (ph - 0.6)), mane: 4 * Math.sin(P2 * ph - 2.2), tail: 16 + 6 * Math.sin(P2 * ph - 1), earN: -8, earF: -8 });
+    } else {   // рысь: диагональные пары; корпус подпрыгивает, грива чуть запаздывает
+      hLegF(ph, 'fN', q); hLegH(ph, 'hF', q); hLegF((ph + 0.5) % 1, 'fF', q); hLegH((ph + 0.5) % 1, 'hN', q);
+      Object.assign(q, { dy: -5 * Math.abs(Math.sin(P2 * ph)), root: 0.8 * Math.sin(2 * P2 * ph), neck: -4 + 2.5 * Math.sin(2 * P2 * ph + 1),
+        head: -2 * Math.sin(2 * P2 * ph + 1.4), tail: 10 + 4 * Math.sin(2 * P2 * ph), mane: 2.5 * Math.sin(2 * P2 * ph - 0.9), earN: -6, earF: -6 });   // v257: у шайра хвост назад — плюс
+    }
     for (const k of new Set([...Object.keys(p), ...Object.keys(q)])) p[k] = (p[k] || 0) * (1 - w) + (q[k] || 0) * w;
   }
   horsePose(h, p);
@@ -5445,7 +5454,7 @@ function makeCart(riders) {   // [0,0] — земля под серединой 
   const c = scene.add.container(0, 0);
   const sh = scene.add.ellipse(66, 0, 272, 24, 0x1d2a12, 0.22);
   const shaftFar = scene.add.graphics(); shaftFar.lineStyle(3, 0x4A2E18, 1).lineBetween(36, -36, 137, -54);   // дальняя оглобля — за лошадью
-  const horse = makeHorse(); horse.setPosition(47, -102).setScale(HK);   // v245: рисованная лошадь; v247: меньше, круп на том же расстоянии от телеги
+  const horse = makeHorse(riders === 'both' || riders === 'three'); horse.setPosition(47, -102).setScale(HK);   // v257: с седоками — лёгкий галоп   // v245: рисованная лошадь; v247: меньше, круп на том же расстоянии от телеги
   const shaftNear = scene.add.graphics(); shaftNear.lineStyle(3.5, 0x5A3A1E, 1).lineBetween(36, -30, 132, -50);   // ближняя оглобля
   const parts = [sh, shaftFar, horse, shaftNear];
   c.riders = [];
