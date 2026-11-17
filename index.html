@@ -275,7 +275,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 244;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 246;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2624,7 +2624,7 @@ function updateCartRide(dt) {
   const x = ax + (bx - ax) * f, y = ay + (by - ay) * f, c = r.cart;
   if (Math.abs(bx - ax) > 1) r.dir = bx > ax ? 1 : -1;
   c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
-  const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2; c.bed.y = -bounce; c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * 16)) * 2.5;
+  const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2; c.bed.y = -bounce; c.horse.tick(dt, 430 * ease);
   c.riders.forEach(q => { q.y = -26 - bounce; });
   c.wheels.forEach(w => { w.rotation += 430 * ease * sec / 17; });
   player.setPosition(x, y);
@@ -3034,7 +3034,7 @@ function solids() {
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
   list.push([917, 741, 52, 22]);    // Арнхейнд
   if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
-  if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 150, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
+  if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 272, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
   if (!hunt.active && torgelNpc) list.push([torgelNpc.x - 22, torgelNpc.y - 10, 44, 16]);   // Торгель (пока ловит героиню ночью — он ходит, место свободно)
   list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Лейф
@@ -5217,6 +5217,92 @@ function updateReap(dt) {
     g.lineStyle(2 + 6 * f, 0xFFF6D8, 0.7 * f).lineBetween(a.x, a.y, b.x, b.y);
   }
 }
+// ===================== Лошадь — рисованная (v245): части из PSD, риг костей, рысь / стоит / бьёт копытом =====================
+// Атлас assets/chars/horse.webp: части в 0.5. HF: [x, y, w, h в атласе, место на холсте 800×604 x, y]. Лошадь смотрит вправо.
+const HF = {"hindFar-hoof":[92,259,50,44,214,464],"hindFar-cannon":[425,163,42,50,192,390],"hindFar-gaskin":[205,259,38,36,192,346],"hindFar-thigh":[0,259,46,50,205,274],"tail":[0,0,60,161,62,191],"foreFar-shin":[235,163,34,62,471,410],"foreFar-knee":[361,259,20,26,490,398],"foreFar-hoof":[245,259,49,28,462,496],"foreFar-top1":[127,163,52,68,458,210],"foreFar-top2":[271,163,32,62,487,304],"body":[150,0,208,110,163,146],"neck":[62,0,86,125,485,60],"mane":[360,0,84,104,463,62],"earFar":[405,259,12,16,652,47],"head":[67,163,58,82,620,64],"earNear":[296,259,12,28,631,41],"hindNear-hoof":[375,163,48,61,71,445],"hindNear-cannon":[48,259,42,50,94,373],"hindNear-gaskin":[144,259,59,42,109,320],"hindNear-thigh":[0,163,65,94,129,169],"foreNear-shin":[305,163,34,62,439,427],"foreNear-knee":[383,259,20,26,458,415],"foreNear-hoof":[310,259,49,28,430,513],"foreNear-top1":[181,163,52,68,426,227],"foreNear-top2":[341,163,32,62,455,321]};
+// кости: [родитель, ось x, y на холсте]; углы поз — в градусах, по часовой
+const HB = { root: [null, 370, 300], neck: ['root', 505, 275], mane: ['neck', 540, 95], head: ['neck', 648, 125], earN: ['head', 646, 92], earF: ['head', 662, 77], tail: ['root', 168, 200],
+  fN1: ['root', 478, 250], fN2: ['fN1', 486, 335], fN3: ['fN2', 478, 440], fN4: ['fN3', 472, 520],
+  fF1: ['root', 510, 233], fF2: ['fF1', 518, 318], fF3: ['fF2', 510, 423], fF4: ['fF3', 504, 503],
+  hN1: ['root', 183, 209], hN2: ['hN1', 178, 354], hN3: ['hN2', 138, 401], hN4: ['hN3', 121, 469],
+  hF1: ['root', 232, 304], hF2: ['hF1', 234, 370], hF3: ['hF2', 219, 414], hF4: ['hF3', 244, 486] };
+const HK = 0.23, HS = 0.5;   // мир на пиксель холста (v246: крупнее — холка чуть выше Змея); масштаб атласа
+const H_ONE = { body: 'root', neck: 'neck', mane: 'mane', head: 'head', earNear: 'earN', earFar: 'earF', tail: 'tail' };
+const H_SEG = { top1: 1, top2: 2, knee: 3, shin: 3, hoof: 4, thigh: 1, gaskin: 2, cannon: 3 };
+const H_LEG = { foreNear: 'fN', foreFar: 'fF', hindNear: 'hN', hindFar: 'hF' };
+const hBone = n => H_ONE[n] || H_LEG[n.split('-')[0]] + H_SEG[n.split('-')[1]];
+const hEase = t => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, t)));
+const hPulse = (t, t0, d) => t < t0 || t > t0 + d ? 0 : Math.sin(Math.PI * (t - t0) / d);
+function makeHorse() {
+  const tex = scene.textures.get('horseAtlas'), c = scene.add.container(0, 0);
+  c.ims = [];
+  for (const n of Object.keys(HF)) {   // порядок ключей — снизу вверх
+    const f = HF[n]; if (!tex.has('h-' + n)) tex.add('h-' + n, 0, f[0], f[1], f[2], f[3]);
+    const im = scene.add.image(0, 0, 'horseAtlas', 'h-' + n).setOrigin(0, 0).setScale(1 / HS);
+    im.bone = hBone(n); im.rx = f[4]; im.ry = f[5]; c.add(im); c.ims.push(im);
+  }
+  c.hs = { t: Math.random() * 10, ph: 0, mv: 0, ev: {}, nx: { ear: 2 + Math.random() * 3, earF: 4 + Math.random() * 4, tail: 3 + Math.random() * 4, paw: 8 + Math.random() * 8 } };   // состояние (у контейнера свои поля — next и т.п.)
+  c.tick = (dt, speed) => horseTick(c, dt, speed);
+  horsePose(c, {});
+  return c;
+}
+function horsePose(h, p) {   // прямая кинематика: мир кости = родитель ∘ поворот вокруг своей оси
+  const W = {};
+  const get = b => {
+    if (W[b]) return W[b];
+    const [par, cx, cy] = HB[b], th = (p[b] || 0) * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+    const lx = cx - (c * cx - s * cy), ly = cy - (s * cx + c * cy);
+    if (!par) return (W[b] = { a: th, tx: lx + (p.dx || 0), ty: ly + (p.dy || 0) });
+    const P = get(par), C = Math.cos(P.a), S = Math.sin(P.a);
+    return (W[b] = { a: P.a + th, tx: C * lx - S * ly + P.tx, ty: S * lx + C * ly + P.ty });
+  };
+  for (const im of h.ims) { const M = get(im.bone), C = Math.cos(M.a), S = Math.sin(M.a); im.setPosition(C * im.rx - S * im.ry + M.tx, S * im.rx + C * im.ry + M.ty).setRotation(M.a); }
+}
+function hLegF(ph, s, p) {   // передняя нога на рыси: опора (ph<0.5) — назад, перенос — сгиб колена
+  let sh, f; if (ph < 0.5) { sh = -16 + 32 * (ph / 0.5); f = 0; } else { const q = (ph - 0.5) / 0.5; sh = 16 - 32 * hEase(q); f = Math.sin(Math.PI * q); }
+  p[s + '1'] = sh; p[s + '2'] = -8 * f; p[s + '3'] = 78 * f; p[s + '4'] = 30 * f;
+}
+function hLegH(ph, s, p) {   // задняя: перенос — сгиб скакательного
+  let hp, f; if (ph < 0.5) { hp = -12 + 26 * (ph / 0.5); f = 0; } else { const q = (ph - 0.5) / 0.5; hp = 14 - 26 * hEase(q); f = Math.sin(Math.PI * q); }
+  p[s + '1'] = hp - 6 * f; p[s + '2'] = 14 * f; p[s + '3'] = -42 * f; p[s + '4'] = 34 * f;
+}
+const H_PAW_UP = { fN1: -20, fN2: -6, fN3: 84, fN4: 36 }, H_PAW_SCR = { fN1: 2, fN3: 26, fN4: -16 };
+const H_PAW = [[0, {}], [0.35, H_PAW_UP], [0.7, H_PAW_SCR], [0.95, H_PAW_UP], [1.3, H_PAW_SCR], [1.55, H_PAW_UP], [1.9, H_PAW_SCR], [2.3, {}]];
+function horseTick(h, dt, speed) {   // speed — скорость телеги (мир/с): от неё темп рыси; стоит — дышит, уши, хвост, иногда бьёт копытом
+  if (REDUCED) return;
+  const H = h.hs, sec = Math.min(dt, 120) / 1000, moving = speed > 4; H.t += sec;
+  H.mv += ((moving ? 1 : 0) - H.mv) * Math.min(1, sec * 6);
+  if (moving) H.ph = (H.ph + sec * Math.min(2.6, speed / 95)) % 1;
+  const t = H.t, ev = H.ev, nx = H.nx;
+  const p = { dy: 0.8 * Math.sin(2 * Math.PI * t / 2), head: 1.5 * Math.sin(2 * Math.PI * t / 4), tail: 2.5 * Math.sin(Math.PI * t) };
+  for (const k in nx) nx[k] -= sec;
+  if (nx.ear <= 0) { ev.ear = t; nx.ear = 3 + Math.random() * 5; }
+  if (nx.earF <= 0) { ev.earF = t; nx.earF = 4 + Math.random() * 6; }
+  if (nx.tail <= 0) { ev.tail = t; nx.tail = 4 + Math.random() * 6; }
+  if (nx.paw <= 0) { if (H.mv < 0.05) ev.paw = t; nx.paw = 10 + Math.random() * 12; }
+  if (ev.ear != null) p.earN = -22 * hPulse(t, ev.ear, 0.22) - 18 * hPulse(t, ev.ear + 0.3, 0.2);
+  if (ev.earF != null) p.earF = 16 * hPulse(t, ev.earF, 0.3);
+  if (ev.tail != null) p.tail += 14 * hPulse(t, ev.tail, 0.5) - 6 * hPulse(t, ev.tail + 0.45, 0.4);
+  if (ev.paw != null) {
+    const pt = t - ev.paw;
+    if (moving || pt > 2.4) ev.paw = null;
+    else {
+      let a = H_PAW[0], b = H_PAW[H_PAW.length - 1];
+      for (let i = 1; i < H_PAW.length; i++) if (pt <= H_PAW[i][0]) { a = H_PAW[i - 1]; b = H_PAW[i]; break; }
+      const f = hEase((pt - a[0]) / ((b[0] - a[0]) || 1)), kk = hPulse(pt, 0, 2.4);
+      for (const k of ['fN1', 'fN2', 'fN3', 'fN4']) p[k] = (a[1][k] || 0) * (1 - f) + (b[1][k] || 0) * f;
+      p.neck = 10 * kk; p.head += 8 * kk; p.earN = (p.earN || 0) - 14 * kk; p.earF = (p.earF || 0) - 14 * kk;
+    }
+  }
+  if (H.mv > 0.01) {   // рысь: диагональные пары; корпус подпрыгивает, грива чуть запаздывает
+    const q = {}, ph = H.ph, w = H.mv;
+    hLegF(ph, 'fN', q); hLegH(ph, 'hF', q); hLegF((ph + 0.5) % 1, 'fF', q); hLegH((ph + 0.5) % 1, 'hN', q);
+    Object.assign(q, { dy: -5 * Math.abs(Math.sin(2 * Math.PI * ph)), root: 0.8 * Math.sin(4 * Math.PI * ph), neck: -4 + 2.5 * Math.sin(4 * Math.PI * ph + 1),
+      head: -2 * Math.sin(4 * Math.PI * ph + 1.4), tail: -14 + 4 * Math.sin(4 * Math.PI * ph), mane: 2.5 * Math.sin(4 * Math.PI * ph - 0.9), earN: -6, earF: -6 });
+    for (const k of new Set([...Object.keys(p), ...Object.keys(q)])) p[k] = (p[k] || 0) * (1 - w) + (q[k] || 0) * w;
+  }
+  horsePose(h, p);
+}
 // ===================== Телега Змея (день 3): схематично, кодом; поездка от коровника до двора Кетиля =====================
 // Камера едет за телегой (героиня невидимо «сидит» в ней — так работают камера и отсечение), колёса крутятся, пыль,
 // Змей шутит в облачках. Нажатие — перемотка (быстрее в 4 раза).
@@ -5232,25 +5318,18 @@ const ROUTE_FIELD_YARD = [[CART_FIELD.x, CART_FIELD.y], [130, -448], [CART_YARD.
 const CAMP_ESCORT_X = 2255;   // v243: дальше этой точки дорожки (к полю) Змей просыпается и едет следом
 const ROUTE_KETIL_FIELD = [[CART_KETIL.x, CART_KETIL.y], [3136, -1150], [3136, -448], [130, -448], [CART_FIELD.x, CART_FIELD.y]];   // сцена с Ольмаром
 const ESCORT_JOKES = ['Ноги не устали?', 'Я говорил, что у меня есть телега?', 'Садись — довезу быстрее!', 'Лошадка уже заскучала без тебя.', 'Ты так до вечера идти будешь!'];   // ЗАГЛУШКИ
-function makeCart(riders) {   // [0,0] — земля под серединой телеги; лошадка спереди (справа)
+function makeCart(riders) {   // [0,0] — земля под серединой телеги; лошадь спереди (справа)
   const c = scene.add.container(0, 0);
-  const sh = scene.add.ellipse(20, 0, 190, 22, 0x1d2a12, 0.22);
-  const pony = scene.add.graphics();
-  pony.fillStyle(0x6E4528, 1).fillRect(52, -24, 6, 24).fillRect(62, -24, 6, 24).fillRect(84, -24, 6, 24).fillRect(94, -24, 6, 24);   // ноги
-  pony.fillStyle(0x3A2416, 1).fillRect(51, -3, 8, 3).fillRect(61, -3, 8, 3).fillRect(83, -3, 8, 3).fillRect(93, -3, 8, 3);           // копыта
-  pony.fillStyle(0x8B5A2B, 1).fillEllipse(76, -34, 60, 28);                                                                                // туловище
-  pony.fillStyle(0x4A2E1A, 1).fillTriangle(46, -40, 40, -14, 50, -36);                                                                     // хвост
-  pony.fillStyle(0x8B5A2B, 1).fillTriangle(92, -44, 104, -70, 112, -58).fillRect(94, -50, 14, 14);                                         // шея
-  pony.fillStyle(0x8B5A2B, 1).fillEllipse(114, -66, 28, 16);                                                                               // голова
-  pony.fillStyle(0x4A2E1A, 1).fillTriangle(104, -72, 108, -84, 112, -72).fillTriangle(94, -46, 102, -72, 106, -62);                       // ухо, грива
-  pony.fillStyle(0x2A1A10, 1).fillCircle(118, -68, 1.8);                                                                                   // глаз
-  pony.lineStyle(3, 0x5A3A1E, 1).lineBetween(34, -32, 56, -36).lineBetween(34, -26, 56, -30);                                             // оглобли
-  const parts = [sh, pony];
+  const sh = scene.add.ellipse(76, 0, 300, 24, 0x1d2a12, 0.22);
+  const shaftFar = scene.add.graphics(); shaftFar.lineStyle(3, 0x4A2E18, 1).lineBetween(36, -36, 153, -68);   // дальняя оглобля — за лошадью
+  const horse = makeHorse(); horse.setPosition(40, -131).setScale(HK);   // v245: рисованная лошадь; v246: крупнее и дальше от телеги
+  const shaftNear = scene.add.graphics(); shaftNear.lineStyle(3.5, 0x5A3A1E, 1).lineBetween(36, -30, 148, -64);   // ближняя оглобля
+  const parts = [sh, shaftFar, horse, shaftNear];
   c.riders = [];
   const big = riders === 'three';   // v212: вместительная телега — Змей, героиня и Ольмар
   if (riders) {   // riders: 'both' — Змей и героиня, 'zmey' — один Змей, 'three' — Змей, героиня и Ольмар
     const z = makeChar(ZMEY_LOOK); z.setPosition(18, -26); z.bodyG.scaleX = 1; z.list[0].setVisible(false);
-    const reins = scene.add.graphics(); reins.lineStyle(1.5, 0x3A2416, 1).lineBetween(30, -52, 110, -62);
+    const reins = scene.add.graphics(); reins.lineStyle(1.5, 0x3A2416, 1).lineBetween(30, -52, 201, -86);   // v245: к морде новой лошади
     if (riders === 'three') { const o = makeChar(OLMAR_LOOK); o.setPosition(-62, -26); o.bodyG.scaleX = 1; o.list[0].setVisible(false); parts.push(o); c.riders.push(o); }
     if (riders === 'both' || big) { const h = makeChar(HERO_LOOK); h.setPosition(-20, -26); h.bodyG.scaleX = 1; h.list[0].setVisible(false); parts.push(h); c.riders.push(h); }
     parts.push(z, reins); c.riders.push(z);
@@ -5271,7 +5350,7 @@ function makeCart(riders) {   // [0,0] — земля под серединой 
     return w;
   });
   parts.push(...c.wheels);
-  c.add(parts); c.pony = pony; c.bed = bed;
+  c.add(parts); c.horse = horse; c.bed = bed;
   return c;
 }
 function placeCart() {   // телега стоит там же, где ждёт Змей
@@ -5320,9 +5399,9 @@ function updateRide(dt) {
   const bounce = REDUCED ? 0 : Math.abs(Math.sin(r.t * 14)) * 2;
   c.setPosition(x, y).setDepth(y).setScale(r.dir, 1);
   c.bed.y = -bounce; c.riders.forEach((q, i) => { q.y = -26 - bounce - (i ? 0.5 : 0); });
-  c.pony.y = REDUCED ? 0 : -Math.abs(Math.sin(r.t * (ride_ ? 16 : 9))) * 2.5;
   c.wheels.forEach(w => { w.rotation += v * sec * k4 / 17; });
-  const still = v < 4; if (still) { c.bed.y = 0; c.pony.y = 0; }
+  const still = v < 4; if (still) c.bed.y = 0;
+  c.horse.tick(dt, still ? 0 : v * k4);   // v245: рысь в темпе телеги; стоит — дышит, уши, хвост
   if (ride_) player.setPosition(x, y);   // камера и отсечение следят за героиней — она «сидит» в телеге
   if (!REDUCED && !still && (r.dust -= sec) <= 0) {   // пыль из-под колёс
     r.dust = ride_ ? 0.07 : 0.16;
@@ -6094,6 +6173,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('cowPalevaya', 'assets/cows/cow-palevaya.png');
     this.load.image('fence', 'assets/fence/fence.png');
     this.load.image('zmeyAtlas', 'assets/chars/zmey.webp');
+    this.load.image('horseAtlas', 'assets/chars/horse.webp');
     for (const k of Object.keys(CRAG_SRC)) this.load.image('crag-' + k, 'assets/rocks/crag-' + k + '.webp');
     for (const k of new Set([...[...GARDEN, ...ROCK_SCENE].map(g => g[0]).filter(k => k.startsWith('g-')), 'g-pond', ...DECOR_KINDS.map(d => d[0])])) this.load.image(k, 'assets/garden/' + k.slice(2) + '.webp');
     this.load.image('river-water', 'assets/river/water.webp');
@@ -6291,6 +6371,7 @@ class FarmScene extends Phaser.Scene {
     updateReapers(dt);
     updateReap(dt);
     updateRide(dt);
+    if (parkedCart) parkedCart.horse.tick(dt, 0);   // v245: лошадь у стоящей телеги тоже живая
     updateDay4(dt);
     updateThresh(dt);
     updateCartRide(dt);
