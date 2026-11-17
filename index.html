@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 257;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 258;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -5398,7 +5398,11 @@ function horseTick(h, dt, speed) {   // speed — скорость телеги 
   if (REDUCED) return;
   const H = h.hs, sec = Math.min(dt, 120) / 1000, moving = speed > 4; H.t += sec;
   H.mv += ((moving ? 1 : 0) - H.mv) * Math.min(1, sec * 6);
-  if (moving) H.ph = (H.ph + sec * (H.gallop ? Math.min(2.2, speed / 200) : Math.min(2.6, speed / 95))) % 1;
+  // v258: галоп быстрее; к концу пути (скорость упала ниже 70% разгонной) — переходит на рысь, потом стоп
+  H.vpk = moving ? Math.max(H.vpk || 0, speed) : 0;
+  const gOn = H.gallop && moving && speed > Math.max(120, 0.7 * H.vpk);
+  H.gw = (H.gw || 0) + ((gOn ? 1 : 0) - (H.gw || 0)) * Math.min(1, sec * 5);
+  if (moving) H.ph = (H.ph + sec * (Math.min(3, speed / 140) * H.gw + Math.min(2.6, speed / 95) * (1 - H.gw))) % 1;
   const t = H.t, ev = H.ev, nx = H.nx;
   const p = { dy: 0.8 * Math.sin(2 * Math.PI * t / 2), head: 1.5 * Math.sin(2 * Math.PI * t / 4), tail: 2.5 * Math.sin(Math.PI * t) };
   for (const k in nx) nx[k] -= sec;
@@ -5422,15 +5426,18 @@ function horseTick(h, dt, speed) {   // speed — скорость телеги 
   }
   if (H.mv > 0.01) {
     const q = {}, ph = H.ph, w = H.mv, P2 = 2 * Math.PI;
-    if (H.gallop) {   // лёгкий галоп: корпус качается «лошадкой-качалкой», шея кивает, хвост отлетает назад
-      for (const [s, o, fn] of H_CANTER) fn((ph - o + 1) % 1, s, q);
-      Object.assign(q, { root: -2.2 * Math.cos(P2 * (ph - 0.05)), dy: -3 - 3.5 * Math.cos(P2 * (ph - 0.85)), neck: 3 + 5 * Math.cos(P2 * (ph - 0.5)),
+    const g = {}, gw = H.gw;
+    if (gw > 0.01) {   // лёгкий галоп: корпус качается «лошадкой-качалкой», шея кивает, хвост отлетает назад
+      for (const [s, o, fn] of H_CANTER) fn((ph - o + 1) % 1, s, g);
+      Object.assign(g, { root: -2.2 * Math.cos(P2 * (ph - 0.05)), dy: -3 - 3.5 * Math.cos(P2 * (ph - 0.85)), neck: 3 + 5 * Math.cos(P2 * (ph - 0.5)),
         head: -3 * Math.cos(P2 * (ph - 0.6)), mane: 4 * Math.sin(P2 * ph - 2.2), tail: 16 + 6 * Math.sin(P2 * ph - 1), earN: -8, earF: -8 });
-    } else {   // рысь: диагональные пары; корпус подпрыгивает, грива чуть запаздывает
+    }
+    if (gw < 0.99) {   // рысь: диагональные пары; корпус подпрыгивает, грива чуть запаздывает
       hLegF(ph, 'fN', q); hLegH(ph, 'hF', q); hLegF((ph + 0.5) % 1, 'fF', q); hLegH((ph + 0.5) % 1, 'hN', q);
       Object.assign(q, { dy: -5 * Math.abs(Math.sin(P2 * ph)), root: 0.8 * Math.sin(2 * P2 * ph), neck: -4 + 2.5 * Math.sin(2 * P2 * ph + 1),
         head: -2 * Math.sin(2 * P2 * ph + 1.4), tail: 10 + 4 * Math.sin(2 * P2 * ph), mane: 2.5 * Math.sin(2 * P2 * ph - 0.9), earN: -6, earF: -6 });   // v257: у шайра хвост назад — плюс
     }
+    for (const k of new Set([...Object.keys(q), ...Object.keys(g)])) q[k] = (q[k] || 0) * (1 - gw) + (g[k] || 0) * gw;   // плавный переход рысь ⇄ галоп
     for (const k of new Set([...Object.keys(p), ...Object.keys(q)])) p[k] = (p[k] || 0) * (1 - w) + (q[k] || 0) * w;
   }
   horsePose(h, p);
