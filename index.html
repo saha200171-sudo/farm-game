@@ -275,7 +275,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 246;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 248;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3034,7 +3034,7 @@ function solids() {
   if (!state.open.sad) list.push([1030, 488, 100, 16]);   // калитка в сад
   list.push([917, 741, 52, 22]);    // Арнхейнд
   if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
-  if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 272, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
+  if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 242, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
   if (!hunt.active && torgelNpc) list.push([torgelNpc.x - 22, torgelNpc.y - 10, 44, 16]);   // Торгель (пока ловит героиню ночью — он ходит, место свободно)
   list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Лейф
@@ -5226,7 +5226,7 @@ const HB = { root: [null, 370, 300], neck: ['root', 505, 275], mane: ['neck', 54
   fF1: ['root', 510, 233], fF2: ['fF1', 518, 318], fF3: ['fF2', 510, 423], fF4: ['fF3', 504, 503],
   hN1: ['root', 183, 209], hN2: ['hN1', 178, 354], hN3: ['hN2', 138, 401], hN4: ['hN3', 121, 469],
   hF1: ['root', 232, 304], hF2: ['hF1', 234, 370], hF3: ['hF2', 219, 414], hF4: ['hF3', 244, 486] };
-const HK = 0.23, HS = 0.5;   // мир на пиксель холста (v246: крупнее — холка чуть выше Змея); масштаб атласа
+const HK = 0.18, HS = 0.5;   // мир на пиксель холста (v247: поменьше — холка ниже Змея); масштаб атласа
 const H_ONE = { body: 'root', neck: 'neck', mane: 'mane', head: 'head', earNear: 'earN', earFar: 'earF', tail: 'tail' };
 const H_SEG = { top1: 1, top2: 2, knee: 3, shin: 3, hoof: 4, thigh: 1, gaskin: 2, cannon: 3 };
 const H_LEG = { foreNear: 'fN', foreFar: 'fF', hindNear: 'hN', hindFar: 'hF' };
@@ -5241,7 +5241,7 @@ function makeHorse() {
     const im = scene.add.image(0, 0, 'horseAtlas', 'h-' + n).setOrigin(0, 0).setScale(1 / HS);
     im.bone = hBone(n); im.rx = f[4]; im.ry = f[5]; c.add(im); c.ims.push(im);
   }
-  c.hs = { t: Math.random() * 10, ph: 0, mv: 0, ev: {}, nx: { ear: 2 + Math.random() * 3, earF: 4 + Math.random() * 4, tail: 3 + Math.random() * 4, paw: 8 + Math.random() * 8 } };   // состояние (у контейнера свои поля — next и т.п.)
+  c.hs = { t: Math.random() * 10, ph: 0, mv: 0, ev: {}, nx: { ear: 2 + Math.random() * 3, earF: 4 + Math.random() * 4, tail: 3 + Math.random() * 4, paw: 3 + Math.random() * 4 } };   // состояние (у контейнера свои поля — next и т.п.)
   c.tick = (dt, speed) => horseTick(c, dt, speed);
   horsePose(c, {});
   return c;
@@ -5279,7 +5279,7 @@ function horseTick(h, dt, speed) {   // speed — скорость телеги 
   if (nx.ear <= 0) { ev.ear = t; nx.ear = 3 + Math.random() * 5; }
   if (nx.earF <= 0) { ev.earF = t; nx.earF = 4 + Math.random() * 6; }
   if (nx.tail <= 0) { ev.tail = t; nx.tail = 4 + Math.random() * 6; }
-  if (nx.paw <= 0) { if (H.mv < 0.05) ev.paw = t; nx.paw = 10 + Math.random() * 12; }
+  if (nx.paw <= 0) { if (H.mv < 0.05) ev.paw = t; nx.paw = 5 + Math.random() * 5; }   // v248: чаще — раз в 5–10 с
   if (ev.ear != null) p.earN = -22 * hPulse(t, ev.ear, 0.22) - 18 * hPulse(t, ev.ear + 0.3, 0.2);
   if (ev.earF != null) p.earF = 16 * hPulse(t, ev.earF, 0.3);
   if (ev.tail != null) p.tail += 14 * hPulse(t, ev.tail, 0.5) - 6 * hPulse(t, ev.tail + 0.45, 0.4);
@@ -5320,16 +5320,16 @@ const ROUTE_KETIL_FIELD = [[CART_KETIL.x, CART_KETIL.y], [3136, -1150], [3136, -
 const ESCORT_JOKES = ['Ноги не устали?', 'Я говорил, что у меня есть телега?', 'Садись — довезу быстрее!', 'Лошадка уже заскучала без тебя.', 'Ты так до вечера идти будешь!'];   // ЗАГЛУШКИ
 function makeCart(riders) {   // [0,0] — земля под серединой телеги; лошадь спереди (справа)
   const c = scene.add.container(0, 0);
-  const sh = scene.add.ellipse(76, 0, 300, 24, 0x1d2a12, 0.22);
-  const shaftFar = scene.add.graphics(); shaftFar.lineStyle(3, 0x4A2E18, 1).lineBetween(36, -36, 153, -68);   // дальняя оглобля — за лошадью
-  const horse = makeHorse(); horse.setPosition(40, -131).setScale(HK);   // v245: рисованная лошадь; v246: крупнее и дальше от телеги
-  const shaftNear = scene.add.graphics(); shaftNear.lineStyle(3.5, 0x5A3A1E, 1).lineBetween(36, -30, 148, -64);   // ближняя оглобля
+  const sh = scene.add.ellipse(66, 0, 272, 24, 0x1d2a12, 0.22);
+  const shaftFar = scene.add.graphics(); shaftFar.lineStyle(3, 0x4A2E18, 1).lineBetween(36, -36, 137, -54);   // дальняя оглобля — за лошадью
+  const horse = makeHorse(); horse.setPosition(47, -102).setScale(HK);   // v245: рисованная лошадь; v247: меньше, круп на том же расстоянии от телеги
+  const shaftNear = scene.add.graphics(); shaftNear.lineStyle(3.5, 0x5A3A1E, 1).lineBetween(36, -30, 132, -50);   // ближняя оглобля
   const parts = [sh, shaftFar, horse, shaftNear];
   c.riders = [];
   const big = riders === 'three';   // v212: вместительная телега — Змей, героиня и Ольмар
   if (riders) {   // riders: 'both' — Змей и героиня, 'zmey' — один Змей, 'three' — Змей, героиня и Ольмар
     const z = makeChar(ZMEY_LOOK); z.setPosition(18, -26); z.bodyG.scaleX = 1; z.list[0].setVisible(false);
-    const reins = scene.add.graphics(); reins.lineStyle(1.5, 0x3A2416, 1).lineBetween(30, -52, 201, -86);   // v245: к морде новой лошади
+    const reins = scene.add.graphics(); reins.lineStyle(1.5, 0x3A2416, 1).lineBetween(30, -52, 173, -67);   // v245: к морде новой лошади
     if (riders === 'three') { const o = makeChar(OLMAR_LOOK); o.setPosition(-62, -26); o.bodyG.scaleX = 1; o.list[0].setVisible(false); parts.push(o); c.riders.push(o); }
     if (riders === 'both' || big) { const h = makeChar(HERO_LOOK); h.setPosition(-20, -26); h.bodyG.scaleX = 1; h.list[0].setVisible(false); parts.push(h); c.riders.push(h); }
     parts.push(z, reins); c.riders.push(z);
