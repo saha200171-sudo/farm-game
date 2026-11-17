@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 258;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 259;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -6657,6 +6657,15 @@ class FarmScene extends Phaser.Scene {
     // камера и картинки встают ровно на пиксели экрана: иначе при движении мелкий узор травы
     // каждый кадр пересчитывается со сдвигом на долю пикселя и «дрожит»
     cam.setRoundPixels(true);
+    // v259: масштаб камеры дробный (DPR × 0.9 и т.п.), и roundPixels округлял края огромной картинки травы по-разному —
+    // она каждый кадр растягивалась на пиксель и «дрожала». Сдвиг камеры выравниваем на целые пиксели экрана.
+    cam.preRender = function () {
+      Phaser.Cameras.Scene2D.Camera.prototype.preRender.call(this);
+      const z = this.zoom, a = this.width * this.originX, b = this.height * this.originY;
+      const snap = (s, o, lo, hi) => { let v = Math.round(z * (s + o)) / z - o; if (this.useBounds) { if (v < lo) v += 1 / z; if (v > hi) v -= 1 / z; } return v; };
+      const bx = this.useBounds ? [this.clampX(-1e9), this.clampX(1e9)] : [0, 0], by = this.useBounds ? [this.clampY(-1e9), this.clampY(1e9)] : [0, 0];
+      this.scrollX = snap(this.scrollX, a, bx[0], bx[1]); this.scrollY = snap(this.scrollY, b, by[0], by[1]);
+    };
     cam.centerOn(player.x, player.y);
     // Служебный режим ?overview — вся карта целиком, без интерфейса (для скриншотов в Figma)
     if (OVERVIEW) {
