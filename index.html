@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 255;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 256;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3197,7 +3197,7 @@ function hitTest(x, y) {
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(ANCHORS.zmey.x, ANCHORS.zmey.y - (zmeyNapping() ? 10 : 35), 44)) return 'zmey';
   if (state.nanamin.tools === 2 && near(CHOP_SPOT.x, CHOP_SPOT.y - 14, 42)) return 'chop';
-  if (state.nanamin.tools === 4 && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 46)) return 'barn';
+  if (barnOpen() && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 46)) return 'barn';
   if (!hunt.active && torgelNpc && near(torgelNpc.x, torgelNpc.y - 44, 56)) return 'torgel';
   if (near(140, 545, 56)) return 'well';
   for (let i = 0; i < BEDS.length; i++) if ((!VEG_BEDS[i] || canHarvest(i)) && Math.abs(x - BEDS[i].x) < 32 && Math.abs(y - BEDS[i].y) < BEDS[i].len / 2 + 8) return 'bed' + i;
@@ -3284,6 +3284,8 @@ function inputVector() {
 }
 
 // облачко действия: появляется над ближайшим персонажем или предметом
+// в амбар можно войти: за ящиком с инструментами (квест Нанамин) или за украшениями (день 5, ключ у героини)
+function barnOpen() { return (state.nanamin.stage === 1 && state.nanamin.tools === 4) || (state.time.day === 5 && state.day5.stage === 4); }
 function nearest() {
   if (house.active) return houseNearest();
   let best = null, bd = Infinity;
@@ -3308,7 +3310,7 @@ function nearest() {
     if (id === 'klara' && olm.follow) continue;
     if (id === 'iro' && !state.open.sad) continue;
     if (id === 'chop' && !(state.nanamin.stage === 1 && state.nanamin.tools === 2)) continue;
-    if (id === 'barn' && !(state.nanamin.stage === 1 && state.nanamin.tools === 4)) continue;
+    if (id === 'barn' && !barnOpen()) continue;
     const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
