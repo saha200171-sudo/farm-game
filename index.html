@@ -233,6 +233,47 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes rise{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* v253: мини-игра «Тренировка с Торгелем» */
+.card.mg.drill { width:min(520px,100%);gap:8px;padding:12px 16px }
+.card.mg.drill .badge { align-self:center }
+.card.mg.drill h2 { font-size:22px }
+.card.mg.drill .row { justify-content:center }
+.dr-sub { font-size:15px;color:var(--muted);margin:0 }
+.dr-rules p { font-size:16px;text-align:left;margin:0 0 6px }
+.dr-scene { position:relative;height:330px;border-radius:14px;overflow:hidden;background:linear-gradient(#cfe0b9 0 18%,#a9c98a 18% 100%);border:2px solid #c9b68f }
+.dr-scene.small { height:250px }
+.dr-ground { position:absolute;left:8%;right:8%;top:48%;height:46%;border-radius:50%;background:#c7a777;opacity:.55 }
+.dr-fence { position:absolute;left:0;right:0;top:0;height:84px }
+.dr-rail { position:absolute;left:0;right:0;height:9px;background:#8a5e34;border-top:2px solid #5b3a1e;border-bottom:2px solid #5b3a1e }
+.dr-post { position:absolute;top:34px;width:12px;height:48px;background:#7a5230;border:2px solid #5b3a1e;border-radius:4px 4px 0 0 }
+.dr-olmar { position:absolute;left:22px;top:0;width:84px;height:62px;overflow:hidden }
+.dr-olmar img { width:84px;position:absolute;top:0 }
+.dr-bub { position:absolute;left:108px;top:8px;background:#fffdf4;border:2px solid var(--wood);border-radius:12px;padding:3px 9px;font-family:var(--display);font-weight:600;font-size:15px;white-space:nowrap }
+.dr-bub[hidden] { display:none }
+.dr-ch { position:absolute;transform:translateX(-50%);transition:left .12s ease-out }
+.dr-hero.duck { transform:translateX(-50%) scaleY(.72);transform-origin:50% 100% }
+.dr-hero.hit { animation:dr-shake .35s }
+.dr-slot { position:absolute;top:212px;width:78px;height:26px;margin-left:-39px;border:3px dashed rgba(91,58,30,.35);border-radius:50% }
+.dr-slot .ex { display:none;position:absolute;left:50%;top:-30px;transform:translateX(-50%);font:800 22px var(--display);color:#E2553A }
+.dr-slot.hot { border:3px solid #F4B400;background:rgba(244,180,0,.18);box-shadow:0 0 12px #F4B400 }
+.dr-slot.hot .ex { display:block }
+.dr-sword { position:absolute;width:12px;height:84px;background:linear-gradient(90deg,#c08a52,#9a6a3a);border:2px solid #5b3a1e;border-radius:6px 6px 3px 3px;transform-origin:50% 100%;transition:transform .12s,left .12s,top .12s }
+.dr-sword:after { content:"";position:absolute;left:-9px;bottom:16px;width:26px;height:7px;background:#7a5230;border:2px solid #5b3a1e;border-radius:3px }
+.dr-glint { position:absolute;font-size:22px;color:#FFD54A;text-shadow:0 0 6px #fff }
+.dr-glint[hidden], .dr-chip[hidden], .dr-bum[hidden] { display:none }
+.dr-target { position:absolute;top:252px;width:64px;height:64px;margin-left:-32px;border-radius:50%;transition:left .12s ease-out;
+  background:radial-gradient(circle,#e2553a 0 14%,#f3e2bf 15% 34%,#e2553a 35% 52%,#c99a62 53% 100%);border:3px solid #5b3a1e;box-shadow:0 3px 0 rgba(46,36,24,.4) }
+.dr-target.thud { animation:dr-shake .3s }
+.dr-chip { position:absolute;left:50%;top:176px;transform:translateX(-50%);background:#E2553A;color:#fff;border:2px solid var(--wood);border-radius:10px;padding:2px 10px;font:600 15px var(--display);white-space:nowrap }
+.dr-bum { position:absolute;top:190px;width:96px;height:96px;margin-left:-48px;background:#FFD54A;clip-path:polygon(50% 0,61% 30%,95% 18%,72% 45%,100% 62%,66% 66%,72% 100%,50% 76%,26% 100%,32% 66%,0 62%,28% 45%,5% 18%,39% 30%);display:grid;place-items:center;font:800 20px var(--display);color:#B3261E }
+.dr-star { position:absolute;font-size:18px;color:#FFD54A;text-shadow:0 0 2px #5b3a1e }
+.dr-key { position:absolute;width:58px;height:58px;border-radius:50%;background:#FFF3C4;border:3px solid #C9A040;display:grid;place-items:center;font-size:30px }
+.drill-stats { display:flex;justify-content:space-between;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums }
+.dr-msg { min-height:1.4em;font:600 18px var(--display) }
+.dr-btns { display:grid;grid-template-columns:repeat(3,1fr);gap:8px }
+.dr-btns .btn { padding:12px 4px;font-size:17px;touch-action:manipulation }
+@keyframes dr-shake { 0%,100% { translate:0 } 25% { translate:-6px } 75% { translate:6px } }
 </style>
 </head>
 <body>
@@ -275,7 +316,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 252;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 253;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -388,6 +429,7 @@ const freshState = () => ({
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
   day3: { stage: 0, cartAt: 'cow', hint: 0 },   // v212: hint — сколько подсказок про Ольмара получено (0 Лейф → 1 жнецы → 2 Торфинн → 3 скалы)
   day4: { stage: 0 },
+  day5: { stage: 0, pass: false },   // v253: день 5 — мир с Торгелем: 1 ключ, 2 лавка, 3 тренировка, 4 амбар, 5 к Сверкелю, 6 вечер; pass — ночью пропустил домой
   thork: { stage: 0 },   // v213: Торкель (утро дня 4): 1 — на реку, 2 — веди к Кетилю, 3 — армрестлинг, 4 — канат, 5 — признание, 6 — готово   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }],
     // v190: «Обед для жнецов» (после жатвы, stage 6): хлеб у Сверкеля, вода из колодца, травяной отвар у Арнхейнд → раздать каждому жнецу его кружку
@@ -400,7 +442,7 @@ function loadState() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw), d = freshState();
-      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 }, day3: { ...d.day3, ...s.day3 }, day4: { ...d.day4, ...s.day4 } };
+      const st = { ...d, ...s, items: { ...d.items, ...s.items }, open: { ...d.open, ...s.open }, nanamin: { ...d.nanamin, ...s.nanamin }, time: { ...d.time, ...s.time }, day2: { ...d.day2, ...s.day2 }, day3: { ...d.day3, ...s.day3 }, day4: { ...d.day4, ...s.day4 }, day5: { ...d.day5, ...s.day5 } };
       // старые сохранения: коров было 4, теперь 8 — новые коровы дома, если квест уже пройден
       st.open.kuryatnik = st.open.sad = st.open.skaly = true;   // ВРЕМЕННО для тестов: курятник, сад и скалы открыты
       if (st.step === 4) { st.step = 5; st.items.key = false; }   // калитка уже открыта — шаг «открой калитку» пропускаем
@@ -436,6 +478,7 @@ function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.wake === 'cowshed') return 'grandpa';   // v197–199: проснулась в коровнике
+  if (state.time.day === 5 && state.day5.stage >= 1 && state.day5.stage <= 5) return ({ 1: 'torgel', 2: null, 3: 'torgel', 4: 'barn', 5: 'grandpa' })[state.day5.stage];   // v253
   const tk = state.thork.stage;                        // день 4, утро: Торкель
   if (tk === 1) return 'thorkel';
   if (tk === 2) return 'ketil';
@@ -493,7 +536,7 @@ function updateHud() {
   $('questLabel').textContent = state.time.day >= 5 ? `Задание · день ${state.time.day}` : d4 || (state.thork.stage > 0 && state.thork.stage < 6) ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
   const TK = state.thork.stage;
   $('questText').textContent = hunt.active ? 'Проберись домой — не попадись Торгелю'
-    : state.time.day >= 5 ? (state.time.phase === 'evening' ? 'Вечереет — пора домой' : (state.time.day === 5 ? 'Задания пятого дня — скоро (подготовка к празднику)' : 'Задания шестого дня — скоро (праздник и финал)'))
+    : state.time.day >= 5 ? (state.time.phase === 'evening' ? 'Вечереет — пора домой' : (state.time.day === 5 ? ((D5_TEXT || [])[state.day5.stage] || 'Задания пятого дня — скоро (подготовка к празднику)') : 'Задания шестого дня — скоро (праздник и финал)'))
     : TK > 0 && TK < 6 ? ['', 'С реки доносится громовой хохот — сходи посмотреть', 'Отведи Торкеля к дому Кетиля', 'Состязание: армрестлинг с Торкелем', 'Состязание: перетягивание каната', 'Поговори с Торкелем'][TK]
     : state.wake === 'cowshed' ? 'Ночь в коровнике… Сходи к Сверкелю'
     : d4 ? D4_TEXT[d4] || ''
@@ -525,6 +568,8 @@ function updateHud() {
     if (state.items.fish) chips.push([`Рыба × ${state.items.fish}`, '#6E9FB8']);
     if (state.items.shell) chips.push(['Ракушка из Винланда', '#E8C9B0']);
     if (state.items.lantern) chips.push(['Фонарь', '#F2B34A']);
+    if (state.items.barnKey) chips.push(['Ключ от амбара', '#C9A040']);
+    if (state.items.decor) chips.push(['Коробка с украшениями', '#D96B4A']);
     if (state.items.grain && state.time.day === 3) chips.push(['Мешок зерна', '#D9B45A']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
@@ -796,6 +841,7 @@ function devJump(day) {
   if (day === 2.5) { setTimeout(startLunch, 700); }
   else if (day === 2.7) setTimeout(() => toast('Рыбалка: Змей ждёт на мостках', 'info'), 600);
   else if (day === 4.5) setTimeout(startUnveil, 700);
+  else if (day === 5) setTimeout(startDay5, 700);
   else if (day >= 5) setTimeout(() => toast(`День ${day}: задания этого дня — скоро`, 'info', 3000), 600);
   else if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startThorkel, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
@@ -817,9 +863,10 @@ function interact(id) {
   if (id === 'kale') return talkKale();
   if (id === 'zmey') return talkZmey();
   if (id === 'chop') return startChopping();
-  if (id === 'barn') return enterBarn();
+  if (id === 'barn') return state.time.day === 5 ? day5Barn() : enterBarn();
   if (id === 'torgel') return talkTorgel();
   if (id === 'door') {
+    if (state.time.phase === 'evening' && !hunt.active && torgelBlocks()) return torgelAtDoor();   // v253: Торгель загородил дверь
     if (state.time.phase === 'evening' && hunt.active) {   // v197: Торгель сторожит дверь
       if (Math.hypot(torgelNpc.x - HUNT.door.x, torgelNpc.y - HUNT.door.y) < 170) { hunt.mode = 'chase'; toast('Торгель у двери — заметил тебя!', 'warn'); return; }
       endHunt(true); return goToSleep();
@@ -903,6 +950,7 @@ function askGrandpa() {
       ['grandpa', d3 ? 'Ха! Ну, зато выспалась на свежем сене. Ладно, не дуйся — у меня для тебя новость.' : 'Ха! Ну, зато выспалась на свежем сене. Иди-ка умойся — и за дело.'],
     ], () => { state.wake = null; progress(); if (d3) startDay3(); });
   }
+  if (state.time.day === 5 && state.day5.stage >= 1 && state.day5.stage <= 5) return day5Grandpa();   // v253
   if (L.on && !L.bread && !L.done) return showDialog([   // ЗАГЛУШКА: реплики — черновик
     ['grandpa', 'Обед для жнецов? Вот это дело! С утра в поле — и ни крошки, знаю я Кетиля.'],
     ['grandpa', 'Держи каравай, утром испёк. Да не урони по дороге!'],
@@ -1116,6 +1164,15 @@ function findPath(x0, y0, x1, y1) {
 // Торгель — сын хозяина фермы Кетиля: очень сильный и суровый, но без повода никого не трогает.
 // Реплика — ЗАГЛУШКА, позже заменим текстом от автора
 function talkTorgel() {
+  if (state.time.day === 5) {   // v253: день 5 — ключ от амбара и тренировка
+    const d = state.day5.stage;
+    if (!state.time.night) {
+      if (d === 1) return day5Refuse();
+      if (d === 3) return day5AskDrill();
+      if (d >= 4) return showDialog([['torgel', 'Ключ у тебя. Гирлянды — в целости, ясно?']]);
+    } else if (state.day5.pass) return showDialog([['torgel', 'Иди уже. Пока не передумал.']]);
+  }
+  if (torgelMode() === 'doze') return wakeTorgel();   // v253: ночь дня 4 — дремлет, можно разбудить
   if (state.time.night && state.items.lantern && !hunt.active) return showDialog([   // ЗАГЛУШКА: реплики — черновик
     ['torgel', 'Опять шастаешь по ночам? Да ещё с огнём у сена — подпалишь всё!'],
     ['torgel', 'Отдавай фонарь — и марш ночевать к коровам. В дом не пущу. А ну стой!'],
@@ -1243,13 +1300,67 @@ const hunt = { active: false, mode: 'patrol', pi: 0, tx: 0, ty: 0, t: 0, hinted:
 let lanternOn = true, torgelNpc = null, torgelLab = null;
 // v227: ночью Торгель стоит, привалившись к стене домика (у прохода к дому Сверкеля); днём — на своём месте у дровника
 const TORGEL_HOME = { x: -290, y: 440 }, TORGEL_WALL = { x: -60, y: 396 };
+// v253: ночью Торгель по дню: 2-й — сторожит дверь (прятки обязательны), 4-й — дремлет у стены, 5-й — стоит у двери и пропускает
+const TORGEL_GUARD = { x: 178, y: 392 }, TORGEL_DOOR = { x: 210, y: 372 }, TORGEL_ASIDE = { x: 286, y: 388 };
+let torgelZzz = null;
+function torgelMode() {
+  if (!state.time.night) return 'day';
+  const d = state.time.day;
+  if (d === 2 && state.items.lantern && !state.day2.torgel) return 'guard';
+  if (d === 4) return 'doze';
+  if (d === 5) return state.day5.pass ? 'aside' : 'door';
+  return 'wall';
+}
+const torgelBlocks = () => ['guard', 'door'].includes(torgelMode());
 function placeTorgel() {
   if (!torgelNpc || hunt.active) return;
-  const P = state.time.night ? TORGEL_WALL : TORGEL_HOME, T = torgelNpc;
+  const m = torgelMode(), T = torgelNpc;
+  const P = { day: TORGEL_HOME, guard: TORGEL_GUARD, door: TORGEL_DOOR, aside: TORGEL_ASIDE }[m] || TORGEL_WALL;
   scene.tweens.killTweensOf(T);
-  T.setPosition(P.x, P.y).setDepth(P.y); T.bodyG.scaleX = 1; T.bodyG.angle = state.time.night ? -6 : 0;   // опёрся плечом о стену слева
+  T.setPosition(P.x, P.y).setDepth(P.y); T.bodyG.scaleX = m === 'guard' ? -1 : 1; T.bodyG.angle = m === 'wall' || m === 'doze' ? -6 : 0;   // опёрся плечом о стену слева
   torgelLab.setPosition(P.x, P.y - 94);
-  Object.assign(ANCHORS.torgel, { x: P.x, y: P.y });   // v235: кнопка «Поговорить» — там, где он стоит
+  if (m === 'guard' || m === 'door') Object.assign(ANCHORS.torgel, { x: -99999, y: -99999 });   // кнопки нет — разговор начинается сам, когда героиня подходит
+  else Object.assign(ANCHORS.torgel, { x: P.x, y: P.y });   // v235: кнопка «Поговорить» — там, где он стоит
+  if (torgelZzz) { torgelZzz.forEach(z => { scene.tweens.killTweensOf(z); z.destroy(); }); torgelZzz = null; }
+  if (m === 'doze') torgelZzz = [0, 1, 2].map(i => {   // «z z z» над дремлющим
+    const z = scene.add.text(P.x + 14, P.y - 96, 'z', { fontFamily: 'Fredoka, Nunito, sans-serif', fontStyle: '600', fontSize: (16 + i * 5) + 'px', color: '#FFFDF4', stroke: '#2E2418', strokeThickness: 4, resolution: 3 }).setOrigin(0.5).setDepth(4000).setAlpha(0);
+    if (!REDUCED) scene.tweens.add({ targets: z, x: P.x + 26 + i * 6, y: P.y - 124 - i * 10, alpha: { from: 0, to: 1 }, duration: 1600, delay: i * 520, repeat: -1, ease: 'Sine.easeOut', onRepeat: () => z.setPosition(P.x + 14, P.y - 96) });
+    else z.setPosition(P.x + 20 + i * 8, P.y - 106 - i * 12).setAlpha(1);
+    return z;
+  });
+}
+// подошла близко к двери, где стоит Торгель, — разговор начинается сам
+function updateTorgelNight() {
+  if (!torgelNpc || !player || hunt.active || ui.open || !torgelBlocks()) return;
+  if (Math.hypot(player.x - torgelNpc.x, player.y - torgelNpc.y) < 135) torgelAtDoor();
+}
+function torgelAtDoor() {
+  stopWalking();
+  if (torgelMode() === 'guard') return showDialog([   // ночь дня 2: прятки обязательны
+    ['torgel', 'Опять шастаешь по ночам? Да ещё с огнём у сена — подпалишь всё!'],
+    ['torgel', 'Отдавай фонарь — и марш ночевать к коровам. В дом не пущу. А ну стой!'],
+  ], startHunt);
+  showDialog([   // ночь дня 5: пропускает
+    ['thought', 'Ну вот, опять караулит. Сейчас снова к коровам отправит…'],
+    ['hero', 'Только не к коровам, а? Я сегодня и так вся в синяках.'],
+    ['torgel', 'Чего застыла? Проходи.'],
+    ['hero', 'А как же… коровник?'],
+    ['torgel', 'Коровы без тебя переночуют. И фонарь у сена не бросай.'],
+  ], () => {
+    state.day5.pass = true; progress();
+    const T = torgelNpc, P = TORGEL_ASIDE;
+    scene.tweens.add({ targets: T, x: P.x, y: P.y, duration: 900, ease: 'Sine.easeInOut',
+      onUpdate: () => { T.setDepth(T.y); torgelLab.setPosition(T.x, T.y - 94); },
+      onComplete: () => placeTorgel() });
+  });
+}
+function wakeTorgel() {   // ночь дня 4: разбудила — прятки ещё раз
+  if (torgelZzz) { torgelZzz.forEach(z => { scene.tweens.killTweensOf(z); z.destroy(); }); torgelZzz = null; }
+  torgelNpc.bodyG.angle = 0;
+  showDialog([
+    ['torgel', 'А?! Кто тут… Опять ты? Да ещё с огнём у сена!'],
+    ['torgel', 'Отдавай фонарь — и марш к коровам. А ну стой!'],
+  ], startHunt);
 }
 function startHunt() {   // v201: Торгель уходит сторожить дверь (пока открыта мысль героини), потом 3 с форы
   const T = torgelNpc, [px, py] = HUNT.patrol[0];
@@ -1555,6 +1666,8 @@ function goToSleep(where) {
       setTimeout(startDay3, 1300);
     } else if (state.time.day === 4 && state.day4.stage === 0) {
       setTimeout(state.thork.stage >= 6 ? startDay4 : startThorkel, 1300);
+    } else if (state.time.day === 5 && state.day5.stage === 0) {
+      setTimeout(startDay5, 1300);
     } else {
       setTimeout(() => showThought('Доброе утро! Новый день на ферме… Интересно, что он принесёт?'), 1300);
     }
@@ -1567,6 +1680,7 @@ function goToSleep(where) {
 function talkKlara() {
   const s = state;
   if (olm.follow) return;
+  if (s.time.day === 5 && s.day5.stage === 3) return showDialog([['klara', 'Ну что стоишь? Торгель у домика — просись в напарники! Я подсмотрю из-за забора.']]);   // v253
   if (s.day3.stage === 1) return showDialog([['klara', 'Змей? Проезжал утром мимо курятника с телегой — в поле покатил. Спроси у Торфинна, он там всех видит.']]);   // ЗАГЛУШКА
   if (s.step === 5) return showDialog([
     ['klara', 'А, ты та новенькая. Я Ольмар, сын Кетиля. Курятник — моя забота… пока отец не доверит мне дело поважнее.'],
@@ -3212,6 +3326,7 @@ function actionLabel(id) {
   if (id === 'gate') return 'Открыть';
   if (id.startsWith('herb')) return 'Сорвать';
   if (id === 'zmey' && zmeyNapping()) return state.step === 31 ? 'Разбудить' : 'Осмотреть';
+  if (id === 'torgel' && torgelMode() === 'doze') return 'Разбудить';   // v253
   return 'Поговорить';
 }
 function updateControls() {
@@ -5491,6 +5606,220 @@ function checkEscort() {
   }
   else if (player.x > 700 && player.y < -380 && player.y > -560) startDrive('escort');                // у поля — пошла по дорожке к Кетилю
 }
+
+// ===================== День 5 (v253): мир с Торгелем — ключ от амбара, лавка, тренировка, украшения =====================
+// ЗАГЛУШКИ: реплики — черновик (согласованы в обсуждении). Остальные пункты дня 5 (гости, украшение двора, угощение) — позже.
+var D5_TEXT = ['', 'Попроси у Торгеля ключ от амбара — он у домика', 'Чего он на меня взъелся?…', 'Попросись к Торгелю на тренировку — он у домика',
+  'Забери украшения из амбара', 'Отнеси украшения Сверкелю', 'Вечереет — пора домой'];
+const BENCH = { x: -175, y: 452 };
+function day5Set(st, msg) { state.day5.stage = st; progress(); if (msg) toast(msg); }
+function startDay5() {
+  showDialog([
+    ['grandpa', 'Доброе утро, внучка! Слыхала новость? Кетиль объявил: урожай собран — завтра праздник урожая для всей фермы!'],
+    ['grandpa', 'Дел невпроворот. Первым делом — украшения: гирлянды, флажки, расписные щиты. Всё лежит в амбаре.'],
+    ['grandpa', 'Только амбар заперт, а ключ у Торгеля. Попроси у него — и неси всё сюда.'],
+  ], () => day5Set(1, 'Новое задание: попроси у Торгеля ключ от амбара'));
+}
+function day5Grandpa() {
+  const d = state.day5.stage;
+  if (d === 5) return showDialog([
+    ['grandpa', 'Ого, целая коробка! И ключ раздобыла? Неужто Торгель отдал сам?'],
+    ['hero', 'Пришлось с ним потренироваться…'],
+    ['grandpa', 'Ха! Тогда понятно, откуда шишка на лбу. Молодец, внучка.'],
+    ['grandpa', 'Остальное к празднику — завтра. А сейчас отдохни: вечереет уже.'],
+  ], () => {
+    state.items.decor = false; state.day5.stage = 6;
+    state.time.phase = 'evening'; state.time.night = true; progress(); applyTime(false);
+    setTimeout(() => showThought(state.items.lantern ? 'Совсем стемнело… Хорошо, что у меня есть фонарь. Пора домой.' : 'Совсем стемнело… Пора домой.'), 2600);
+  });
+  showDialog([['grandpa', d === 4 ? 'Ключ у тебя? Вот и славно — неси украшения из амбара.' : 'Ключ от амбара у Торгеля. Он с утра у домика крутится.']]);
+}
+function day5Barn() {
+  const d = state.day5.stage;
+  if (d < 4) return toast('Амбар заперт. Ключ — у Торгеля', 'info');
+  if (d > 4) return toast(d === 5 ? 'Украшения уже у тебя — отнеси Сверкелю' : 'В амбаре больше ничего не нужно', 'info');
+  showThought('Вот они — гирлянды, флажки, расписные щиты… Всё в одной коробке. Отнесу Сверкелю.', () => {
+    state.items.decor = true; state.items.barnKey = false; day5Set(5, 'Получено: коробка с украшениями');
+  });
+}
+function day5Refuse() {
+  showDialog([
+    ['hero', 'Торгель, дай, пожалуйста, ключ от амбара. Там украшения к празднику.'],
+    ['torgel', 'В амбар? Тебя? После того раза? Ключ не дам. Сама знаешь почему.'],
+  ], benchScene);
+}
+// грустит на лавке → подходит Ольмар и подсказывает
+function benchScene() {
+  day5Set(2); ui.open = true; stopWalking();
+  const B = BENCH, objs = [];
+  objs.push(scene.add.ellipse(B.x, B.y + 4, 104, 16, 0x1d2a12, 0.22).setDepth(B.y + 1));
+  objs.push(scene.add.rectangle(B.x - 34, B.y - 4, 8, 16, 0x5E3D20).setDepth(B.y + 1), scene.add.rectangle(B.x + 34, B.y - 4, 8, 16, 0x5E3D20).setDepth(B.y + 1));
+  objs.push(scene.add.rectangle(B.x, B.y - 14, 96, 12, 0x8A5E34).setStrokeStyle(2, 0x5B3A1E).setDepth(B.y + 2));
+  const fade = (on, cb) => scene.tweens.add({ targets: player, alpha: on ? 1 : 0, duration: 350, onComplete: cb });
+  fade(false, () => {
+    player.setPosition(B.x, B.y + 30); player.setVisible(false);
+    const h = makeChar({ ...HERO_LOOK, sit: 'rock' }); h.setPosition(B.x - 4, B.y - 6).setDepth(B.y + 3); h.list[0].setVisible(false); objs.push(h);
+    scene.cameras.main.stopFollow(); scene.cameras.main.pan(B.x + 40, B.y - 40, 600, 'Sine.easeInOut');
+    setTimeout(() => showThought('Чего он на меня взъелся?', () => {
+      ui.open = true; stopWalking();
+      const o = makeChar(OLMAR_LOOK); o.setPosition(B.x + 300, B.y + 6).setDepth(B.y + 6); o.bodyG.scaleX = -1; objs.push(o);
+      scene.tweens.add({ targets: o, x: B.x + 80, duration: 1400, ease: 'Linear', onUpdate: () => { o.setDepth(o.y); o.bodyG.y = REDUCED ? 0 : -Math.abs(Math.sin(scene.time.now / 85)) * 3; },
+        onComplete: () => { o.bodyG.y = 0; showDialog([
+          ['klara', 'Чего нос повесила? А, братец…'],
+          ['klara', 'Он только снаружи как тролль. Каждое утро машет деревянным мечом у поленницы — а напарника нет: все разбегаются, даже я.'],
+          ['klara', 'Станешь ему напарником — оттает. Только не реви, если прилетит по лбу.'],
+          ['hero', 'Ладно… Попробую!'],
+        ], () => {
+          ui.open = true; stopWalking(); o.bodyG.scaleX = 1;
+          scene.tweens.add({ targets: o, x: B.x + 320, alpha: 0, duration: 1300, onUpdate: () => o.setDepth(o.y) });
+          setTimeout(() => {
+            objs.forEach(x => x.destroy()); player.setVisible(true).setAlpha(1); scene.cameras.main.startFollow(player, false, 1, 1);
+            ui.open = false; day5Set(3, 'Новое задание: попросись к Торгелю на тренировку');
+          }, 900);
+        }); } });
+    }), 700);
+  });
+}
+function day5AskDrill() {
+  showDialog([
+    ['hero', 'Торгель… возьми меня в напарники на тренировку!'],
+    ['torgel', 'Ты? Со мной? Ну давай. Продержишься — поговорим.'],
+  ], startDrill);
+}
+function day5Won() {
+  state.items.barnKey = true; day5Set(4, 'Получено: ключ от амбара');
+}
+// ---------- мини-игра «Тренировка с Торгелем» ----------
+const DRILL = { r1: 10, need: 7, r2: 12, lives: 3 };
+let drillImgs = null;
+function drillSprite(look) {   // рисунок схематичного персонажа для окна (кадр игры → картинка, обрезанная по краю)
+  return new Promise(res => {
+    const c = makeChar(look); c.list[0].setVisible(false); c.setScale(3);
+    const rt = scene.make.renderTexture({ width: 330, height: 480 }, false); rt.draw(c, 165, 470);
+    rt.snapshot(img => {
+      c.destroy(); rt.destroy();
+      const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+      const a = cx.getImageData(0, 0, cv.width, cv.height).data; let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0;
+      for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (a[(y * cv.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1; o.getContext('2d').drawImage(cv, -x0, -y0);
+      res(o.toDataURL());
+    });
+  });
+}
+function drillSprites() {
+  if (drillImgs) return Promise.resolve(drillImgs);
+  return Promise.all([TORGEL_LOOK, HERO_LOOK, OLMAR_LOOK].map(drillSprite)).then(([t, h, o]) => (drillImgs = { t, h, o }));
+}
+function startDrill() {
+  ui.open = true; stopWalking();
+  drillSprites().then(() => drillScreen('rules'));
+}
+const DR_LANE = [22, 50, 78];
+function drillFence(say) {
+  return `<div class="dr-fence"><div class="dr-olmar"><img src="${drillImgs.o}" alt=""></div><div class="dr-rail" style="top:50px"></div><div class="dr-rail" style="top:68px"></div>
+    ${[4, 120, 180, 240, 300, 354].map(x => `<div class="dr-post" style="left:${x}px"></div>`).join('')}</div><div class="dr-bub" id="drBub"${say ? '' : ' hidden'}>${say || ''}</div>`;
+}
+function drillScreen(kind, info) {
+  const I = drillImgs;
+  if (kind === 'rules') {
+    openModal(`<div class="card mg drill"><div class="badge">Мини-игра</div><h2>Тренировка с Торгелем</h2>
+      <div class="dr-scene small">${drillFence('Давай!')}<img class="dr-ch" src="${I.t}" style="left:64%;top:60px;height:150px" alt="">
+        <div class="dr-sword" style="left:calc(64% + 44px);top:96px;transform:rotate(18deg)"></div><img class="dr-ch" src="${I.h}" style="left:30%;bottom:10px;height:112px" alt=""></div>
+      <div class="dr-rules"><p><b>Раунд 1 — «Держи мишень».</b> Торгель замахивается — смотри, куда. Подставь мишень кнопкой «Влево», «Центр» или «Вправо». Поймай ${DRILL.need} ударов из ${DRILL.r1}.</p>
+      <p><b>Раунд 2 — «Уворачивайся».</b> Удар сверху — шагни в сторону, сбоку — пригнись, выпад — уйди в другую сторону. Три шишки — и тренировка окончена.</p></div>
+      <div class="row"><button class="btn" id="drGo" type="button">Начали!</button></div></div>`);
+    $('drGo').addEventListener('click', e => { e.stopPropagation(); drillRound(1); });
+    return;
+  }
+  const win = kind === 'win';
+  openModal(`<div class="card mg drill"><div class="badge">Мини-игра</div><h2>${win ? 'Не трусиха!' : info.r === 1 ? 'Мимо, мимо…' : 'Шишек многовато'}</h2>
+    <div class="dr-scene small">${drillFence(win ? 'Красиво! 👍' : 'Ничего, ещё разок!')}<img class="dr-ch" src="${I.t}" style="left:${win ? 72 : 64}%;top:70px;height:150px" alt="">
+      ${win ? '<div class="dr-key" style="left:calc(72% - 100px);top:118px">🗝️</div>' : '<div class="dr-sword" style="left:calc(64% + 40px);top:150px;transform:rotate(-10deg)"></div>'}
+      <img class="dr-ch" src="${I.h}" style="left:${win ? 22 : 26}%;bottom:10px;height:112px" alt="">
+      ${win ? '' : '<span class="dr-star" style="left:21%;top:118px">★</span><span class="dr-star" style="left:33%;top:110px">★</span>'}</div>
+    <div class="drill-stats"><span>${info.a}</span><span>${info.b}</span></div>
+    <p>${win ? 'Торгель: «Хм. Не трусиха. Держи. Но если хоть одна гирлянда пропадёт…»' : 'Торгель: «Ещё? Ладно, хоть разогрелась».'}</p>
+    <div class="row"><button class="btn" id="drEnd" type="button">${win ? 'Забрать ключ' : 'Ещё раз'}</button></div></div>`);
+  $('drEnd').addEventListener('click', e => { e.stopPropagation(); if (win) { closeModal(); day5Won(); } else drillRound(info.r); });
+}
+function drillRound(r) {
+  const I = drillImgs;
+  openModal(`<div class="card mg drill"><div class="badge">Мини-игра · раунд ${r}</div><h2>Тренировка с Торгелем</h2>
+    <p class="dr-sub">${r === 1 ? 'Держи мишень: подставь её туда, куда он бьёт' : 'Уворачивайся: сверху и выпад — в сторону, сбоку — пригнись'}</p>
+    <div class="dr-scene"><div class="dr-ground"></div>${drillFence('')}
+      <img class="dr-ch" id="drT" src="${I.t}" style="left:50%;top:40px;height:140px" alt=""><div class="dr-sword" id="drSw"></div><span class="dr-glint" id="drGl" hidden>✦</span>
+      ${r === 1 ? DR_LANE.map((x, i) => `<div class="dr-slot" id="drS${i}" style="left:${x}%"><span class="ex">!</span></div>`).join('') : '<div class="dr-chip" id="drChip" hidden></div>'}
+      <img class="dr-ch dr-hero" id="drH" src="${I.h}" style="left:50%;bottom:6px;height:118px" alt="">
+      ${r === 1 ? '<div class="dr-target" id="drTg" style="left:50%"></div>' : ''}
+      <div class="dr-bum" id="drBum" hidden>БУМ!</div></div>
+    <div class="drill-stats"><span id="drA"></span><span id="drB"></span></div>
+    <div class="dr-msg" id="drMsg">&nbsp;</div>
+    <div class="dr-btns">${(r === 1 ? ['◀ Влево', '● Центр', 'Вправо ▶'] : ['◀ Влево', '▼ Пригнись', 'Вправо ▶']).map((t, i) => `<button class="btn secondary" type="button" data-k="${i}">${t}</button>`).join('')}</div></div>`);
+  const g = { r, i: 0, ok: 0, bumps: 0, pos: 1, act: -1, busy: true, side: 1, type: null, done: false };
+  const msg = t => { $('drMsg').textContent = t; };
+  const bub = t => { const b = $('drBub'); if (!b) return; b.textContent = t; b.hidden = false; clearTimeout(g.bt); g.bt = setTimeout(() => { if ($('drBub')) $('drBub').hidden = true; }, 1300); };
+  const stats = () => {
+    $('drA').textContent = r === 1 ? `Удар ${Math.min(g.i + 1, DRILL.r1)} из ${DRILL.r1}` : `Удар ${Math.min(g.i + 1, DRILL.r2)} из ${DRILL.r2}`;
+    $('drB').textContent = r === 1 ? `Поймано: ${g.ok}` : `Шишки: ${'●'.repeat(g.bumps)}${'○'.repeat(DRILL.lives - g.bumps)}`;
+  };
+  const hero = () => { const h = $('drH'); h.style.left = DR_LANE[g.pos] + '%'; h.classList.toggle('duck', r === 2 && g.act === 1); if ($('drTg')) $('drTg').style.left = DR_LANE[g.pos] + '%'; };
+  const sword = (pose) => {   // поза меча: замах слева/по центру/справа, удар; в раунде 2 — сверху, сбоку, выпад
+    const s = $('drSw'), gl = $('drGl');
+    const P = { L: ['calc(50% - 58px)', '44px', -28], C: ['calc(50% - 6px)', '8px', 0], R: ['calc(50% + 40px)', '44px', 28],
+      side: ['calc(50% - 76px)', '96px', -90], tL: ['calc(50% - 72px)', '110px', -110], tR: ['calc(50% + 58px)', '110px', 110], rest: ['calc(50% + 40px)', '120px', 160] }[pose];
+    s.style.left = P[0]; s.style.top = P[1]; s.style.transform = `rotate(${P[2]}deg)`;
+    gl.hidden = pose === 'rest'; if (!gl.hidden) { gl.style.left = `calc(${P[0]} + ${P[2] < 0 ? -8 : 20}px)`; gl.style.top = `calc(${P[1]} - 6px)`; }
+  };
+  const ok1 = ['Хм.', 'Держишь.', 'Неплохо.', 'Ещё!'], bad1 = ['Куда смотришь?! Выше щит!', 'Не спи!', 'Мимо! Смотри на замах!'];
+  const ok2 = ['Шустрая.', 'Хм. Увернулась.', 'Ещё раз!'], bad2 = ['Ноги! Где ноги?!', 'Не моргай!', 'Бум. Бывает.'];
+  const next = () => {
+    if (g.done || !$('drA')) { g.done = true; return; }   // окно закрыли посреди раунда — останавливаемся
+    if (r === 1 && g.i >= DRILL.r1) { g.done = true; return g.ok >= DRILL.need ? setTimeout(() => { msg('Раунд 2! Теперь он бьёт по-настоящему…'); setTimeout(() => drillRound(2), 1100); }, 300) : setTimeout(() => drillScreen('lose', { r: 1, a: `Поймано: ${g.ok} из ${DRILL.r1}`, b: `нужно ${DRILL.need}` }), 500); }
+    if (r === 2 && g.i >= DRILL.r2) { g.done = true; return setTimeout(() => drillScreen('win', { a: `Увернулась: ${DRILL.r2 - g.bumps} из ${DRILL.r2}`, b: `Шишки: ${'●'.repeat(g.bumps)}${'○'.repeat(DRILL.lives - g.bumps)}` }), 500); }
+    stats(); g.act = -1; g.busy = false;
+    if (r === 2) { g.pos = 1; hero(); }
+    if (r === 1) {
+      let sd; do { sd = Math.floor(Math.random() * 3); } while (sd === g.side && Math.random() < 0.5);
+      g.side = sd; sword(['L', 'C', 'R'][sd]); DR_LANE.forEach((_, k) => $('drS' + k).classList.toggle('hot', k === sd));
+    } else {
+      g.type = ['over', 'side', 'tL', 'tR'][Math.floor(Math.random() * 4)];
+      sword({ over: 'C', side: 'side', tL: 'tL', tR: 'tR' }[g.type]);
+      const c = $('drChip'); c.hidden = false; c.textContent = { over: 'Сверху!', side: 'Удар сбоку!', tL: 'Выпад слева! →', tR: '← Выпад справа!' }[g.type];
+    }
+    const wind = r === 1 ? Math.max(650, 1150 - g.i * 45) : Math.max(620, 1250 - g.i * 55);
+    g.timer = setTimeout(resolve, wind);
+  };
+  const resolve = () => {
+    if (g.done || !$('drA')) { g.done = true; return; }
+    g.busy = true; sword('rest');
+    if (r === 1) {
+      DR_LANE.forEach((_, k) => $('drS' + k).classList.remove('hot'));
+      const hit = g.pos === g.side;
+      if (hit) { g.ok++; msg(ok1[g.i % ok1.length]); const t = $('drTg'); t.classList.remove('thud'); void t.offsetWidth; t.classList.add('thud'); if (g.ok % 3 === 0) bub(['Давай!', 'Красиво!', 'Так его!'][g.ok % 3]); }
+      else { msg(bad1[g.i % bad1.length]); bub('Ой…'); }
+    } else {
+      $('drChip').hidden = true;
+      const good = { over: [0, 2], side: [1], tL: [2], tR: [0] }[g.type].includes(g.act);
+      if (good) { msg(ok2[g.i % ok2.length]); if (g.i % 3 === 2) bub(['Давай!', 'Красиво!', 'Так его!'][g.i % 3]); }
+      else {
+        g.bumps++; msg(bad2[g.bumps % bad2.length]); bub('Ой…');
+        const b = $('drBum'); b.style.left = DR_LANE[g.pos] + '%'; b.hidden = false; $('drH').classList.add('hit');
+        setTimeout(() => { if ($('drBum')) { $('drBum').hidden = true; $('drH').classList.remove('hit'); } }, 650);
+      }
+    }
+    g.i++; stats();
+    if (r === 2 && g.bumps >= DRILL.lives) { g.done = true; return setTimeout(() => drillScreen('lose', { r: 2, a: `Увернулась: ${g.i - g.bumps} раз`, b: `Шишки: ${'●'.repeat(DRILL.lives)}` }), 800); }
+    setTimeout(next, 700);
+  };
+  document.querySelectorAll('.dr-btns .btn').forEach(b => b.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); if (g.busy || g.done) return;
+    const k = +b.dataset.k;
+    if (r === 1) { g.pos = k; hero(); }
+    else { g.act = k; g.pos = k === 1 ? 1 : k; hero(); }
+  }));
+  stats(); hero(); sword('rest');
+  setTimeout(() => { msg(r === 1 ? 'Смотри на замах!' : 'Смотри, как он бьёт!'); setTimeout(next, 700); }, 300);
+}
 // ===================== Торфинн: сторож поля =====================
 // Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
 let thorfinnChar = null, thorfinnLabel = null;
@@ -6385,6 +6714,7 @@ class FarmScene extends Phaser.Scene {
     updateNight(time);
     updateFireflies(time);
     updateHunt(dt);
+    updateTorgelNight();   // v253
     { const h = !(state.time.night && state.items.lantern && player.visible && !ui.open && !house.active), el = $('lampBtn'); if (el.hidden !== h) el.hidden = h; }   // DOM — только при изменении
     if (barn.active) updateBarn(dt, time);
     if (house.active) updateHouse(dt);
