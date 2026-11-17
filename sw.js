@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    заново скачивает все файлы с меткой версии — гарантированно свежие.
-const CACHE = 'farm-v259';
+const CACHE = 'farm-v261';
 const CORE = [
   './',
   './index.html',
@@ -53,6 +53,7 @@ const CORE = [
   ...['tree-1', 'tree-2', 'tree-3', 'tree-4', 'poplar-1', 'poplar-2', 'bush-1', 'bush-2', 'bush-3', 'bush-4',
       's2-oak-1', 's2-oak-2', 's2-grove-1', 's2-grove-2', 's2-branchy-2', 's2-branchy-3',
       's1-oak-1', 's1-oak-2', 's1-grove-1', 's1-grove-2'].map(k => `./assets/trees/${k}.webp`),
+  ...['1a_el-2', '1b_el-1', '1b_el-2', '2a_young-3', '2a_young-5', '2b_young-2', '2b_young-4', '3a_pine-1', '3a_pine-2', '3b_pine-1', '3b_pine-2', '4a_larch-1', '4a_larch-2', '4b_larch-1', '4b_larch-2', '5a_stump-2', '5a_stump-4', '5b_stump-1', '5b_stump-3', '6a_boulder-1', '6a_boulder-2', '6a_boulder-3', '6b_boulder-1', '6b_boulder-3', '6b_boulder-4', '6b_boulder-5', '8a_bank-2', '8a_bank-3', '8a_bank-4', '8a_bank-6', '8b_bank-1', '8b_bank-3', '8b_bank-4', '8b_bank-6'].map(k => `./assets/forest/${k}.webp`),   // v260: опушка леса
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
