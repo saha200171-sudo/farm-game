@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 265;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 266;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -6896,7 +6896,7 @@ class FarmScene extends Phaser.Scene {
       if (this.useBounds && this._bounds.right > EXT_R - 1) {   // v260: справа карта продлена только полосой двора — ниже неё камера вправо не заезжает
         const vw = this.width / z, vh = this.height / z, f = Math.max(0, Math.min(1, 1 - (this.scrollY + b + vh / 2 - EXT_BOTTOM) / 300));
         const g = Math.max(0, Math.min(1, (this.scrollY + b + vh / 2 - 520) / 300));   // v262: ниже поля справа от скал — только лес вдоль забора
-        const R = Math.min(WORLD.w + (EXT_R - WORLD.w) * f, WORLD.w - (WORLD.w - (FARM_W + 190)) * g);
+        const R = Math.min(WORLD.w + (EXT_R - WORLD.w) * f, EXT_R - (EXT_R - (FARM_W + 190)) * g);   // v266: вторая граница при g = 0 не мешает (раньше всегда держала камеру у старого края карты)
         if (this.scrollX + a + vw / 2 > R) this.scrollX = Math.max(this.clampX(-1e9), R - a - vw / 2);
       }
       this.scrollX = snap(this.scrollX, a, bx[0], bx[1]); this.scrollY = snap(this.scrollY, b, by[0], by[1]);
