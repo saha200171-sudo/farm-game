@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 264;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 265;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -4723,7 +4723,8 @@ function inStream(x, y) {
   return false;
 }
 function drawStream() {
-  // ломаную дробим на куски — у каждого своя картинка, рисуется только рядом с экраном
+  // v265: ручей «запечён» — один раз рисуется на холстах 512×512 точек карты (только там, где он течёт),
+  // дальше это обычные картинки. Раньше были сотни векторных кругов — телефон пересчитывал их каждый кадр и подвисал.
   const pts = [];
   for (let i = 1; i < STREAM.length; i++) {
     const [ax, ay] = STREAM[i - 1], [bx, by] = STREAM[i], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 7));
@@ -4731,31 +4732,48 @@ function drawStream() {
   }
   pts.push(STREAM[STREAM.length - 1]);
   const rnd = mulberry32(31), H = STREAM_HALF;
-  const layers = [[H + 12, 0x5C5A34, 0.55], [H + 6, 0x6E6A3E, 1], [H + 1, 0x3E86A3, 1], [H - 3, 0x4A97B4, 1], [H * 0.5, 0x63B0CB, 0.55]];   // берег, мокрая кромка, вода, середина светлее
-  for (let s = 0; s < pts.length; s += 40) {
-    const part = pts.slice(Math.max(0, s - 1), s + 41), xs = part.map(p => p[0]), ys = part.map(p => p[1]);
-    const box = [Math.min(...xs) - H - 14, Math.min(...ys) - H - 14, Math.max(...xs) + H + 14, Math.max(...ys) + H + 14];
-    // каждый слой — своя картинка со своей глубиной: берег соседнего куска не ложится поверх воды
-    layers.forEach(([r, col, a], li) => { const q = cullG(scene.add.graphics().setDepth(GROUND - 8.46 + li * 0.01), ...box); q.fillStyle(col, a); for (const [x, y] of part) q.fillCircle(x, y, r); });
-    const g = cullG(scene.add.graphics().setDepth(GROUND - 8.4), ...box);
-    for (let i = 0; i < part.length - 6; i += 5) {   // блики-рябь вдоль течения
-      if (rnd() < 0.45) continue;
-      const [x1, y1] = part[i], [x2, y2] = part[i + 4], o = (rnd() - 0.5) * H * 1.1, nx = -(y2 - y1), ny = x2 - x1, l = Math.hypot(nx, ny) || 1;
-      g.lineStyle(2.5, 0xCFEAF0, 0.55).lineBetween(x1 + nx / l * o, y1 + ny / l * o, x1 + (x2 - x1) * 0.6 + nx / l * o, y1 + (y2 - y1) * 0.6 + ny / l * o);
-    }
+  const layers = [[H + 12, 'rgba(92,90,52,0.55)'], [H + 6, '#6E6A3E'], [H + 1, '#3E86A3'], [H - 3, '#4A97B4'], [H * 0.5, 'rgba(99,176,203,0.55)']];   // берег, мокрая кромка, вода, середина светлее
+  const ripples = [];   // блики-рябь вдоль течения
+  for (let i = 0; i < pts.length - 6; i += 5) {
+    if (rnd() < 0.45) continue;
+    const [x1, y1] = pts[i], [x2, y2] = pts[i + 4], o = (rnd() - 0.5) * H * 1.1, nx = -(y2 - y1), ny = x2 - x1, l = Math.hypot(nx, ny) || 1;
+    ripples.push([x1 + nx / l * o, y1 + ny / l * o, x1 + (x2 - x1) * 0.6 + nx / l * o, y1 + (y2 - y1) * 0.6 + ny / l * o]);
   }
-  // мост: настил поперёк ручья (доски вдоль течения), снизу и сверху — перила со столбиками
-  const B = BRIDGE, w = B.x2 - B.x1;
-  const d = cullG(scene.add.graphics().setDepth(GROUND - 7), B.x1 - 20, B.y1 - 40, B.x2 + 20, B.y2 + 20);
-  d.fillStyle(0x1d2a12, 0.25).fillRect(B.x1 + 4, B.y1 + 8, w, B.y2 - B.y1);                       // тень на воде
-  d.fillStyle(0x5A3D24, 1).fillRect(B.x1, B.y1, w, B.y2 - B.y1);
-  for (let x = B.x1 + 2, k = 0; x < B.x2 - 2; x += 14, k++) d.fillStyle(k % 2 ? 0xA97B48 : 0xB98A55, 1).fillRect(x, B.y1 + 2, Math.min(12, B.x2 - 2 - x), B.y2 - B.y1 - 4);
-  d.fillStyle(0x6B4A2C, 1).fillRect(B.x1, B.y1, w, 5).fillRect(B.x1, B.y2 - 5, w, 5);                // балки по краям
+  const B = BRIDGE, bw = B.x2 - B.x1;
+  const T = 512, RES = 1.25, M = H + 14, px = Math.round(T * RES);
+  scene.textures.getTextureKeys().filter(k => k.startsWith('streamTile')).forEach(k => scene.textures.remove(k));   // после «Заново»
+  const tiles = new Set(pts.map(([x, y]) => [Math.floor((x - M) / T), Math.floor((y - M) / T), Math.floor((x + M) / T), Math.floor((y + M) / T)])
+    .flatMap(([a, b, c, d]) => { const o = []; for (let i = a; i <= c; i++) for (let j = b; j <= d; j++) o.push(i + ',' + j); return o; }));
+  let n = 0;
+  for (const key of tiles) {
+    const [ti, tj] = key.split(',').map(Number), ox = ti * T, oy = tj * T;
+    const near = pts.filter(([x, y]) => x > ox - M && x < ox + T + M && y > oy - M && y < oy + T + M);
+    if (!near.length) continue;
+    const tex = scene.textures.createCanvas('streamTile' + (n++), px, px), c = tex.getContext();
+    c.setTransform(RES, 0, 0, RES, -ox * RES, -oy * RES);
+    for (const [r, col] of layers) {   // каждый слой целиком — швов между кусками нет
+      c.fillStyle = col; c.beginPath();
+      for (const [x, y] of near) { c.moveTo(x + r, y); c.arc(x, y, r, 0, Math.PI * 2); }
+      c.fill();
+    }
+    c.strokeStyle = 'rgba(207,234,240,0.55)'; c.lineWidth = 2.5; c.lineCap = 'round'; c.beginPath();
+    for (const [x1, y1, x2, y2] of ripples) if (x1 > ox - 20 && x1 < ox + T + 20 && y1 > oy - 20 && y1 < oy + T + 20) { c.moveTo(x1, y1); c.lineTo(x2, y2); }
+    c.stroke();
+    if (B.x2 > ox && B.x1 < ox + T && B.y2 > oy && B.y1 < oy + T) {   // настил моста (поверх воды; перила — отдельно, у них своя глубина)
+      c.fillStyle = 'rgba(29,42,18,0.25)'; c.fillRect(B.x1 + 4, B.y1 + 8, bw, B.y2 - B.y1);
+      c.fillStyle = '#5A3D24'; c.fillRect(B.x1, B.y1, bw, B.y2 - B.y1);
+      for (let x = B.x1 + 2, k = 0; x < B.x2 - 2; x += 14, k++) { c.fillStyle = k % 2 ? '#A97B48' : '#B98A55'; c.fillRect(x, B.y1 + 2, Math.min(12, B.x2 - 2 - x), B.y2 - B.y1 - 4); }
+      c.fillStyle = '#6B4A2C'; c.fillRect(B.x1, B.y1, bw, 5); c.fillRect(B.x1, B.y2 - 5, bw, 5);
+    }
+    tex.refresh();
+    scene.add.image(ox, oy, 'streamTile' + (n - 1)).setOrigin(0, 0).setScale(1 / RES).setDepth(GROUND - 8.4);
+  }
+  // перила моста: снизу — перед героиней, сверху — за ней (несколько прямоугольников, дёшево)
   const rail = (y, depth) => {
     const r = scene.add.graphics().setDepth(depth); cullG(r, B.x1 - 10, y - 40, B.x2 + 10, y + 6);
     r.fillStyle(0x4A2E18, 1);
-    for (const x of [B.x1 + 4, B.x1 + w / 2 - 3, B.x2 - 10]) r.fillRect(x, y - 30, 7, 32);           // столбики
-    r.fillStyle(0x7A5230, 1).fillRect(B.x1, y - 32, w, 7).fillStyle(0x9A6B3E, 1).fillRect(B.x1, y - 32, w, 3);   // жердь перил
+    for (const x of [B.x1 + 4, B.x1 + bw / 2 - 3, B.x2 - 10]) r.fillRect(x, y - 30, 7, 32);           // столбики
+    r.fillStyle(0x7A5230, 1).fillRect(B.x1, y - 32, bw, 7).fillStyle(0x9A6B3E, 1).fillRect(B.x1, y - 32, bw, 3);   // жердь перил
   };
   rail(B.y1 + 4, B.y1 + 4); rail(B.y2, B.y2);
 }
