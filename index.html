@@ -185,6 +185,21 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 }
 
 /* Затемнение экрана при смене дня */
+.herbs{position:absolute;inset:0;z-index:7;background:#EFE6C8;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.herbs canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.herbs-exit{position:absolute;top:max(10px,env(safe-area-inset-top,0px));right:10px;z-index:1}
+.herbs-cards{position:absolute;top:calc(max(10px,env(safe-area-inset-top,0px)) + 46px);left:10px;right:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;pointer-events:none}
+.herbs-card{position:relative;aspect-ratio:127/152;background:var(--paper);border:4px solid var(--muted);border-radius:15px;display:grid;place-items:center;box-shadow:0 3px 0 rgba(46,36,24,.25)}
+.herbs-card img{width:78%;height:66%;object-fit:contain;margin-bottom:18%}
+.herbs-card b{position:absolute;bottom:6%;left:0;right:0;text-align:center;font:600 clamp(18px,5vw,24px) var(--display);color:var(--ink)}
+.herbs-card.full{background:#E3F1D2;border-color:var(--leaf)}
+.herbs-card.pop{animation:hbPop .35s ease}
+@keyframes hbPop{50%{transform:scale(1.1)}}
+.herbs-hint{position:absolute;left:16px;right:16px;top:40%;text-align:center;font:700 19px var(--body);color:var(--ink);background:rgba(255,253,244,.88);border-radius:14px;padding:10px 14px;transition:opacity .4s;pointer-events:none}
+.herbs-hint.hide{opacity:0}
+.herbs-msg{position:absolute;left:16px;right:16px;top:32%;text-align:center;font:700 18px var(--body);color:#fff;background:rgba(162,72,52,.92);border-radius:14px;padding:9px 14px;opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none}
+.herbs-msg.good{background:rgba(62,142,65,.94)}
+.herbs-msg.show{opacity:1;transform:none}
 .fade{position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:#141826;opacity:0;pointer-events:none;transition:opacity 1.2s ease}
 .fade.show{opacity:1;pointer-events:auto}
 .fade-text{font-family:var(--display);font-weight:600;font-size:46px;color:#FFF3D6;letter-spacing:.02em;opacity:0;transition:opacity .8s ease .4s}
@@ -290,7 +305,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button><button class="ghost-btn" type="button" data-day="5">День 5</button><button class="ghost-btn" type="button" data-day="6">День 6</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="herbsBtn" type="button">Травы Арнхейнд</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
       </div><button class="ghost-btn" id="bagBtn" type="button" aria-expanded="false" hidden></button><div class="bag" id="bag" hidden></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -319,7 +334,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 266;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 267;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -760,6 +775,7 @@ $('barnBtn').addEventListener('click', () => {
 // ВРЕМЕННО: переключить вечер ↔ день прямо на месте (без сна и смены дня) — чтобы посмотреть на курочек
 $('houseExit').addEventListener('click', () => { if (!ui.open && house.active) leaveHouse(); });
 // ВРЕМЕННО для тестов: сразу в дом Сверкеля к готовке похлёбки — с нуля, с капустой, пореем и яйцами в сумке
+$('herbsBtn').addEventListener('click', () => { if (!ui.open) herbsTest(); });
 $('houseBtn').addEventListener('click', () => {
   if (ui.open || barn.active || house.active) return;
   const s = state;
@@ -4004,6 +4020,142 @@ function afterChopping(misses) {
       : 'Неплохо машешь! Дед теперь до весны будет тобой хвастаться.'],
     ['zmey', 'А на Торгеля не обижайся. Он со всеми так, пока не узнает поближе. Ну… почти со всеми.'],
   ], () => toast('Вернись к Сверкелю'));
+}
+// ===================== Мини-игра «Травы Арнхейнд» (v267, ПРОТОТИП) =====================
+// На весь экран: прогулка по саду. Слои едут справа налево с разной скоростью (по наброску в Figma):
+// большие деревья (медленно) → ряд кустов и камней → РЯД ТРАВ (только его можно нажимать) → трава на переднем плане (быстро).
+// Сверху — 3 крупные карточки: что собрать и сколько. Ошибка не наказывается — растение вянет, Арнхейнд подсказывает.
+// Картинки: g: — сад, t: — деревья, f: — опушка леса, r: — кусочек атласа реки. Травы — ЗАГЛУШКИ, позже нарисуем свои.
+const HERB_KINDS = {
+  poppy:      { spr: 'g:tuft-poppy', name: 'Мак', w: 1 },
+  cornflower: { spr: 'g:tuft-cornflower', name: 'Василёк', w: 1.05 },
+  clover:     { spr: 'g:tuft-clover', name: 'Клевер', w: 1.05 },
+  iris:       { spr: 'r:r155_406', name: 'Ирис', w: 0.75 },
+  reed:       { spr: 'r:r155_409', name: 'Тростник', w: 0.7 },
+  daisyrock:  { spr: 'g:rock-flat-daisies', name: 'Камень с ромашками', w: 1.4 },
+};
+const HERB_TASK = { poppy: 3, cornflower: 4, clover: 5 };   // ЗАГЛУШКА: что просит Арнхейнд (3 растения)
+const HERB_WRONG = ['Это не то, милая. Посмотри на карточки сверху.', 'Ой, этот не нужен — пусть растёт.', 'Почти! Но мне нужен другой.', 'Не торопись, присмотрись к листикам.'];
+// слои: y — где низ картинок (доля высоты экрана), w — ширина (доля ширины экрана), gap — расстояние между соседями, v — скорость
+const HERB_LAYERS = [
+  { list: ['t:s1-oak-1', 't:s2-oak-1', 't:s1-oak-2', 't:s2-oak-2', 't:s1-grove-1', 't:s2-grove-1', 't:s2-grove-2'], y: 0.575, w: [0.95, 1.3], gap: [0.42, 0.7], v: 0.2 },
+  { list: ['t:bush-1', 't:bush-2', 't:bush-3', 't:bush-4', 'g:rock-twin', 'g:rock-long', 'g:rock-leaning-b'], y: 0.63, w: [0.27, 0.36], gap: [0.17, 0.3], v: 0.42 },
+  { herbs: true, y: 0.775, v: 0.9 },
+  { list: ['f:8a_bank-6', 'f:8b_bank-6', 'f:8b_bank-6', 'g:rock-moss-flowers'], y: 1.06, w: [0.55, 0.82], gap: [0.24, 0.4], v: 1.0, dy: 0.03 },
+];
+function startHerbs(onDone) {
+  if (ui.open) return;
+  ui.open = true; stopWalking(); musicUpdate();
+  const root = document.createElement('div'); root.className = 'herbs';
+  root.innerHTML = `<canvas></canvas><button class="ghost-btn herbs-exit" id="hbExit" type="button">Уйти</button><div class="herbs-cards" id="hbTask"></div>
+    <div class="herbs-hint" id="hbHint">Собери травы для Арнхейнд — нажимай только на те, что на карточках</div><div class="herbs-msg" id="hbMsg"></div>`;
+  app.appendChild(root);
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d');
+  const need = { ...HERB_TASK }, got = Object.fromEntries(Object.keys(HERB_TASK).map(k => [k, 0]));
+  const img = {}; let left = 0, raf = 0, last = performance.now(), t = 0, done = false, W = 0, H = 0, R = 1;
+  const SRC = { g: 'assets/garden/', t: 'assets/trees/', f: 'assets/forest/' };
+  const load = (k, src) => { if (img[k]) return; left++; const i = new Image(); i.onload = i.onerror = () => { left--; }; i.src = src; img[k] = i; };
+  const sprites = [...Object.values(HERB_KINDS).map(h => h.spr), ...HERB_LAYERS.flatMap(l => l.list || [])];
+  for (const k of sprites) { const [p, n] = k.split(':'); if (p !== 'r') load(k, SRC[p] + n + '.webp'); }
+  load('river-0', 'assets/river/river-0.webp'); load('river-1', 'assets/river/river-1.webp'); load('grass', 'assets/ground/grass.jpg');
+  const cutRiver = () => { for (const k of sprites) if (k.startsWith('r:')) {   // кусочки атласа реки → отдельные картинки
+    const [pg, x, y, w, h] = RIVER_FRAMES[k.slice(2)], c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img['river-' + pg], x, y, w, h, 0, 0, w, h); img[k] = c; } };
+  // карточки задания: крупная картинка + счётчик
+  $('hbTask').innerHTML = Object.keys(HERB_TASK).map(k => `<div class="herbs-card" data-k="${k}"><img src="${SRC.g + HERB_KINDS[k].spr.slice(2)}.webp" alt="${HERB_KINDS[k].name}"><b id="hb-${k}">0/${need[k]}</b></div>`).join('');
+  const resize = () => { R = Math.min(window.devicePixelRatio || 1, 2.5); W = root.clientWidth; H = root.clientHeight; cv.width = Math.round(W * R); cv.height = Math.round(H * R); };
+  resize(); window.addEventListener('resize', resize);
+  const rr = ([a, b]) => a + Math.random() * (b - a);
+  const items = HERB_LAYERS.map(() => []), fly = [];
+  let speed = 0.2, grassX = 0, herbT = 0;
+  const herbW = () => Math.min(W * 0.25, H * 0.13);
+  const pick = () => {   // нужное — чаще, пока не собрано
+    const want = Object.keys(need).filter(k => got[k] < need[k]);
+    if (want.length && Math.random() < 0.6) return want[Math.floor(Math.random() * want.length)];
+    const all = Object.keys(HERB_KINDS); return all[Math.floor(Math.random() * all.length)];
+  };
+  const spawn = (li, x) => {
+    const L = HERB_LAYERS[li];
+    if (L.herbs) { const k = pick(), w = herbW() * HERB_KINDS[k].w; items[li].push({ k, spr: HERB_KINDS[k].spr, x: x ?? W + w, w, y: H * L.y, herb: true, flip: Math.random() < 0.5, wob: Math.random() * 6 }); return; }
+    const w = W * rr(L.w); items[li].push({ spr: L.list[Math.floor(Math.random() * L.list.length)], x: x ?? W + w * 0.6, w, y: H * (L.y + (L.dy ? Math.random() * L.dy : 0)), flip: Math.random() < 0.5 });
+  };
+  const fill = () => {   // в начале экран уже заполнен
+    HERB_LAYERS.forEach((L, li) => { if (L.herbs) for (let x = W * 0.3; x < W; x += W * 0.36) spawn(li, x); else for (let x = -W * 0.2; x < W * 1.3; x += W * rr(L.gap)) spawn(li, x); });
+  };
+  const msg = (text, good) => { const m = $('hbMsg'); m.textContent = text; m.className = 'herbs-msg show' + (good ? ' good' : ''); clearTimeout(msg.t); msg.t = setTimeout(() => { m.className = 'herbs-msg'; }, 1600); };
+  const drawImg = (i, x, yb, w, flip, grey = 0) => {   // x — середина, yb — низ
+    const iw = i && (i.naturalWidth || i.width), ih = i && (i.naturalHeight || i.height); if (!iw) return; const h = w * ih / iw;
+    ctx.save(); if (grey) ctx.filter = `grayscale(${grey}) brightness(${1 - grey * 0.25})`;
+    ctx.translate(x, yb); if (flip) ctx.scale(-1, 1); ctx.drawImage(i, -w / 2, -h, w, h); ctx.restore();
+  };
+  const frame = now => {
+    const dt = Math.min(50, now - last) / 1000; last = now; t += dt;
+    const total = Object.values(need).reduce((a, b) => a + b, 0), have = Object.values(got).reduce((a, b) => a + b, 0);
+    if (!done) speed = Math.min(0.36, 0.2 + have / total * 0.13 + t * 0.002);   // экранов в секунду для переднего плана
+    const vx = speed * W;
+    ctx.setTransform(R, 0, 0, R, 0, 0); ctx.clearRect(0, 0, W, H);
+    const hz = H * 0.53;   // откуда начинается трава
+    const sky = ctx.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#BFDCE6'); sky.addColorStop(1, '#EFE6C8');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, hz + 2);
+    const gi = img.grass;
+    if (gi && gi.naturalWidth) {
+      const ts = H * 0.34; grassX = (grassX - vx * 0.75 * dt) % ts;
+      ctx.save(); ctx.beginPath(); ctx.rect(0, hz, W, H - hz); ctx.clip();
+      for (let y = hz; y < H; y += ts) for (let x = grassX - ts; x < W + ts; x += ts) ctx.drawImage(gi, x, y, ts + 1, ts + 1);
+      ctx.restore();
+    }
+    const fog = ctx.createLinearGradient(0, hz - 4, 0, hz + H * 0.06); fog.addColorStop(0, 'rgba(239,230,200,0.8)'); fog.addColorStop(1, 'rgba(239,230,200,0)');
+    ctx.fillStyle = fog; ctx.fillRect(0, hz - 4, W, H * 0.06 + 4);
+    HERB_LAYERS.forEach((L, li) => {
+      const arr = items[li];
+      for (const p of arr) p.x -= vx * L.v * dt;
+      for (let i = arr.length - 1; i >= 0; i--) if (arr[i].x < -arr[i].w) arr.splice(i, 1);
+      if (L.herbs) { const lastX = arr.length ? Math.max(...arr.map(p => p.x)) : -1e9; if (!done && lastX < W + herbW() * 0.5 - herbT) { spawn(li); herbT = herbW() * rr([0.4, 1.1]); } }   // между травами — свободное место
+      else { const lastX = arr.length ? Math.max(...arr.map(p => p.x)) : -1e9; if (lastX < W + W * 0.2) spawn(li, Math.max(lastX, W * 0.5) + W * rr(L.gap)); }
+      for (const p of arr) {
+        if (p.herb) {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.sin(t * 2 + p.wob) * 0.03);
+          if (p.bad) { p.bad = Math.min(1, p.bad + dt * 2); ctx.rotate(Math.sin(p.bad * 30) * 0.08 * (1 - p.bad)); }
+          drawImg(img[p.spr], 0, 0, p.w, p.flip, p.bad ? Math.min(1, p.bad * 1.4) : 0); ctx.restore();
+        } else drawImg(img[p.spr], p.x, p.y, p.w, p.flip);
+      }
+    });
+    for (let i = fly.length - 1; i >= 0; i--) {   // сорванные травы летят в карточку
+      const f = fly[i]; f.a = Math.min(1, f.a + dt * 1.8); const e = f.a * f.a * (3 - 2 * f.a);
+      drawImg(img[f.spr], f.x0 + (f.x1 - f.x0) * e, f.y0 + (f.y1 - f.y0) * e - Math.sin(e * Math.PI) * H * 0.1, f.w * (1 - e * 0.5), false);
+      if (f.a >= 1) fly.splice(i, 1);
+    }
+    raf = requestAnimationFrame(frame);
+  };
+  const close = () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); };
+  const finish = () => { done = true; msg('Все травы собраны!', true); setTimeout(() => { close(); if (onDone) onDone(); }, 1300); };
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (done) return;
+    $('hbHint').classList.add('hide');
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, arr = items[HERB_LAYERS.findIndex(L => L.herbs)];
+    let best = null, bd = 1e9;
+    for (const p of arr) {   // нажимается только ряд трав; попадание с запасом
+      if (p.bad) continue;
+      const i = img[p.spr], h = i && i.naturalWidth ? p.w * i.naturalHeight / i.naturalWidth : p.w;
+      if (x > p.x - p.w * 0.62 && x < p.x + p.w * 0.62 && y > p.y - h * 1.15 - 12 && y < p.y + 18) { const d = Math.abs(x - p.x); if (d < bd) { bd = d; best = p; } }
+    }
+    if (!best) return;
+    if (need[best.k] && got[best.k] < need[best.k]) {
+      got[best.k]++; arr.splice(arr.indexOf(best), 1);
+      const card = root.querySelector(`.herbs-card[data-k="${best.k}"]`), ci = card.querySelector('img').getBoundingClientRect();
+      fly.push({ spr: best.spr, x0: best.x, y0: best.y, x1: ci.left + ci.width / 2 - r.left, y1: ci.bottom - r.top, w: best.w, a: 0 });
+      $('hb-' + best.k).textContent = `${got[best.k]}/${need[best.k]}`;
+      card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
+      if (got[best.k] >= need[best.k]) card.classList.add('full');
+      if (Object.keys(need).every(k => got[k] >= need[k])) finish();
+    } else if (need[best.k]) msg(`${HERB_KINDS[best.k].name} уже хватит — ищи остальное`);
+    else { best.bad = 0.01; msg(HERB_WRONG[Math.floor(Math.random() * HERB_WRONG.length)]); }
+  });
+  $('hbExit').addEventListener('click', () => { close(); toast('Травы можно собрать в другой раз', 'info'); });
+  const wait = () => { if (left > 0) return requestAnimationFrame(wait); cutRiver(); fill(); last = performance.now(); raf = requestAnimationFrame(frame); };
+  wait();
+}
+function herbsTest() {   // ВРЕМЕННО: запуск из меню «Тест»
+  startHerbs(() => showDialog([['iro', 'Ох, какие душистые! Спасибо, милая. Из мака, васильков и клевера выйдет чудесный отвар.']]));
 }
 // ===================== Амбар: прокрасться за ящиком мимо Торгеля =====================
 // Комната амбара нарисована за пределами карты (справа от неё); камера на время игры смотрит только туда.
