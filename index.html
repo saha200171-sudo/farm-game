@@ -319,7 +319,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 263;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 264;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3278,6 +3278,14 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());
+// v264: время кадра телефона «гуляет» (15.8, 17.4, 16.1 мс…) — героиня проходила за кадр то 11, то 13 пикселей, и фон дрожал.
+// Время кадра выравниваем на шаг обновления экрана (обычно 16.7 или 8.3 мс): за ровные кадры — ровный шаг.
+const stepCarry = { x: 0, y: 0 }, frameHist = [];
+function frameDt(dt) {
+  frameHist.push(dt); if (frameHist.length > 40) frameHist.shift();
+  const T = [...frameHist].sort((a, b) => a - b)[frameHist.length >> 1];
+  return T > 4 ? Math.max(1, Math.round(dt / T)) * T : dt;
+}
 function inputVector() {
   if (keys.size) {
     let kx = 0, ky = 0;
@@ -6904,14 +6912,18 @@ class FarmScene extends Phaser.Scene {
   }
 
   update(time, dt) {
+    if (!(Math.hypot(move.x, move.y) > 0.05 || keys.size)) stepCarry.x = stepCarry.y = 0;
     let moving = house.active ? houseMove(dt) : false;
     const v = ui.open || house.active || reap.active || thresh.active ? { x: 0, y: 0 } : inputVector();
     const mag = Math.hypot(v.x, v.y);
     if (mag > 0.05) {
       // скорость зависит от наклона джойстика; полная — с 70% наклона
-      const sp = (barn.active && barn.carry ? 205 : 240) * Math.min(1, mag / 0.7) * Math.min(dt, 100) / 1000;   // v203: скорость как раньше; шаг считается по времени до 100 мс кадра — на медленном телефоне героиня не замедляется
+      const sp = (barn.active && barn.carry ? 205 : 240) * Math.min(1, mag / 0.7) * Math.min(frameDt(dt), 100) / 1000;   // v203: скорость как раньше; шаг считается по времени до 100 мс кадра — на медленном телефоне героиня не замедляется
       const ux = v.x / mag, uy = v.y / mag;
-      const nx = player.x + ux * sp, ny = player.y + uy * sp;
+      // v264: шаг — в целых пикселях экрана (остаток переносится на следующий кадр): фон сдвигается каждый кадр одинаково, трава не дрожит
+      const z = this.cameras.main.zoom, qx = ux * sp * z + stepCarry.x, qy = uy * sp * z + stepCarry.y, px = Math.round(qx), py = Math.round(qy);
+      stepCarry.x = Math.abs(qx) > 3 ? 0 : qx - px; stepCarry.y = Math.abs(qy) > 3 ? 0 : qy - py;   // на обычной скорости — ровно одинаковый шаг каждый кадр
+      const nx = player.x + px / z, ny = player.y + py / z;
       if (Math.abs(ux) > 0.2) facing = ux < 0 ? -1 : 1;
       if (walkable(nx, ny)) { player.setPosition(nx, ny); moving = true; }
       else if (Math.abs(ux) > 0.1 && walkable(nx, player.y)) { player.x = nx; moving = true; }
