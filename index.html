@@ -195,6 +195,11 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .herbs-card.full{background:#E3F1D2;border-color:var(--leaf)}
 .herbs-card.pop{animation:hbPop .35s ease}
 @keyframes hbPop{50%{transform:scale(1.1)}}
+.winnow .herbs-msg{top:calc(max(10px,env(safe-area-inset-top,0px)) + 52px)}
+.win-top{position:absolute;top:max(10px,env(safe-area-inset-top,0px));left:10px;right:10px;pointer-events:none}
+.win-bar{position:relative;height:38px;background:var(--paper);border:3px solid var(--wood);border-radius:19px;overflow:hidden;box-shadow:0 3px 0 rgba(46,36,24,.25)}
+.win-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:#E2B44A;transition:width .15s}
+.win-bar span{position:relative;display:block;text-align:center;line-height:32px;font:700 18px var(--body);color:var(--ink)}
 .herbs-hint{position:absolute;left:16px;right:16px;top:40%;text-align:center;font:700 19px var(--body);color:var(--ink);background:rgba(255,253,244,.88);border-radius:14px;padding:10px 14px;transition:opacity .4s;pointer-events:none}
 .herbs-hint.hide{opacity:0}
 .herbs-msg{position:absolute;left:16px;right:16px;top:32%;text-align:center;font:700 18px var(--body);color:#fff;background:rgba(162,72,52,.92);border-radius:14px;padding:9px 14px;opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none}
@@ -334,7 +339,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 267;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 268;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2533,7 +2538,7 @@ function campfireScene(n) {
 }
 // ===================== День 3: обмолот и веяние у Кетиля (v210, схематично) =====================
 // Обмолот — прямо во дворе (как жатва): на снопах по очереди «созревают» колосья (золотое свечение) — тапнуть, когда свечение полное.
-// Веяние — окно: держать — набрать зерно на лопату, отпустить в порыв ветра — мякина улетает, зерно в мешок. Пока работаем — байки «Железного Кулака».
+// Веяние (v268) — на весь экран: Кетиль сыплет зерно с высоты, ветер сносит струю и уносит мякину; ведёшь мешок пальцем и ловишь зерно. Пока работаем — байки «Железного Кулака».
 const TOK = { x: 2840 + YARD_DX, y: -1240 + YARD_DY }, THRESH_N = 10;
 const IRON_FIST = [   // ЗАГЛУШКИ: реплики — черновик
   'Кетиль: «Однажды я один отбился от десятка разбойников!» — Змей шёпотом: «Это были гуси».',
@@ -2613,60 +2618,108 @@ function endThresh() {
   state.day3.stage = 4; progress();
   scene.time.delayedCall(600, () => showDialog([
     ['ketil', 'Вот это рука! Весь ток обмолотили. Теперь зерно надо провеять — отделить от мякины.'],
-    ['ketil', 'Бери лопату и подбрасывай, когда ветер дунет. Ленточка на столбе подскажет.'],
+    ['ketil', 'Я буду сыпать зерно с высоты, а ты лови его мешком. Мякину ветер унесёт — а куда он дует, подскажет ленточка на столбе.'],
   ], startWinnow));
 }
-function startWinnow() {
+function startWinnow() {   // v268: «Поймай зерно» — Кетиль сыплет зерно с высоты, ветер сносит струю и уносит мякину; ведёшь мешок пальцем (ПРОТОТИП, рисовано кодом)
   if (ui.open) return;
-  openModal(`<div class="card mg chop" id="winCard"><div class="badge">Мини-игра</div><h2>Веяние</h2>
-    <canvas id="winCv" width="300" height="300"></canvas>
-    <div class="fish-bar" id="winBar"><i></i></div>
-    <div class="chop-msg" id="winMsg">Держи палец — набери зерно, отпусти в порыв ветра</div>
-    <div class="mg-stats"><span>Ленточка покажет ветер</span><span id="winN">Мешок: 0 из 5</span></div></div>`);
-  const cv = $('winCv'), ctx = cv.getContext('2d'), W = 300, H = 300;
-  const V = { hold: false, scoop: 0, gust: false, gt: 1500 + Math.random() * 1200, ok: 0, parts: [], t: 0, last: 0, done: false, raf: 0 };
+  ui.open = true; stopWalking(); musicUpdate();
+  const root = document.createElement('div'); root.className = 'herbs winnow';
+  root.innerHTML = `<canvas></canvas><div class="win-top"><div class="win-bar"><i id="winFill"></i><span id="winN">Мешок: 0%</span></div></div>
+    <div class="herbs-hint" id="winHint">Веди мешок пальцем и лови зерно. Мякину ловить не надо — её уносит ветер</div><div class="herbs-msg" id="winMsg"></div>`;
+  app.appendChild(root);
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, R = 1;
+  const resize = () => { R = Math.min(window.devicePixelRatio || 1, 2.5); W = root.clientWidth; H = root.clientHeight; cv.width = Math.round(W * R); cv.height = Math.round(H * R); };
+  resize(); window.addEventListener('resize', resize);
+  const house = new Image(); house.src = 'assets/houses/ketil-dom.webp'; const grass = new Image(); grass.src = 'assets/ground/grass.jpg';
+  const NEED = 520;   // зёрен в полный мешок (идеально — секунд 18–20)
+  const V = { t: 0, last: performance.now(), wind: 0, wTarget: 0.3, wT: 2, sackX: 0.5, aimX: 0.5, grain: 0, chaff: 0, parts: [], leaves: [], acc: 0, accC: 0, done: false, raf: 0, joke: 6, jk: 0, bump: 0 };
   window.__win = V;
-  const msg = t => { $('winMsg').textContent = t; };
+  const msg = (text, good) => { const m = $('winMsg'); m.textContent = text; m.className = 'herbs-msg show' + (good ? ' good' : ''); clearTimeout(msg.t); msg.t = setTimeout(() => { m.className = 'herbs-msg'; }, 2200); };
+  const geo = () => ({ px: W * 0.5, py: H * 0.3, sy: H * 0.83, sw: Math.min(W * 0.3, 150), gy: H * 0.9 });   // откуда сыплется, где верх мешка, земля
+  for (let i = 0; i < 10; i++) V.leaves.push({ x: Math.random(), y: 0.35 + Math.random() * 0.5, r: Math.random() * 6, s: 0.6 + Math.random() * 0.8 });
   function draw() {
-    ctx.fillStyle = '#B9D49A'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#9C7A50'; ctx.beginPath(); ctx.ellipse(150, 250, 140, 40, 0, 0, 6.28); ctx.fill();   // ток
-    ctx.fillStyle = '#6E4A2C'; ctx.fillRect(40, 60, 6, 170);   // столб с ленточкой
-    ctx.strokeStyle = '#C9472F'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(46, 66);
-    if (V.gust) { for (let i = 1; i <= 6; i++) ctx.lineTo(46 + i * 12, 66 + Math.sin(V.t * 18 + i) * 4); }   // ветер — ленточка вытянулась
-    else { ctx.lineTo(50, 90 + Math.sin(V.t * 2) * 2); ctx.lineTo(48, 110); }
+    const g = geo();
+    ctx.setTransform(R, 0, 0, R, 0, 0);
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.6); sky.addColorStop(0, '#BFDCE6'); sky.addColorStop(1, '#EFE6C8'); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    if (grass.naturalWidth) { const ts = H * 0.3; for (let y = H * 0.6; y < H; y += ts) for (let x = 0; x < W; x += ts) ctx.drawImage(grass, x, y, ts + 1, ts + 1); } else { ctx.fillStyle = '#7FA65A'; ctx.fillRect(0, H * 0.6, W, H * 0.4); }
+    if (house.naturalWidth) { const hw = W * 1.45, hh = hw * house.naturalHeight / house.naturalWidth; ctx.drawImage(house, W * 0.5 - hw / 2, H * 0.7 - hh, hw, hh); }   // дом Кетиля — поверх травы, крупнее (просьба)
+    ctx.fillStyle = '#A88458'; ctx.beginPath(); ctx.ellipse(W * 0.5, g.gy, W * 0.62, H * 0.1, 0, 0, 6.29); ctx.fill();   // утоптанный ток
+    // столб с ленточкой — показывает ветер
+    const bx = W * 0.1, by = H * 0.36;
+    ctx.fillStyle = '#6E4A2C'; ctx.fillRect(bx - 4, by, 8, H * 0.5);
+    ctx.strokeStyle = '#C9472F'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(bx, by + 6);
+    const wv = V.wind, len = 22 + Math.abs(wv) * 38, dir = Math.sign(wv) || 1;
+    for (let i = 1; i <= 6; i++) ctx.lineTo(bx + dir * len * i / 6 * Math.min(1, 0.25 + Math.abs(wv)), by + 6 + (1 - Math.min(1, Math.abs(wv) * 1.4)) * i * 9 + Math.sin(V.t * (6 + Math.abs(wv) * 14) + i) * 3);
     ctx.stroke();
-    ctx.fillStyle = '#D9C49A'; ctx.beginPath(); ctx.moveTo(220, 260); ctx.lineTo(290, 260); ctx.lineTo(280, 190); ctx.lineTo(230, 190); ctx.fill();   // мешок
-    ctx.fillStyle = '#E8C060'; ctx.fillRect(232, 260 - V.ok * 13, 46, V.ok * 13);
-    ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(110, 270); ctx.lineTo(150, 200); ctx.stroke();   // лопата
-    ctx.fillStyle = '#8A6A44'; ctx.beginPath(); ctx.ellipse(158, 194, 20, 9, -0.5, 0, 6.28); ctx.fill();
-    if (V.scoop > 0) { ctx.fillStyle = '#E8C060'; ctx.beginPath(); ctx.ellipse(158, 190, 16 * V.scoop + 2, 6 * V.scoop + 1, -0.5, 0, 6.28); ctx.fill(); }
-    for (const p of V.parts) { ctx.fillStyle = p.c; ctx.globalAlpha = p.a; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill(); }
+    // листья летят по ветру
+    ctx.fillStyle = '#D98A3A';
+    for (const l of V.leaves) { ctx.save(); ctx.translate(l.x * W, l.y * H); ctx.rotate(l.r); ctx.beginPath(); ctx.ellipse(0, 0, 6 * l.s, 3 * l.s, 0, 0, 6.29); ctx.fill(); ctx.restore(); }
+    // корзина Кетиля наверху (наклонена, из неё сыплется зерно)
+    ctx.save(); ctx.translate(g.px, g.py - 26); ctx.rotate(0.35);
+    ctx.fillStyle = '#9A6B3E'; ctx.beginPath(); ctx.ellipse(0, 0, 58, 30, 0, 0, 6.29); ctx.fill();
+    ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 3; for (let i = -40; i <= 40; i += 16) { ctx.beginPath(); ctx.moveTo(i, -24); ctx.lineTo(i * 0.8, 26); ctx.stroke(); }
+    ctx.fillStyle = '#E8C060'; ctx.beginPath(); ctx.ellipse(0, -14, 46, 12, 0, 0, 6.29); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(46,36,24,0.75)'; ctx.font = `700 ${Math.round(Math.min(18, W * 0.045))}px Nunito, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('Кетиль сыплет зерно', g.px, g.py - 72);
+    // зерно и мякина
+    for (const p of V.parts) {
+      ctx.globalAlpha = p.a;
+      if (p.c) { ctx.fillStyle = '#EFE3C2'; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-5, -1.5, 10, 3); ctx.restore(); }
+      else { ctx.fillStyle = '#E2B44A'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 4, 3, 0, 0, 6.29); ctx.fill(); }
+    }
     ctx.globalAlpha = 1;
+    // мешок
+    const sx = V.sackX * W, sw = g.sw, top = g.sy, sh = sw * 0.95, bump = Math.sin(V.bump * 30) * V.bump * 6;
+    ctx.save(); ctx.translate(sx + bump, 0);
+    ctx.fillStyle = 'rgba(29,42,18,0.25)'; ctx.beginPath(); ctx.ellipse(0, top + sh, sw * 0.55, 10, 0, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#C9B48A'; ctx.beginPath(); ctx.moveTo(-sw * 0.5, top); ctx.quadraticCurveTo(-sw * 0.62, top + sh * 0.7, -sw * 0.42, top + sh); ctx.lineTo(sw * 0.42, top + sh); ctx.quadraticCurveTo(sw * 0.62, top + sh * 0.7, sw * 0.5, top); ctx.closePath(); ctx.fill();
+    const f = Math.min(1, V.grain / NEED); ctx.save(); ctx.clip(); ctx.fillStyle = '#E2B44A'; ctx.fillRect(-sw, top + sh * (1 - f), sw * 2, sh * f + 2); ctx.restore();
+    ctx.strokeStyle = '#8A7350'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#A8916A'; ctx.beginPath(); ctx.ellipse(0, top, sw * 0.5, 9, 0, 0, 6.29); ctx.fill();   // горловина
+    ctx.restore();
   }
   function tick(now) {
     if (V.done) return;
-    const dt = Math.min(0.1, (now - (V.last || now)) / 1000); V.last = now; V.t += dt;
-    if ((V.gt -= dt * 1000) <= 0) { V.gust = !V.gust; V.gt = V.gust ? 1300 + Math.random() * 500 : 1500 + Math.random() * 1800; }
-    if (V.hold) V.scoop = Math.min(1, V.scoop + dt * 1.8);
-    $('winBar').firstChild.style.width = Math.round(V.scoop * 100) + '%';
-    for (const p of V.parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.fade) p.a = Math.max(0, p.a - dt * 0.8); }
-    V.parts = V.parts.filter(p => p.a > 0 && p.y < H + 10 && p.x < W + 20);
-    draw(); V.raf = requestAnimationFrame(tick);
-  }
-  function toss() {
-    if (V.scoop < 0.6) { msg('Набери побольше — подержи палец подольше'); return; }
-    const gust = V.gust; V.scoop = 0;
-    for (let i = 0; i < 26; i++) {   // зерно и мякина
-      const chaff = i % 2 === 0;
-      V.parts.push({ x: 158, y: 188, vx: (gust && chaff ? 160 + Math.random() * 120 : (Math.random() - 0.3) * 60), vy: -220 - Math.random() * 80, g: chaff ? (gust ? 140 : 420) : 520, r: chaff ? 2.4 : 1.8, c: chaff ? '#E9DDBA' : '#E8C060', a: 1, fade: chaff && gust });
+    const dt = Math.min(50, now - V.last) / 1000; V.last = now; V.t += dt; V.bump = Math.max(0, V.bump - dt * 2);
+    const g = geo();
+    // ветер меняется: то слабый, то порыв, то в другую сторону
+    if ((V.wT -= dt) <= 0) { const strong = Math.random() < 0.3; V.wTarget = (Math.random() < 0.5 ? -1 : 1) * (strong ? 0.8 + Math.random() * 0.2 : 0.15 + Math.random() * 0.5); V.wT = 1.6 + Math.random() * 2.2; }
+    V.wind += (V.wTarget - V.wind) * Math.min(1, dt * 1.6);
+    V.sackX += (V.aimX - V.sackX) * Math.min(1, dt * 14);
+    for (const l of V.leaves) { l.x += (V.wind * 0.5 + 0.02) * dt * l.s; l.y += Math.sin(V.t * 2 + l.r) * 0.0015; l.r += dt * 3; if (l.x > 1.05) l.x = -0.05; if (l.x < -0.05) l.x = 1.05; }
+    // струя: зерно тяжёлое (ветер сносит немного), мякина лёгкая (уносит далеко)
+    V.acc += dt * 28; V.accC += dt * 9;
+    while (V.acc >= 1) { V.acc--; V.parts.push({ x: g.px + (Math.random() - 0.5) * 14, y: g.py, vx: (Math.random() - 0.5) * 12, vy: 40 + Math.random() * 30, c: 0, a: 1 }); }
+    while (V.accC >= 1) { V.accC--; V.parts.push({ x: g.px + (Math.random() - 0.5) * 14, y: g.py, vx: (Math.random() - 0.5) * 20, vy: 20 + Math.random() * 20, c: 1, a: 1, rot: Math.random() * 6 }); }
+    const ww = W * 0.9;
+    for (const p of V.parts) {
+      if (p.c) { p.vx += (V.wind * ww * 1.9) * dt; p.vx *= 1 - dt * 0.6; p.vy += 90 * dt; p.vy *= 1 - dt * 1.2; p.rot += dt * 6; }
+      else { p.vx += (V.wind * ww * 0.55) * dt; p.vx *= 1 - dt * 0.8; p.vy += 520 * dt; }
+      const py0 = p.y; p.x += p.vx * dt; p.y += p.vy * dt;
+      if (!p.hit && py0 < g.sy && p.y >= g.sy && Math.abs(p.x - V.sackX * W) < g.sw * 0.5) {   // попало в мешок
+        p.hit = true; p.a = 0;
+        if (p.c) { V.chaff++; V.grain = Math.max(0, V.grain - 3); V.bump = 0.6; if (V.chaff % 6 === 1) msg('Мякина в мешке! Кетиль: «Ветер её несёт — отходи от неё»'); }
+        else V.grain++;
+      }
+      if (p.y > g.gy + 20) p.a -= dt * 3;
     }
-    if (gust) { V.ok++; $('winN').textContent = `Мешок: ${V.ok} из 5`; msg(V.ok >= 5 ? 'Мешок полон!' : 'Отлично! Мякину унесло ветром'); }
-    else msg('Кетиль: «Ветра жди! Мякина-то обратно летит»');
-    if (V.ok >= 5) { V.done = true; cancelAnimationFrame(V.raf); setTimeout(() => { closeModal(); afterWinnow(); }, 1100); }
+    V.parts = V.parts.filter(p => p.a > 0 && p.x > -40 && p.x < W + 40);
+    const f = Math.min(1, V.grain / NEED); $('winFill').style.width = Math.round(f * 100) + '%'; $('winN').textContent = `Мешок: ${Math.round(f * 100)}%`;
+    if ($('winHint').classList.contains('hide') && (V.joke -= dt) <= 0 && V.jk < IRON_FIST.length) { msg(IRON_FIST[V.jk++], true); V.joke = 8; }   // байки «Железного Кулака» за работой
+    draw();
+    if (V.grain >= NEED) {
+      V.done = true; msg('Мешок полон! Зерно чистое', true);
+      setTimeout(() => { cancelAnimationFrame(V.raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); afterWinnow(); }, 1300);
+      return;
+    }
+    V.raf = requestAnimationFrame(tick);
   }
-  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} V.hold = true; });
-  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { if (V.hold) { V.hold = false; toss(); } }));
-  window.__winToss = () => toss();   // для теста
+  const aim = e => { const r = cv.getBoundingClientRect(), g = geo(); V.aimX = Math.max(g.sw * 0.5 / W, Math.min(1 - g.sw * 0.5 / W, (e.clientX - r.left) / W)); };
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} $('winHint').classList.add('hide'); aim(e); V.drag = true; });
+  cv.addEventListener('pointermove', e => { if (V.drag) aim(e); });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { V.drag = false; }));
   V.raf = requestAnimationFrame(tick);
 }
 function afterWinnow() {
