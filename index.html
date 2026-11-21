@@ -339,7 +339,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 268;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 269;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -730,7 +730,7 @@ function showChoice(who, prompt, options, sec = 0) {   // sec — какая к�
   $('sheet').hidden = false; $('sheet').classList.remove('thought');
   $('portrait').textContent = s.letter; $('portrait').style.background = s.color;
   $('who').textContent = s.name; $('line').textContent = prompt;
-  dlg.choice = true;
+  dlg.choice = true; dlg.who = who;
   actionsEl.classList.add('choices');
   actionsEl.innerHTML = options.map(([label], i) => `<button class="btn${i === sec ? ' secondary' : ''}" type="button" data-i="${i}">${label}</button>`).join('');
   actionsEl.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
@@ -3739,6 +3739,12 @@ function zShow(c) {
   for (const k in z.G) z.G[k].setVisible(k === v);
 }
 function zSpeaking() { return !$('sheet').hidden && dlg.who === 'zmey'; }
+// v269: идёт разговор именно со Змеем (в диалоге есть его реплики) и героиня рядом — только тогда он к ней поворачивается
+function zInConvo(c) {
+  if ($('sheet').hidden || !player || player.visible === false) return false;
+  const withZ = dlg.choice ? dlg.who === 'zmey' : (dlg.lines || []).some(l => l[0] === 'zmey');
+  return withZ && Math.hypot(player.x - c.x, player.y - c.y) < 420;
+}
 function updatePainted(dt) {
   const now = scene.time.now, sec = Math.min(dt, 100) / 1000, R = REDUCED ? 0 : 1;
   for (let i = PAINTED.length - 1; i >= 0; i--) {
@@ -3759,15 +3765,16 @@ function updatePainted(dt) {
       if (now > z.peekAt) { z.peekEnd = now + 700 + Math.random() * 900; z.peekAt = z.peekEnd + 2500 + Math.random() * 4000; }
       if (now > z.blinkAt) { z.blinkEnd = now + 110; z.blinkAt = now + (Math.random() < 0.25 ? 260 : 2500 + Math.random() * 3500); }   // открытый глаз иногда моргает
       P.peek.setVisible((near || talk || now < z.peekEnd) && now >= z.blinkEnd);
-      const sx = player ? player.x - c.x : 0;   // v249: сидя тоже поворачивается к героине (на картинке смотрит влево — отражаем)
-      if ((near || talk) && Math.abs(sx) > 6) c.bodyG.scaleX = sx > 0 ? -1 : 1;
+      // v269: у дерева (сидит / лежит) не поворачивается — смотрит туда же, куда лёжа
       continue;
     }
     if (z.pose === 'lie') { z.G.lie.scaleY = 1 + 0.018 * Math.sin(z.t * 1.75) * R; continue; }
     // v223: стоит — смотрит на героиню, если она рядом или идёт разговор: сбоку — поворачивается к ней, снизу — лицом к камере
     let view;
     const hx = player ? player.x - c.x : 0, hy = player ? player.y - c.y : 0, hd = Math.hypot(hx, hy);
-    const inDlg = !$('sheet').hidden && hd < 500, looks = !walking && player && player.visible !== false && (hd < 380 || inDlg) && (c === zmeyChar || c.parentContainer == null);   // v229: видит героиню дальше
+    const convo = zInConvo(c), looks = !walking && convo && (c === zmeyChar || c.parentContainer == null);   // v269: поворачивается к героине только в разговоре
+    if (looks && z.restSX == null) z.restSX = c.bodyG.scaleX;
+    if (!convo && z.restSX != null) { if (!walking) c.bodyG.scaleX = z.restSX; z.restSX = null; }   // разговор закончился — встаёт как стоял
     if (rider) view = 'side';   // правит лошадкой — боком, по ходу телеги
     else if (walking) view = Math.abs(z.mdy) > Math.abs(z.mdx) * 1.3 ? (z.mdy > 0 ? 'front' : 'back') : 'side';
     else if (laugh) view = 'front';
