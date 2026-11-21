@@ -339,7 +339,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 269;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 270;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -5994,6 +5994,14 @@ function updateRide(dt) {
   if (r.bubble) r.bubble.setPosition(x + r.dir * 18, y - 128);
   if (r.s >= r.L) endRide();
 }
+// v270: ближайшая точка, где можно стоять (по кольцам вокруг), — чтобы не высадить героиню на препятствие
+function nearestWalkable(x, y) {
+  if (walkable(x, y)) return { x, y };
+  for (let r = 12; r <= 360; r += 12) {
+    for (let a = 0; a < 16; a++) { const t = a / 16 * Math.PI * 2, nx = x + Math.cos(t) * r, ny = y + Math.sin(t) * r; if (walkable(nx, ny)) return { x: nx, y: ny }; }
+  }
+  return { x, y };
+}
 function endRide() {
   const r = ride, cam = scene.cameras.main, d3 = state.day3;
   r.active = false; r.armed = r.mode === 'ride' || r.mode === 'escort'; if (r.bubble) { r.bubble.destroy(); r.bubble = null; }
@@ -6009,7 +6017,8 @@ function endRide() {
   progress();
   const toTree = () => placeZmey(true);
   if (r.mode !== 'ride') { if (sp) toTree(); return; }
-  if (r.to === 'yard') player.setPosition(CART_YARD.x + 150, CART_YARD.y + 8); else player.setPosition(CART_FIELD.x + 230, CART_FIELD.y - 30);
+  const drop = r.to === 'yard' ? nearestWalkable(CART_YARD.x + 150, CART_YARD.y + 8) : nearestWalkable(CART_FIELD.x + 230, CART_FIELD.y - 30);   // v270: не на препятствие
+  player.setPosition(drop.x, drop.y);
   player.setVisible(true); facing = r.to === 'yard' ? 1 : -1;
   cam.zoomTo(r.z0, 600, 'Sine.easeInOut');
   ui.open = false;
