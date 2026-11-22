@@ -200,6 +200,11 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .win-bar{position:relative;height:38px;background:var(--paper);border:3px solid var(--wood);border-radius:19px;overflow:hidden;box-shadow:0 3px 0 rgba(46,36,24,.25)}
 .win-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:#E2B44A;transition:width .15s}
 .win-bar span{position:relative;display:block;text-align:center;line-height:32px;font:700 18px var(--body);color:var(--ink)}
+.berry-top{position:absolute;top:max(10px,env(safe-area-inset-top,0px));left:10px;display:flex;align-items:center;gap:12px;pointer-events:none}
+.berry-card{width:clamp(78px,12vh,104px)}
+.berry-ic{width:62%;height:56%;margin-bottom:22%}
+.berry-title{font:700 20px var(--body);color:var(--ink);background:rgba(255,253,244,.88);border-radius:12px;padding:6px 12px}
+.berries .herbs-hint,.berries .herbs-msg{top:auto;bottom:max(12px,env(safe-area-inset-bottom,0px));left:50%;right:auto;width:min(92%,620px);translate:-50% 0}
 .herbs-hint{position:absolute;left:16px;right:16px;top:40%;text-align:center;font:700 19px var(--body);color:var(--ink);background:rgba(255,253,244,.88);border-radius:14px;padding:10px 14px;transition:opacity .4s;pointer-events:none}
 .herbs-hint.hide{opacity:0}
 .herbs-msg{position:absolute;left:16px;right:16px;top:32%;text-align:center;font:700 18px var(--body);color:#fff;background:rgba(162,72,52,.92);border-radius:14px;padding:9px 14px;opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none}
@@ -310,7 +315,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button><button class="ghost-btn" type="button" data-day="5">День 5</button><button class="ghost-btn" type="button" data-day="6">День 6</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="herbsBtn" type="button">Травы Арнхейнд</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="herbsBtn" type="button">Травы Арнхейнд</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button><button class="ghost-btn" type="button" data-day="5.5">Черника</button>
       </div><button class="ghost-btn" id="bagBtn" type="button" aria-expanded="false" hidden></button><div class="bag" id="bag" hidden></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -339,7 +344,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 271;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 272;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -421,6 +426,10 @@ const ANCHORS = {
   olmar3:  { x: -99999, y: -99999, reach: 80, mark: -118 },   // v212: Ольмар у скал (день 3)
   thorkel: { x: -99999, y: -99999, reach: 84, mark: -140 },   // v213: Торкель   // день 4: кто сейчас ждёт героиню (Эйнар у камня / статуя)
   kale:    { x: 215, y: -1140, reach: 84, mark: -112 },   // v162: на берегу реки, перед своей лодкой   // Лейф, старый мореход (был Кейл)   // Арнхейнд, знаток трав — у пруда в саду
+  berry0:  { x: 3025, y: -1336, reach: 96, mark: -110 },   // v272: кусты черники на опушке (рисунок f-6a_boulder-3), героиня стоит ниже куста
+  berry1:  { x: 3203, y: -1400, reach: 96, mark: -190 },
+  berry2:  { x: 3351, y: -1372, reach: 96, mark: -140 },
+  berry3:  { x: 3522, y: -1100, reach: 96, mark: -85 },
   pen0:    { ...PEN_SPOTS[0], reach: 64, mark: -60 },
   pen1:    { ...PEN_SPOTS[1], reach: 64, mark: -60 },
   pen2:    { ...PEN_SPOTS[2], reach: 64, mark: -60 },
@@ -456,7 +465,7 @@ const freshState = () => ({
   // день 2: stage 0 — ещё не начался, 1 — дед попросил помочь в поле, 2 — героиня пришла в поле
   day3: { stage: 0, cartAt: 'cow', hint: 0 },   // v212: hint — сколько подсказок про Ольмара получено (0 Лейф → 1 жнецы → 2 Торфинн → 3 скалы)
   day4: { stage: 0 },
-  day5: { stage: 0, pass: false },   // v253: день 5 — мир с Торгелем: 1 ключ, 2 лавка, 3 тренировка, 4 амбар, 5 к Сверкелю, 6 вечер; pass — ночью пропустил домой
+  day5: { stage: 0, pass: false, berry: 0, bushes: [false, false, false, false], bearTold: false },   // v272: berry — черника для пирога: 1 собираем, 2 увидела медвежонка (хватит 4), 3 отдала Сверкелю   // v253: день 5 — мир с Торгелем: 1 ключ, 2 лавка, 3 тренировка, 4 амбар, 5 к Сверкелю, 6 вечер; pass — ночью пропустил домой
   thork: { stage: 0 },   // v213: Торкель (утро дня 4): 1 — на реку, 2 — веди к Кетилю, 3 — армрестлинг, 4 — канат, 5 — признание, 6 — готово   // день 4 — подарок для Арнхейнд (статуя): 1 Эйнар, 2 Торфинн, 3 камень, 4 шлифовка, 5 перевозка, 6 отвлечь, 7 открытие, 8 готово   // cartAt: 'cow' — у коровника (до первой поездки), 'field' — у поля, 'yard' — во дворе Кетиля   // cartAt — где стоит Змей с телегой: 'cow' (у коровника) | 'yard' (у Кетиля)   // день 3: 1 — найди Змея, 2 — приехали к Кетилю, 3 — задание у дома (скоро)
   day2: { stage: 0, visitedField: false, wheatUp: 40, plot: 0, plots: [{ cut: [], sheaves: [], stook: [] }, { cut: [], sheaves: [], stook: [] }],
     // v190: «Обед для жнецов» (после жатвы, stage 6): хлеб у Сверкеля, вода из колодца, травяной отвар у Арнхейнд → раздать каждому жнецу его кружку
@@ -505,6 +514,7 @@ function questTarget() {
   if (barn.active || house.active) return null;   // в доме подсказок нет — ищем сами
   if (state.time.phase === 'evening') return 'door';   // вечером ведём героиню домой спать
   if (state.wake === 'cowshed') return 'grandpa';   // v197–199: проснулась в коровнике
+  if (state.time.day === 5 && state.day5.stage === 5 && state.day5.berry === 1) { const i = berryNext(); return i < 0 ? null : 'berry' + i; }   // v272: черника
   if (state.time.day === 5 && state.day5.stage >= 1 && state.day5.stage <= 5) return ({ 1: 'torgel', 2: null, 3: 'torgel', 4: 'barn', 5: 'grandpa' })[state.day5.stage];   // v253
   const tk = state.thork.stage;                        // день 4, утро: Торкель
   if (tk === 1) return 'thorkel';
@@ -563,7 +573,7 @@ function updateHud() {
   $('questLabel').textContent = state.time.day >= 5 ? `Задание · день ${state.time.day}` : d4 || (state.thork.stage > 0 && state.thork.stage < 6) ? 'Задание · день 4' : day3 ? 'Задание · день 3' : d2 ? 'Задание · день 2' : (state.step >= 8 && ![31, 61, 71].includes(state.step)) ? 'Готово' : 'Задание';
   const TK = state.thork.stage;
   $('questText').textContent = hunt.active ? 'Проберись домой — не попадись Торгелю'
-    : state.time.day >= 5 ? (state.time.phase === 'evening' ? 'Вечереет — пора домой' : (state.time.day === 5 ? ((D5_TEXT || [])[state.day5.stage] || 'Задания пятого дня — скоро (подготовка к празднику)') : 'Задания шестого дня — скоро (праздник и финал)'))
+    : state.time.day >= 5 ? (state.time.phase === 'evening' ? 'Вечереет — пора домой' : (state.time.day === 5 ? (berryText() || (D5_TEXT || [])[state.day5.stage] || 'Задания пятого дня — скоро (подготовка к празднику)') : 'Задания шестого дня — скоро (праздник и финал)'))
     : TK > 0 && TK < 6 ? ['', 'С реки доносится громовой хохот — сходи посмотреть', 'Отведи Торкеля к дому Кетиля', 'Состязание: армрестлинг с Торкелем', 'Состязание: перетягивание каната', 'Поговори с Торкелем'][TK]
     : state.wake === 'cowshed' ? 'Ночь в коровнике… Сходи к Сверкелю'
     : d4 ? D4_TEXT[d4] || ''
@@ -597,6 +607,7 @@ function updateHud() {
     if (state.items.lantern) chips.push(['Фонарь', '#F2B34A']);
     if (state.items.barnKey) chips.push(['Ключ от амбара', '#C9A040']);
     if (state.items.decor) chips.push(['Коробка с украшениями', '#D96B4A']);
+    if (state.time.day === 5 && (state.day5.berry === 1 || state.day5.berry === 2)) chips.push([`Корзинка черники · ${state.day5.bushes.filter(Boolean).length} из ${state.day5.berry === 2 ? 4 : 5}`, '#4A5A9A']);
     if (state.items.grain && state.time.day === 3) chips.push(['Мешок зерна', '#D9B45A']); }
   if (state.items.key && !state.open.kuryatnik) chips.push(['Ключ', '#E9B94A']);
   if (state.step === 7 || state.step === 61) chips.push([`Яйца × ${state.items.eggs || 0}`, '#FFF6E3']);
@@ -861,6 +872,9 @@ function devJump(day) {
   }
   if (day >= 5) { Object.assign(s.day3, { stage: 9, cartAt: 'field', hint: 3 }); s.items.grain = true; }
   if (day === 4.5) s.thork.stage = 6;
+  if (day === 5.5) {   // ВРЕМЕННО: v272 — сразу к чернике (украшения отданы, корзинка у героини)
+    s.time.day = 5; Object.assign(s.day5, { stage: 5, berry: 1, bushes: [false, false, false, false] }); s.pos = { x: 2900, y: -1240 };
+  }
   if (day === 4.5) {   // ВРЕМЕННО: сразу к финалу квеста со статуей — статуя стоит в саду под покрывалом, дальше вечернее открытие
     s.day4.stage = 6; s.pos = { x: D4.ped.x + 40, y: D4.ped.y + 96 };
   }
@@ -870,6 +884,7 @@ function devJump(day) {
   else if (day === 2.7) setTimeout(() => toast('Рыбалка: Змей ждёт на мостках', 'info'), 600);
   else if (day === 4.5) setTimeout(startUnveil, 700);
   else if (day === 5) setTimeout(startDay5, 700);
+  else if (day === 5.5) setTimeout(() => toast('Черника: кусты на опушке у ручья', 'info'), 600);
   else if (day >= 5) setTimeout(() => toast(`День ${day}: задания этого дня — скоро`, 'info', 3000), 600);
   else if (day === 3) setTimeout(startDay3, 700); else if (day === 4) setTimeout(startThorkel, 700); else setTimeout(() => toast(`День ${day}`, 'info'), 500);
 }
@@ -891,6 +906,7 @@ function interact(id) {
   if (id === 'kale') return talkKale();
   if (id === 'zmey') return talkZmey();
   if (id === 'cart') return boardCart();
+  if (id.startsWith('berry')) return pickBush(+id.slice(5));
   if (id === 'chop') return startChopping();
   if (id === 'barn') return state.time.day === 5 ? day5Barn() : enterBarn();
   if (id === 'torgel') return talkTorgel();
@@ -2915,6 +2931,14 @@ function talkThorkel() {
   if (st === 3) return showDialog([['thorkel', 'Ну что, ученица? Давай руку!']], startArmWrestle);
   if (st === 4) return showDialog([['thorkel', 'Тащи ещё силачей — и за канат!']], startTug);
   if (st === 5) return thorkelReveal();
+  if (state.time.day === 5 && state.day5.berry >= 2 && !state.day5.bearTold) return showDialog([   // v272: реакция на медведя. ЗАГЛУШКА (кроме фраз Торкеля и Лейфа)
+    ['hero', 'Торкель, а я сегодня медвежонка видела! У ручья, на камне — чернику ел.'],
+    ['thorkel', 'МЕДВЕДЬ?! Где?! Я с ним поборюсь!'],
+    ['kale', 'О нет…'],
+    ['hero', 'Он же совсем маленький!'],
+    ['thorkel', 'Ха! Значит, поборюсь с его мамой! Вот это будет драка — песни сложат!'],
+    ['kale', 'О нет…'],
+  ], () => { state.day5.bearTold = true; progress(); });
   const lines = ['Ха! Хорошая ферма. Тут бы ещё кого побороть…', 'Лейф опять про свой Винланд? Там хоть подраться есть с кем?', 'Мелкий вырос… Торфинн. Весь в отца. Только хмурый.'];
   showDialog([['thorkel', lines[(talkThorkel.n = (talkThorkel.n || 0) + 1) % lines.length]]]);
 }
@@ -3273,6 +3297,7 @@ function hitTest(x, y) {
   if (state.open.kuryatnik && near(940, 285, 44)) return 'klara';
   if (near(ANCHORS.zmey.x, ANCHORS.zmey.y - (zmeyNapping() ? 10 : 35), 44)) return 'zmey';
   if (ride.active && ride.mode === 'escort' && ride.cart && near(ride.cart.x, ride.cart.y - 50, 80)) return 'cart';   // v271: нажали на повозку
+  for (let i = 0; i < 4; i++) if (berryOpen(i) && near(BERRY_BUSH[i].x, BERRY_BUSH[i].y - 30, 70)) return 'berry' + i;   // v272: куст черники
   if (state.nanamin.tools === 2 && near(CHOP_SPOT.x, CHOP_SPOT.y - 14, 42)) return 'chop';
   if (barnOpen() && near(ANCHORS.barn.x, ANCHORS.barn.y - 30, 46)) return 'barn';
   if (!hunt.active && torgelNpc && near(torgelNpc.x, torgelNpc.y - 44, 56)) return 'torgel';
@@ -3397,6 +3422,7 @@ function nearest() {
     if (id === 'iro' && !state.open.sad) continue;
     if (id === 'chop' && !(state.nanamin.stage === 1 && state.nanamin.tools === 2)) continue;
     if (id === 'barn' && !barnOpen()) continue;
+    if (id.startsWith('berry') && !berryOpen(+id.slice(5))) continue;   // v272
     const a = anchorOf(id), d = Math.hypot(player.x - a.x, player.y - a.y);
     if (d <= a.reach && d < bd) { bd = d; best = id; }
   }
@@ -3417,6 +3443,7 @@ function actionLabel(id) {
   if (id.startsWith('bed')) return +id.slice(3) < QUEST_BEDS && state.items.can && !state.watered[+id.slice(3)] ? 'Полить' : 'Грядка (тест)';
   if (id === 'gate') return 'Открыть';
   if (id.startsWith('herb')) return 'Сорвать';
+  if (id.startsWith('berry')) return 'Собрать чернику';
   if (id === 'zmey' && zmeyNapping()) return state.step === 31 ? 'Разбудить' : 'Осмотреть';
   if (id === 'torgel' && torgelMode() === 'doze') return 'Разбудить';   // v253
   return 'Поговорить';
@@ -6106,13 +6133,26 @@ function startDay5() {
   ], () => day5Set(1, 'Новое задание: попроси у Торгеля ключ от амбара'));
 }
 function day5Grandpa() {
-  const d = state.day5.stage;
-  if (d === 5) return showDialog([
+  const d = state.day5.stage, b = state.day5.berry;
+  if (d === 5 && !b) return showDialog([
     ['grandpa', 'Ого, целая коробка! И ключ раздобыла? Неужто Торгель отдал сам?'],
     ['hero', 'Пришлось с ним потренироваться…'],
     ['grandpa', 'Ха! Тогда понятно, откуда шишка на лбу. Молодец, внучка.'],
+    ['grandpa', 'Ещё одно дело, последнее на сегодня. Какой праздник без черничного пирога? Мой пирог вся ферма ждёт с прошлого года!'],   // v272 ЗАГЛУШКА
+    ['grandpa', 'Черника растёт на лесной опушке у ручья — за полем, по дороге к Кетилю. Там пять кустов, как раз на пирог. Держи корзинку.'],
+  ], () => {
+    state.items.decor = false; state.day5.berry = 1; state.day5.bushes = [false, false, false, false]; progress(); berryMarks();
+    toast('Новое задание: собери чернику на опушке у ручья');
+  });
+  if (d === 5 && b === 1) return showDialog([['grandpa', 'Черника — на опушке у ручья, за полем. Собирай только спелую, тёмно-синюю!']]);   // ЗАГЛУШКА
+  if (d === 5) return showDialog([   // b === 2 — корзинка с черникой. ЗАГЛУШКА
+    ['grandpa', 'Вот это черника! Полная корзинка. Будет пирог на славу!'],
+    ['hero', 'Там был ещё пятый куст, за ручьём… но возле него сидел медвежонок. Я туда не полезла.'],
+    ['grandpa', 'И правильно! Где медвежонок — там и медведица. Умница, внучка.'],
+    ['grandpa', 'Только Торкелю не рассказывай. А то он побежит с медведицей бороться.'],
     ['grandpa', 'Остальное к празднику — завтра. А сейчас отдохни: вечереет уже.'],
   ], () => {
+    state.day5.berry = 3; berryMarks(); placeBear();
     state.items.decor = false; state.day5.stage = 6;
     state.time.phase = 'evening'; state.time.night = true; progress(); applyTime(false);
     setTimeout(() => showThought(state.items.lantern ? 'Совсем стемнело… Хорошо, что у меня есть фонарь. Пора домой.' : 'Совсем стемнело… Пора домой.'), 2600);
@@ -6301,6 +6341,190 @@ function drillRound(r) {
   }));
   stats(); hero(); sword('rest');
   setTimeout(() => { msg(r === 1 ? 'Смотри на замах!' : 'Смотри, как он бьёт!'); setTimeout(next, 700); }, 300);
+}
+// ===================== День 5 (v272): черника для пирога и медвежонок (схематично) =====================
+// Сверкель просит чернику для праздничного пирога. На опушке у ручья 5 кустов (рисунок f-6a_boulder-3): 4 на нашем берегу,
+// 5-й — за ручьём, у пня и камня. После 4-го куста камера показывает медвежонка на камне у 5-го — «Четырёх хватит».
+// Мини-игра на каждом кусте «Только спелые»: куст на весь экран, нажимать тёмно-синие ягоды, зелёные и листья не трогать.
+const BERRY_BUSH = [{ x: 2985, y: -1384 }, { x: 3203, y: -1525 }, { x: 3382, y: -1452 }, { x: 3518, y: -1113 }];   // низ куста (середина)
+const BERRY_FIFTH = { x: 3557, y: -1588 };   // 5-й куст — за ручьём
+const BEAR_SPOT = { x: 3652, y: -1486 };     // медвежонок сидит на мшистом валуне (рисунок f-6b_boulder-1), смотрит на куст
+const BERRY_NEED = 6;                        // спелых ягод на одном кусте
+const bear = { c: null };
+let berryG = null;
+function berryOpen(i) { return state.time.day === 5 && state.day5.stage === 5 && state.day5.berry === 1 && !state.day5.bushes[i]; }
+function berryNext() {   // ближайший к героине несобранный куст
+  let best = -1, bd = Infinity;
+  state.day5.bushes.forEach((done, i) => { if (done) return; const a = ANCHORS['berry' + i], d = player ? Math.hypot(player.x - a.x, player.y - a.y) : i; if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+function berryText() {
+  if (state.time.day !== 5 || state.day5.stage !== 5) return '';
+  const b = state.day5.berry, n = state.day5.bushes.filter(Boolean).length;
+  if (b === 1) return `Собери чернику на опушке у ручья: ${n} из 5`;
+  if (b === 2) return '4 из 4 — хватит и этого. Отнеси чернику Сверкелю';
+  return '';
+}
+// отметки кустов: мягкое светлое пятно под несобранными, собранные — чуть бледнее (ягод на них больше нет)
+function berryMarks() {
+  if (!scene) return;
+  if (berryG) berryG.destroy();
+  berryG = scene.add.graphics().setDepth(GROUND - 6.5);
+  const imgs = scene.children.list.filter(o => o.type === 'Image' && o.texture && o.texture.key === 'f-6a_boulder-3');
+  const on = state.time.day === 5 && state.day5.stage === 5 && state.day5.berry === 1;
+  BERRY_BUSH.forEach((b, i) => {
+    const im = imgs.find(o => Math.abs(o.x + o.displayWidth / 2 - b.x) < 8 && Math.abs(o.y + o.displayHeight - b.y) < 8);
+    const picked = state.time.day === 5 && state.day5.berry >= 1 && state.day5.bushes[i];
+    if (im) { if (picked) im.setTint(0xCFE0B4); else im.clearTint(); }
+    if (on && !picked) { berryG.fillStyle(0xFFF4C8, 0.28).fillEllipse(b.x, b.y - 6, 150, 46); berryG.fillStyle(0xFFF4C8, 0.22).fillEllipse(b.x, b.y - 6, 110, 30); }
+  });
+}
+// медвежонок — схематично, кодом: сидит на камне и жуёт чернику (голова кивает к кусту)
+function placeBear() {
+  if (bear.c) { bear.c.destroy(); bear.c = null; }
+  if (state.time.day !== 5 || state.day5.berry >= 3) return;
+  const B = BEAR_SPOT, c = scene.add.container(B.x, B.y).setDepth(-1440);   // перед валуном (его глубина −1445.7)
+  const g = scene.add.graphics();
+  g.fillStyle(0x1d2a12, 0.25).fillEllipse(0, 2, 46, 10);
+  g.fillStyle(0x5A3B24, 1).fillEllipse(4, -18, 40, 36);            // туловище
+  g.fillStyle(0x4A2F1C, 1).fillEllipse(14, -4, 16, 10).fillEllipse(-6, -3, 14, 9);   // лапы внизу
+  g.fillStyle(0x7A5434, 1).fillEllipse(2, -14, 20, 18);             // светлое брюшко
+  const head = scene.add.container(-14, -36), h = scene.add.graphics();
+  h.fillStyle(0x5A3B24, 1).fillCircle(4, -6, 4.5).fillCircle(-9, -7, 4.5);   // уши
+  h.fillStyle(0x8A6444, 1).fillCircle(4, -6, 2.2).fillCircle(-9, -7, 2.2);
+  h.fillStyle(0x5A3B24, 1).fillCircle(0, 2, 12);                      // голова
+  h.fillStyle(0xA98260, 1).fillEllipse(-8, 6, 12, 9);                 // мордочка
+  h.fillStyle(0x1E140C, 1).fillCircle(-12, 4, 2.2).fillCircle(-3, -1, 1.7);   // нос, глаз
+  head.add(h);
+  const paw = scene.add.graphics(); paw.fillStyle(0x4A2F1C, 1).fillEllipse(0, 0, 10, 16); paw.setPosition(-16, -20).setAngle(-30);
+  const berry = scene.add.graphics(); berry.fillStyle(0x2E3F78, 1).fillCircle(-22, -30, 2.6).fillStyle(0x2E3F78, 1).fillCircle(-19, -33, 2.3);
+  c.add([g, paw, berry, head]);
+  if (!REDUCED) {
+    scene.tweens.add({ targets: head, angle: { from: -4, to: 8 }, y: { from: -36, to: -33 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    scene.tweens.add({ targets: paw, angle: { from: -40, to: -10 }, y: { from: -22, to: -27 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+  bear.c = c;
+}
+function pickBush(i) {
+  if (!berryOpen(i)) return;
+  startBerries(i, () => {
+    state.day5.bushes[i] = true; progress(); berryMarks();
+    const n = state.day5.bushes.filter(Boolean).length;
+    if (n < 4) return toast(`Черника: ${n} из 5`, 'info');
+    bearReveal();
+  });
+}
+// после 4-го куста: камера — к пятому кусту за ручьём, а там медвежонок
+function bearReveal() {
+  ui.open = true; stopWalking(); placeBear();
+  const cam = scene.cameras.main, z0 = cam.zoom;
+  showThought('Четыре куста есть. А где же пятый?…', () => {   // ЗАГЛУШКА
+    ui.open = true; stopWalking();
+    cam.stopFollow(); cam.pan(BERRY_FIFTH.x + 50, BEAR_SPOT.y + 20, 1600, 'Sine.easeInOut');   // куст и медвежонок — в верхней половине, над окном мыслей
+    setTimeout(() => showThought('Пятый куст… О. Ого. Это же… медвежонок?', () =>
+      showThought('А где медвежонок, там и мама-медведица.', () =>
+        showThought('Нет уж. За тем кустом я точно не полезу. Четырёх хватит.', () => {
+          ui.open = true; stopWalking();
+          cam.pan(player.x, player.y, 1100, 'Sine.easeInOut');
+          setTimeout(() => {
+            cam.startFollow(player, false, 1, 1); if (cam.zoom !== z0) cam.setZoom(z0);
+            state.day5.berry = 2; progress(); berryMarks(); ui.open = false;
+            toast('Черники хватит — отнеси корзинку Сверкелю');
+          }, 1150);
+        }))), 1800);
+  });
+}
+// ---------- мини-игра «Только спелые» ----------
+const BERRY_WRONG = ['Зелёная — пусть ещё дозреет', 'Эта ещё кислая, не надо', 'Не спелая! Ищи тёмно-синие', 'Розовая — тоже рано'];
+const BERRY_LEAF = ['Это листик', 'Тут только листья', 'Мимо — листик'];
+function startBerries(bi, onDone) {
+  if (ui.open) return;
+  ui.open = true; stopWalking(); musicUpdate();
+  const root = document.createElement('div'); root.className = 'herbs berries';
+  const icon = '<svg viewBox="0 0 40 40" width="100%" height="100%"><circle cx="15" cy="23" r="10" fill="#2E3F78"/><circle cx="26" cy="17" r="9" fill="#34478A"/><circle cx="12" cy="20" r="3" fill="#8D9FD0" opacity=".55"/><circle cx="23" cy="14" r="2.6" fill="#8D9FD0" opacity=".55"/><path d="M26 8 l3 -4 M26 8 l-3 -3" stroke="#4E6A2E" stroke-width="2" stroke-linecap="round"/></svg>';
+  root.innerHTML = `<canvas></canvas><button class="ghost-btn herbs-exit" id="bbExit" type="button">Уйти</button>
+    <div class="berry-top"><div class="herbs-card berry-card" id="bbCard"><div class="berry-ic">${icon}</div><b id="bbCount">0/${BERRY_NEED}</b></div><div class="berry-title">Куст ${bi + 1} из 5</div></div>
+    <div class="herbs-hint" id="bbHint">Собирай только спелые ягоды — тёмно-синие. Зелёные и розовые пусть дозреют</div><div class="herbs-msg" id="bbMsg"></div>`;
+  app.appendChild(root);
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, R = 1, raf = 0, last = performance.now(), t = 0, done = false, got = 0, ready = 0;
+  const img = {}; const load = (k, src) => { ready++; const i = new Image(); i.onload = i.onerror = () => { ready--; }; i.src = src; img[k] = i; };
+  load('bush', 'assets/trees/bush-1.webp'); load('grass', 'assets/ground/grass.jpg'); load('pine', 'assets/forest/3a_pine-2.webp'); load('el', 'assets/forest/1b_el-2.webp'); load('fern', 'assets/forest/6b_boulder-3.webp');
+  let bush = null, berries = [], fly = [];
+  const layout = () => {   // куст и ягоды — в долях, чтобы пересчитывать при повороте экрана
+    const bh = Math.min(H * 0.78, W * 0.62), bw = bh * 285 / 246;
+    bush = { x: W / 2, y: H * 0.98, w: bw, h: bh };
+  };
+  const resize = () => { R = Math.min(window.devicePixelRatio || 1, 2.5); W = root.clientWidth; H = root.clientHeight; cv.width = Math.round(W * R); cv.height = Math.round(H * R); layout(); };
+  resize(); window.addEventListener('resize', resize);
+  // ягоды: u, v — место в кусте (−1…1), kind: ripe / green / pink
+  const kinds = [...Array(BERRY_NEED).fill('ripe'), ...Array(6).fill('green'), ...Array(3).fill('pink')];
+  for (const k of kinds) {
+    let u, v, ok, n = 0;
+    do { const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.82; u = Math.cos(a) * r; v = Math.sin(a) * r * 0.8 - 0.05; ok = berries.every(b => Math.hypot(b.u - u, (b.v - v) * 1.15) > 0.24); } while (!ok && ++n < 200);
+    berries.push({ u, v, k, wob: Math.random() * 6, bad: 0 });
+  }
+  const bpos = b => ({ x: bush.x + b.u * bush.w * 0.4, y: bush.y - bush.h * 0.5 + b.v * bush.h * 0.4 });
+  const br = () => Math.max(12, bush.h * 0.042);
+  const msg = (text, good) => { const m = $('bbMsg'); m.textContent = text; m.className = 'herbs-msg show' + (good ? ' good' : ''); clearTimeout(msg.t); msg.t = setTimeout(() => { m.className = 'herbs-msg'; }, 1300); };
+  const drawBerry = (x, y, r, k, a = 1) => {
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(20,30,10,0.25)'; ctx.beginPath(); ctx.arc(x + r * 0.15, y + r * 0.25, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = k === 'ripe' ? '#2E3F78' : k === 'pink' ? '#C0617E' : '#A8C46A'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = k === 'ripe' ? 'rgba(141,159,208,0.6)' : 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.32, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = k === 'ripe' ? '#1C2650' : k === 'pink' ? '#8A3E56' : '#6E8A3A'; ctx.lineWidth = Math.max(1, r * 0.12);
+    ctx.beginPath(); ctx.moveTo(x - r * 0.22, y - r * 0.82); ctx.lineTo(x, y - r * 0.6); ctx.lineTo(x + r * 0.22, y - r * 0.82); ctx.stroke();   // «корона» ягоды
+    ctx.restore();
+  };
+  const drawImg = (i, x, yb, w, flip) => { const iw = i && i.naturalWidth; if (!iw) return; const h = w * i.naturalHeight / iw; ctx.save(); ctx.translate(x, yb); if (flip) ctx.scale(-1, 1); ctx.drawImage(i, -w / 2, -h, w, h); ctx.restore(); };
+  const frame = now => {
+    const dt = Math.min(50, now - last) / 1000; last = now; t += dt;
+    ctx.setTransform(R, 0, 0, R, 0, 0); ctx.clearRect(0, 0, W, H);
+    const hz = H * 0.42;
+    const sky = ctx.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#BFDCE6'); sky.addColorStop(1, '#E8E4C4'); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, hz + 2);
+    drawImg(img.pine, W * 0.1, hz + H * 0.12, H * 0.62, false); drawImg(img.el, W * 0.88, hz + H * 0.14, H * 0.6, true); drawImg(img.pine, W * 0.72, hz + H * 0.06, H * 0.42, true);
+    const gi = img.grass; if (gi && gi.naturalWidth) { const ts = H * 0.34; ctx.save(); ctx.beginPath(); ctx.rect(0, hz, W, H - hz); ctx.clip(); for (let y = hz; y < H; y += ts) for (let x = -ts; x < W + ts; x += ts) ctx.drawImage(gi, x, y, ts + 1, ts + 1); ctx.restore(); }
+    const fog = ctx.createLinearGradient(0, hz - 4, 0, hz + H * 0.08); fog.addColorStop(0, 'rgba(232,228,196,0.85)'); fog.addColorStop(1, 'rgba(232,228,196,0)'); ctx.fillStyle = fog; ctx.fillRect(0, hz - 4, W, H * 0.08 + 4);
+    drawImg(img.fern, W * 0.16, H * 1.02, H * 0.42, false); drawImg(img.fern, W * 0.86, H * 1.03, H * 0.38, true);
+    ctx.fillStyle = 'rgba(29,42,18,0.25)'; ctx.beginPath(); ctx.ellipse(bush.x, bush.y - bush.h * 0.03, bush.w * 0.46, bush.h * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.translate(bush.x, bush.y); ctx.rotate(Math.sin(t * 1.3) * 0.006); ctx.filter = 'brightness(0.82) saturate(0.85)'; drawImg(img.bush, 0, 0, bush.w, false); ctx.restore();   // темнее — как черничник на карте
+    const r = br();
+    for (const b of berries) {
+      if (b.gone) continue;
+      let { x, y } = bpos(b); x += Math.sin(t * 2 + b.wob) * r * 0.06;
+      if (b.bad) { b.bad = Math.max(0, b.bad - dt * 2.2); x += Math.sin(b.bad * 40) * r * 0.35 * b.bad; }
+      drawBerry(x, y, r, b.k);
+    }
+    for (let i = fly.length - 1; i >= 0; i--) {   // сорванная ягода летит в корзинку (карточку)
+      const f = fly[i]; f.a = Math.min(1, f.a + dt * 2.2); const e = f.a * f.a * (3 - 2 * f.a);
+      drawBerry(f.x0 + (f.x1 - f.x0) * e, f.y0 + (f.y1 - f.y0) * e - Math.sin(e * Math.PI) * H * 0.08, r * (1 - e * 0.4), 'ripe');
+      if (f.a >= 1) fly.splice(i, 1);
+    }
+    raf = requestAnimationFrame(frame);
+  };
+  const close = () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); };
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (done) return;
+    $('bbHint').classList.add('hide');
+    const rc = cv.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top, r = br();
+    let best = null, bd = 1e9;
+    for (const b of berries) { if (b.gone) continue; const p = bpos(b), d = Math.hypot(x - p.x, y - p.y); if (d < r * 1.7 && d < bd) { bd = d; best = b; } }
+    if (!best) {
+      const inBush = Math.abs(x - bush.x) < bush.w * 0.48 && y > bush.y - bush.h * 0.95 && y < bush.y;
+      if (inBush) msg(BERRY_LEAF[Math.floor(Math.random() * BERRY_LEAF.length)]);
+      return;
+    }
+    if (best.k !== 'ripe') { best.bad = 1; msg(BERRY_WRONG[best.k === 'pink' ? 3 : Math.floor(Math.random() * 3)]); return; }
+    best.gone = true; got++;
+    const p = bpos(best), ci = $('bbCard').getBoundingClientRect();
+    fly.push({ x0: p.x, y0: p.y, x1: ci.left + ci.width / 2 - rc.left, y1: ci.top + ci.height * 0.4 - rc.top, a: 0 });
+    $('bbCount').textContent = `${got}/${BERRY_NEED}`;
+    const card = $('bbCard'); card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
+    if (got >= BERRY_NEED) { done = true; card.classList.add('full'); msg('Куст обобран!', true); setTimeout(() => { close(); if (onDone) onDone(); }, 1200); }
+  });
+  $('bbExit').addEventListener('click', () => { close(); toast('Куст можно обобрать потом', 'info'); });
+  const wait = () => { if (ready > 0) return requestAnimationFrame(wait); last = performance.now(); raf = requestAnimationFrame(frame); };
+  wait();
 }
 // ===================== Торфинн: сторож поля =====================
 // Если героиня заходит на пшеницу — злится, подбегает, ругается и выводит её на дорожку
@@ -7094,6 +7318,7 @@ class FarmScene extends Phaser.Scene {
     drawRiver();
     drawStream();
     drawForest();
+    bear.c = null; berryG = null; placeBear(); berryMarks();   // v272: медвежонок за ручьём и отметки кустов черники
     buildKale();
     drawHill();
     if (new URLSearchParams(location.search).get('evening')) { state.nanamin.stage = 4; state.time.phase = 'evening'; } // служебное: сразу вечер
