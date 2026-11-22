@@ -62,6 +62,9 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 /* ВРЕМЕННО: меню тестовых кнопок — прячется под одну кнопку «Тест» */
 .dev-menu{display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:10px;width:250px;box-sizing:border-box;border-radius:16px;background:rgba(46,36,24,.78);box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:calc(100vw - 20px)}
 .dev-menu[hidden]{display:none}
+/* v277: громкость */
+.vol-menu{width:220px}
+.vol-menu input[type=range]{width:100%;accent-color:var(--tomato);height:28px;margin:2px 0}
 .dev-menu .ghost-btn{width:100%;text-align:center}
 .dev-title{font-family:var(--body);font-weight:800;font-size:15px;color:#FFF6D8;padding:0 2px}
 .dev-days{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
@@ -310,7 +313,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
     <div class="quest collapsed" id="questBox" role="button" tabindex="0" aria-expanded="false"><div class="label"><span id="questLabel">Задание</span><span class="qarrow" aria-hidden="true"></span></div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
-    <div class="side"><button class="ghost-btn" id="soundBtn" type="button" aria-pressed="true">Звук: вкл</button><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
+    <div class="side"><button class="ghost-btn" id="soundBtn" type="button" aria-expanded="false" aria-controls="volMenu">Звук ▾</button><div class="dev-menu vol-menu" id="volMenu" hidden><div class="dev-title">Громкость: <span id="volVal">80%</span></div><input type="range" id="volRange" min="0" max="100" step="5" value="80" aria-label="Громкость"><button class="ghost-btn" id="muteBtn" type="button">Выключить звук</button></div><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
       <div class="dev-menu" id="devMenu" hidden>
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button><button class="ghost-btn" type="button" data-day="5">День 5</button><button class="ghost-btn" type="button" data-day="6">День 6</button></div>
@@ -344,7 +347,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 276;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 277;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -1522,8 +1525,9 @@ function updateNight(time) {
 const MUSIC = { day: { file: 'assets/music/day.mp3', vol: 0.42 }, evening: { file: 'assets/music/evening.mp3', vol: 0.4 },
   game: { file: 'assets/music/minigame.mp3', vol: 0.4 },
   chase: { file: 'assets/music/chase2.mp3', vol: 0.42 } };   // v225: новый, тревожнее (120 bpm)   // v221: тревожная — прячемся от Торгеля (амбар, ночные прятки)   // v220: мини-игры в окошках — «Autumn's Lullaby in a Fabled Orchard»
-const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, started: false, fetching: {} };
-try { music.on = localStorage.getItem('farmSound') !== 'off'; } catch (e) {}
+const music = { ctx: null, master: null, raw: {}, buf: {}, cur: null, on: true, vol: 80, started: false, fetching: {} };
+try { music.on = localStorage.getItem('farmSound') !== 'off'; const v = parseInt(localStorage.getItem('farmVolume'), 10); if (v >= 0 && v <= 100) music.vol = v; } catch (e) {}
+const musicGain = () => music.on ? Math.pow(music.vol / 100, 1.6) : 0;   // v277: громкость (ползунок 0–100 %; по слуху — плавнее, чем прямо)
 // v234: музыку качаем не сразу, а после того как ферма загрузилась (раньше 12 МБ мелодий отнимали скорость у картинок при запуске);
 // день и вечер — по очереди сразу после запуска, мини-игры и погоню — когда понадобятся
 function musicFetch(k) {
@@ -1562,7 +1566,7 @@ function musicStart() {   // первое касание экрана (и каж
   // частота как у файлов (44,1 кГц) — без пересчёта на лету
   try { music.ctx = new AC({ latencyHint: 'playback', sampleRate: 44100 }); } catch (e) { try { music.ctx = new AC({ latencyHint: 'playback' }); } catch (e2) { music.ctx = new AC(); } }
   if (music.ctx.state === 'suspended') music.ctx.resume();
-  music.master = music.ctx.createGain(); music.master.gain.value = music.on ? 1 : 0; music.master.connect(music.ctx.destination);
+  music.master = music.ctx.createGain(); music.master.gain.value = musicGain(); music.master.connect(music.ctx.destination);
   musicUpdate();
 }
 function musicLoop(k, fadeIn) {
@@ -1591,16 +1595,25 @@ function musicUpdate() {
   clearTimeout(music.freeT);
   music.freeT = setTimeout(() => { for (const k in music.buf) if (!music.cur || k !== music.cur.k) delete music.buf[k]; }, 4500);   // старая доиграла — освобождаем память
 }
-function musicToggle() {
-  music.on = !music.on;
-  try { localStorage.setItem('farmSound', music.on ? 'on' : 'off'); } catch (e) {}
-  $('soundBtn').textContent = music.on ? 'Звук: вкл' : 'Звук: выкл'; $('soundBtn').setAttribute('aria-pressed', music.on);
-  if (!music.ctx) { if (music.on) musicStart(); return; }
+function musicApply(sec) {   // v277: громкость/выключение → общий регулятор звука (музыка и голоса)
+  const off = !music.on || music.vol === 0;
+  $('soundBtn').textContent = off ? 'Звук: выкл ▾' : `Звук: ${music.vol}% ▾`;
+  $('volVal').textContent = music.on ? music.vol + '%' : 'выкл'; $('volRange').value = music.vol;
+  $('muteBtn').textContent = music.on ? 'Выключить звук' : 'Включить звук';
+  if (!music.ctx || !music.master) return;   // звук ещё не запущен — заработает с первого касания уже с нужной громкостью
   const t = music.ctx.currentTime; music.master.gain.cancelScheduledValues(t); music.master.gain.setValueAtTime(music.master.gain.value, t);
-  music.master.gain.linearRampToValueAtTime(music.on ? 1 : 0, t + 0.6);
+  music.master.gain.linearRampToValueAtTime(musicGain(), t + sec);
 }
-$('soundBtn').textContent = music.on ? 'Звук: вкл' : 'Звук: выкл'; $('soundBtn').setAttribute('aria-pressed', music.on);
-$('soundBtn').addEventListener('click', e => { e.stopPropagation(); musicToggle(); });
+function musicSave() { try { localStorage.setItem('farmSound', music.on ? 'on' : 'off'); localStorage.setItem('farmVolume', String(music.vol)); } catch (e) {} }
+function musicToggle() { music.on = !music.on; if (music.on && music.vol === 0) music.vol = 50; musicSave(); musicApply(0.6); }
+function volMenu(open) { $('volMenu').hidden = !open; $('soundBtn').setAttribute('aria-expanded', open); }
+$('soundBtn').addEventListener('click', e => { e.stopPropagation(); volMenu($('volMenu').hidden); });
+$('volMenu').addEventListener('pointerdown', e => e.stopPropagation());
+$('volMenu').addEventListener('click', e => e.stopPropagation());
+$('volRange').addEventListener('input', e => { music.vol = +e.target.value; music.on = true; musicSave(); musicApply(0.08); });
+$('muteBtn').addEventListener('click', () => musicToggle());
+document.addEventListener('pointerdown', e => { if (!$('volMenu').hidden && !e.target.closest('#volMenu, #soundBtn')) volMenu(false); });
+musicApply(0);
 // ВРЕМЕННО: включить/выключить бормотание в меню «Тест»
 $('voiceBtn').textContent = voicesOn ? 'Голоса: вкл' : 'Голоса: выкл';
 $('voiceBtn').addEventListener('click', e => { voicesOn = !voicesOn; try { localStorage.setItem('farmVoices', voicesOn ? 'on' : 'off'); } catch (_) {} $('voiceBtn').textContent = voicesOn ? 'Голоса: вкл' : 'Голоса: выкл'; });
