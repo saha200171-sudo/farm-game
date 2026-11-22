@@ -148,10 +148,23 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 body.in-barn .quest{display:none}
 /* Дом Сверкеля: сверху шаги рецепта, снизу полка с продуктами (только в доме) */
 body.in-house .side .ghost-btn{display:none}
-.recipe{position:absolute;left:6px;right:6px;display:flex;flex-wrap:nowrap;gap:4px;justify-content:center;z-index:1;pointer-events:none}
-.recipe span{font-family:var(--body,Nunito,sans-serif);font-weight:800;font-size:clamp(9px,2.7vw,12px);padding:4px clamp(3px,1.2vw,6px);white-space:nowrap;border-radius:14px;background:rgba(255,253,244,.82);color:#3a2c1c;border:2px solid rgba(46,36,24,.25)}
-.recipe span.done{background:#5E9E57;color:#fff;border-color:#3f6e3a}
-.recipe span.cur{background:#F9B862;border-color:#a8742a}
+/* v282: рецепт — лента бумажных листков с рисунками этапов; выполненный этап — галочка, лента уезжает влево */
+.recipe{position:absolute;left:0;right:0;overflow:hidden;z-index:1;pointer-events:none;padding:6px 0 10px}
+.recipe .track{display:flex;gap:var(--rgap,10px);padding-left:var(--rpad,14px);will-change:transform;transition:transform .65s cubic-bezier(.45,.05,.3,1)}
+.recipe.nojump .track,.recipe.nojump .rcard{transition:none!important}
+.rcard{position:relative;flex:0 0 var(--cw,110px);height:var(--ch,124px);box-sizing:border-box;padding:12px 7px 6px;display:flex;flex-direction:column;align-items:center;
+  background:linear-gradient(160deg,#fbf3df 0%,#f1e3c3 70%,#e9d6ae 100%);border-radius:3px 4px 3px 5px;color:#3b2a18;
+  box-shadow:0 3px 0 rgba(120,85,45,.25),0 6px 14px rgba(0,0,0,.35);transform:rotate(var(--rot,0deg));transition:transform .35s,filter .35s,opacity .35s}
+.rcard::before{content:'';position:absolute;top:-5px;left:50%;width:38%;height:12px;transform:translateX(-50%) rotate(-3deg);background:rgba(214,190,140,.78);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.rcard img{flex:1;min-height:0;width:100%;object-fit:contain;filter:drop-shadow(0 1px 0 rgba(255,255,255,.4))}
+.rcard b{font-family:var(--body,Nunito,sans-serif);font-weight:800;font-size:clamp(13px,3.4vw,15px);line-height:1.1;margin-top:3px;white-space:nowrap}
+.rcard b i{font-style:normal;opacity:.55;margin-right:3px}
+.rcard.todo{filter:saturate(.55) brightness(.8);opacity:.9}
+.rcard.cur{transform:rotate(var(--rot,0deg)) scale(1.04);box-shadow:0 0 0 3px #F9B862,0 3px 0 rgba(120,85,45,.25),0 8px 18px rgba(0,0,0,.45)}
+.rcard.done{filter:saturate(.75) brightness(.92)}
+.rcard svg{position:absolute;inset:8% 10% 20%;width:80%;height:72%;overflow:visible}
+.rcard svg path{fill:none;stroke:#3f7d3a;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:160;stroke-dashoffset:160;transition:stroke-dashoffset .45s ease-out;filter:drop-shadow(0 1px 0 rgba(255,255,255,.7))}
+.rcard.done svg path{stroke-dashoffset:0}
 .shelf{position:absolute;left:8px;right:8px;padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(3px,1.4vw,8px);align-items:center;z-index:1;pointer-events:none;
   background:linear-gradient(#7a5132,#5c3b22);border:4px solid #3e2715;border-radius:14px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
 .shelf div{aspect-ratio:1/1.1;max-height:72px;border-radius:10px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
@@ -347,7 +360,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 281;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 282;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2063,7 +2076,7 @@ function leaveHouse() {
 // камера: комната крупно, сверху место под задание и рецепт, снизу — полка
 function houseZoom() { return houseLayout().z; }
 function houseLayout() {   // высота комнаты — сколько остаётся между заданием с рецептом и полкой
-  const W = app.clientWidth, H = app.clientHeight, topPx = 150;
+  const W = app.clientWidth, H = app.clientHeight, RS = recipeSize(), topPx = RS.top + RS.ch + 22;   // v282: место под листки рецепта
   const slot = Math.min(72, (W - 16 - 16 - 6 * Math.min(8, W * 0.014)) / 7) * 1.1, shelfH = slot + 16 + 8;
   const roomPx = Math.max(220, H - topPx - shelfH - 26);
   return { topPx, shelfH, z: Math.min(roomPx / HH, H * 0.6 / HH, W / 330) };
@@ -2077,7 +2090,7 @@ function updateHouse(dt, force) {
   cam.centerOn(cx, cy);
   for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.06;   // передний план — чуть быстрее
   if (force) {
-    $('recipe').style.top = (topPx - 44) + 'px';
+    $('recipe').style.top = (recipeSize().top - 6) + 'px'; renderRecipe(cookS().stage, true);
     $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px';
     $('houseExit').style.top = (topPx + 8) + 'px';
   }
@@ -2126,9 +2139,36 @@ function houseNearest() {
 }
 // ---------- готовка ----------
 const cookS = () => state.cook || (state.cook = { stage: 0 });
+// v282: лента листков рецепта. Рисунки этапов — Magnific (art/cook/cut_steps.py → assets/house/steps/s0..s6.webp)
+const RCARD_ROT = [-2.5, 1.8, -1.2, 2.4, -2, 1.3, -1.6];
+function recipeSize() {   // размер листка: на телефоне стоя видно 3–4 штуки; лёжа — поменьше, справа от «Задания»
+  const W = app.clientWidth, H = app.clientHeight, land = W > H;
+  const cw = Math.round(land ? Math.min(H * 0.21, 120) : Math.min(W / 3.45, 150)), ch = Math.round(cw * 1.13);
+  return { cw, ch, gap: Math.round(cw * 0.09), pad: land ? 10 : 14, left: land ? 165 : 0, top: land ? 12 : 58, land };
+}
+function renderRecipe(stage, instant) {
+  const el = $('recipe'), R = recipeSize();
+  if (!el.querySelector('.track')) {
+    el.innerHTML = '<div class="track">' + COOK_STEPS.map((t, i) => `<div class="rcard" style="--rot:${RCARD_ROT[i]}deg"><img src="assets/house/steps/s${i}.webp?v=${GAME_VERSION}" alt=""><b><i>${i + 1}</i>${t}</b><svg viewBox="0 0 100 80"><path d="M14 44 L38 66 L88 12"/></svg></div>`).join('') + '</div>';
+    instant = true;
+  }
+  el.style.setProperty('--cw', R.cw + 'px'); el.style.setProperty('--ch', R.ch + 'px'); el.style.setProperty('--rgap', R.gap + 'px'); el.style.setProperty('--rpad', R.pad + 'px'); el.style.left = R.left + 'px';
+  const prev = el._stage ?? stage, grew = stage > prev && !instant;
+  if (instant) el.classList.add('nojump');
+  el.querySelectorAll('.rcard').forEach((cd, i) => { cd.className = 'rcard ' + (i < stage ? 'done' : i === stage ? 'cur' : 'todo'); });
+  // сдвиг: выполненные уходят за левый край, последний выполненный чуть выглядывает; хвост не отрывается от правого края
+  const step = R.cw + R.gap, viewW = app.clientWidth - R.left - R.pad;
+  const maxShift = Math.max(0, COOK_STEPS.length * step - viewW + 8);
+  const shift = stage <= 0 ? 0 : Math.min(maxShift, (stage - 1) * step + R.cw * 0.62);
+  const tr = el.querySelector('.track');
+  tr.style.transitionDelay = grew ? '.6s' : '0s';   // сначала галочка, потом лента едет
+  tr.style.transform = `translateX(${-Math.round(shift)}px)`;
+  el._stage = stage;
+  if (instant) requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('nojump')));
+}
 function renderCook() {
   const c = cookS();
-  $('recipe').innerHTML = COOK_STEPS.map((t, i) => `<span class="${i < c.stage ? 'done' : i === c.stage ? 'cur' : ''}">${t}</span>`).join('');
+  renderRecipe(c.stage);
   const I = state.items, have = { water: c.water, barley: c.barley, cabbage: (I.kapusta || 0) > 0 || c.chopped, leek: (I.luk || 0) > 0 || c.chopped, herbs: c.herbs, eggs: (I.eggs || 0) > 0, stew: c.stage >= 7 };
   $('shelf').innerHTML = ['water', 'barley', 'cabbage', 'leek', 'herbs', 'eggs', 'stew']
     .map(k => `<div><img src="assets/house/icons/${k}.webp?v=${GAME_VERSION}" class="${have[k] ? 'have' : ''}" alt=""></div>`).join('');
