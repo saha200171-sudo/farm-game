@@ -4,7 +4,7 @@
 //  • картинки и движок — сразу из сохранённой копии (без похода в сеть при каждом запуске).
 //    Когда выходит новая версия (меняется CACHE), новый service worker при установке
 //    заново скачивает все файлы с меткой версии — гарантированно свежие.
-const CACHE = 'farm-v279';
+const CACHE = 'farm-v280';
 const CORE = [
   './',
   './index.html',
@@ -47,7 +47,7 @@ const CORE = [
   './assets/river/river-0.webp',
   './assets/river/river-1.webp',
   './assets/props/well.webp',
-  './assets/props/bridge.webp', './assets/props/bridge-front.webp',   // v276: мост
+  './assets/props/crossing.webp', './assets/props/beam-top.png', './assets/props/beam-bottom.png',   // v280: переезд через ручей
   ...['mid', 'top', 'bot'].flatMap(k => [`./assets/river/stream-paint-${k}.webp`, `./assets/river/stream-water-${k}.webp`]),   // v279: рисованный ручей
   './assets/props/field-sign.webp',
   './assets/props/chop-block.webp',
