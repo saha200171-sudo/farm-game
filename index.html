@@ -347,7 +347,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 280;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 281;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2088,10 +2088,18 @@ const HOUSE_LINE = HY + 425;
 function houseWorldX(px) { const cam = scene.cameras.main; return Phaser.Math.Clamp(cam.worldView.x + px / (cam.zoom / DPR), HX + 50, HX + HW - 50); }
 function houseTap(e, px, py) {
   const cam = scene.cameras.main, z = cam.zoom / DPR, wx = cam.worldView.x + px / z, wy = cam.worldView.y + py / z;
+  // v281: нажатие на предмет больше не запускает действие сразу — сначала героиня просто идёт за пальцем.
+  // Действие станции — только если это был короткий тап (палец почти не сдвинулся и быстро отпущен), см. houseRelease
   const hit = hitTest(wx, wy);
-  if (hit && hit.startsWith('h:')) { house.walk = { x: Phaser.Math.Clamp(HOUSE_STATIONS[hit.slice(2)].x, HX + 50, HX + HW - 50), then: hit, hold: null }; return; }
-  house.walk = { x: houseWorldX(px), then: null, hold: e.pointerId };
+  house.walk = { x: houseWorldX(px), then: null, hold: e.pointerId, tap: { x: px, y: py, t: performance.now(), hit: hit && hit.startsWith('h:') ? hit : null } };
   try { zone.setPointerCapture(e.pointerId); } catch (_) {}
+}
+function houseRelease(e) {
+  const w = house.walk; if (!w || w.hold !== e.pointerId) return;
+  const r = zone.getBoundingClientRect(), T = w.tap;
+  const quick = T && T.hit && Math.hypot(e.clientX - r.left - T.x, e.clientY - r.top - T.y) < 14 && performance.now() - T.t < 350 && e.type === 'pointerup';
+  if (quick) house.walk = { x: Phaser.Math.Clamp(HOUSE_STATIONS[T.hit.slice(2)].x, HX + 50, HX + HW - 50), then: T.hit, hold: null };   // тап по станции — подойти и сделать
+  else house.walk = null;   // v281: отпустила палец — героиня сразу останавливается (раньше доходила до точки под пальцем — «заносило»)
 }
 function houseMove(dt) {
   if (ui.open) return false;
@@ -3374,7 +3382,7 @@ zone.addEventListener('pointermove', e => {
   if (d < 6) { move.x = move.y = 0; } else { move.x = dx / STICK_R; move.y = dy / STICK_R; }
 });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
-  zone.addEventListener(t, e => { if (reap.down === e.pointerId) { reap.down = null; reap.last = null; if (reap.active && reap.mode === 'gather') gatherRelease(); } if (house.walk && house.walk.hold === e.pointerId) house.walk.hold = null; if (e.pointerId === stick.id) releaseStick(); }));
+  zone.addEventListener(t, e => { if (reap.down === e.pointerId) { reap.down = null; reap.last = null; if (reap.active && reap.mode === 'gather') gatherRelease(); } if (house.walk && house.walk.hold === e.pointerId) houseRelease(e); if (e.pointerId === stick.id) releaseStick(); }));
 
 // клавиатура на компьютере: стрелки/WASD — ходьба, пробел/E/Enter — действие
 const KEYMAP = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
@@ -3479,7 +3487,10 @@ function doAction() {
   if (Math.abs(a.x - player.x) > 4) facing = a.x < player.x ? -1 : 1;
   interact(nearId);
 }
-bubble.addEventListener('click', doAction);
+// v281: облачко срабатывает только от короткого тапа по нему — не когда палец скользнул по нему, ведя героиню
+const bubTap = { x: 0, y: 0, t: 0 };
+bubble.addEventListener('pointerdown', e => { bubTap.x = e.clientX; bubTap.y = e.clientY; bubTap.t = performance.now(); });
+bubble.addEventListener('click', e => { if (e.detail && (Math.hypot(e.clientX - bubTap.x, e.clientY - bubTap.y) > 14 || performance.now() - bubTap.t > 500)) return; doAction(); });
 
 // --- Персонажи ---
 // v204: персонаж рисуется фигурами ОДИН раз и «запекается» в картинку (кэш по виду): раньше телефон каждый кадр
