@@ -367,7 +367,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 287;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 288;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2103,7 +2103,7 @@ function updateHouse(dt, force) {
   cam.centerOn(cx, cy);
   for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.06;   // передний план — чуть быстрее
   if (force) {
-    $('recipe').style.top = recipeSize().top + 'px'; renderRecipe(cookS().stage, true);
+    { const re = $('recipe'), RS = recipeSize(); re.style.top = '0px'; re.style.height = topPx + 'px'; re.style.paddingTop = (RS.top + 12) + 'px'; re.style.boxSizing = 'border-box'; }   // v288: стена — от верха экрана до комнаты, без чёрных просветов renderRecipe(cookS().stage, true);
     $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px'; { const SS = shelfSize(), sh = $('shelf'); sh.style.setProperty('--sw', SS.sw + 'px'); sh.style.setProperty('--sgap', SS.gap + 'px'); }
     $('houseExit').style.top = (topPx + 8) + 'px';
   }
