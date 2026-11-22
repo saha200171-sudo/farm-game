@@ -344,7 +344,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 273;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 274;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3219,7 +3219,7 @@ let scene, game, player, klara, klaraLabel, marker, lockLayers = {}, bedG = [], 
 // День 1: пока героиня не представилась, Змей дремлет на корнях большого дуба в левом нижнем углу огорода
 const ZMEY_NAP = { x: -468, y: 903 }, ZMEY_POST = { x: 228, y: 588 }, ZMEY_JETTY = { x: 420, y: -1290 };   // v192: на мостках — рыбалка
 const ZMEY_COW = { x: -250, y: -705 },   // v205: день 3 — Змей с телегой у реки, на месте вчерашних посиделок у костра (было у коровника)
-      ZMEY_YARD = { x: 2958, y: -580 }, ZMEY_FIELD = { x: -140, y: -452 },   /* v250: у поля — тоже под дубом */   // v236: вторая остановка — у лагеря Кетиля; Змей валяется под дубом
+      ZMEY_YARD = { x: 3726, y: -557 },   /* v274: стоянка у Кетиля — за ручьём, Змей валяется под оранжевым дубом (ZMEY_TREE) */ ZMEY_FIELD = { x: -140, y: -452 },   /* v250: у поля — тоже под дубом */   // v236: вторая остановка — у лагеря Кетиля; Змей валяется под дубом
       ZMEY_KETIL = { x: 3292 + YARD_DX, y: -1126 + YARD_DY };   // у дома Кетиля (сцена с Ольмаром)   // + у поля: начало поперечной дорожки   // день 3: у коровника с телегой → во дворе Кетиля
 const zmeyNapping = () => !state.day3.stage && (state.step <= 3 || state.step === 31);
 let saveMs = 0, facing = 1, nearId = null;
@@ -3254,6 +3254,7 @@ function solids() {
   if (zmeyNapping()) list.push([ZMEY_NAP.x - 34, ZMEY_NAP.y - 12, 68, 18]); else list.push([ANCHORS.zmey.x - 18, ANCHORS.zmey.y - 10, 36, 14]);
   if (cartSpot()) { const c = cartSpot(); list.push([c.x - 62, c.y - 14, 242, 16]); }   // телега Змея с лошадкой    // Змей (спит под деревом / у колодца)
   list.push([-421, 322, 52, 18]);   // колода для рубки дров
+  list.push([ZMEY_TREE[1] + ZMEY_TREE[3] * 0.44, ZMEY_TREE[2] + ZMEY_TREE[4] - 26, ZMEY_TREE[3] * 0.13, 18]);   // v274: ствол оранжевого дуба за ручьём
   if (!hunt.active && torgelNpc) list.push([torgelNpc.x - 22, torgelNpc.y - 10, 44, 16]);   // Торгель (пока ловит героиню ночью — он ходит, место свободно)
   list.push([ANCHORS.kale.x - 29, ANCHORS.kale.y - 16, 58, 26]);  // Лейф
   list.push(...CAMP_SOLIDS, [ANCHORS.ketil.x - 20, ANCHORS.ketil.y - 12, 40, 16]);   // полевой лагерь и Кетиль
@@ -5917,7 +5918,7 @@ function horseTick(h, dt, speed) {   // speed — скорость телеги 
 // ===================== Телега Змея (день 3): схематично, кодом; поездка от коровника до двора Кетиля =====================
 // Камера едет за телегой (героиня невидимо «сидит» в ней — так работают камера и отсечение), колёса крутятся, пыль,
 // Змей шутит в облачках. Нажатие — перемотка (быстрее в 4 раза).
-const CART_COW = { x: -410, y: -690 }, CART_YARD = { x: 2600, y: -452 }, CART_FIELD = { x: -14, y: -420 },
+const CART_COW = { x: -410, y: -690 }, CART_YARD = { x: 3390, y: -458 },   /* v274: повозка — на дороге сразу за мостом (раньше — у лагеря, до ручья) */ CART_FIELD = { x: -14, y: -420 },
   CART_KETIL = { x: 3300 + YARD_DX, y: -1160 + YARD_DY };   // v236: остановка «у Кетиля» — у лагеря на дорожке (дальше собака, лошадка боится); у самого дома — только сцена с Ольмаром
 const HERO_LOOK = { skin: 0xF5CBA7, dress: 0x4DA3D9, hair: 'pony', hairColor: 0xA8502A };
 const RIDE_ROUTE = [[-410, -690], [-80, -650], [40, -560], [130, -448]];   // v205: от места у костра — на поперечную дорожку и к Кетилю
@@ -6074,7 +6075,7 @@ function endRide() {
     d3.dogTold = true; progress();
     showDialog([
       ['zmey', 'Тпру-у! Дальше не поеду. У Кетиля во дворе пёс — лает так, что моя лошадка трясётся, как лист.'],
-      ['zmey', 'Да тут пара шагов: по дорожке через мостик — и дом Кетиля. Дойдёшь сама?'],
+      ['zmey', 'Да тут пара шагов: по дорожке — и дом Кетиля. Дойдёшь сама?'],
       ['zmey', 'А я пока под дубом полежу. Телегу постерегу… с закрытыми глазами. Пойдёшь обратно — буди.'],
     ], toTree);
   } else if (toCamp) showDialog([['zmey', 'Лагерь Кетиля! Дальше — пешочком, а я под дубок.']], toTree);
@@ -6619,7 +6620,8 @@ const CAMP = [   // [кадр атласа амбара, центр x, низ y,
 ];
 const KETIL_CAMP = { x: 2640, y: -510 }, KETIL_HOME = { x: 3043 + YARD_DX, y: -1295 + YARD_DY };   // Кетиль: в лагере (день 2) / у двери своего дома (день 3)
 const CAMP_TREE = ['s1-oak-1', 2597, -973, 488, 388];   // большой дуб над лагерем: [картинка, x, y (левый верх), ширина, высота]
-const FIELD_TREE = ['s1-oak-2', -487, -784, 460, 329];   // v250: дуб у стоянки телеги возле поля — Змей валяется под ним
+const FIELD_TREE = ['s1-oak-2', -487, -784, 460, 329];
+const ZMEY_TREE = ['s1-oak-2', 3394, -869, 430, 307];   // v274: оранжевый дуб за ручьём (по наброску) — под ним стоянка Змея у Кетиля   // v250: дуб у стоянки телеги возле поля — Змей валяется под ним
 const CAMP_SOLIDS = CAMP.map(([k, x, b, w]) => [x - w * 0.42, b - 18, w * 0.84, 18]);
 // Жнецы ходят вдоль края участков (по траве у дорожки) и жнут: останавливаются и машут серпом
 const REAPERS = [
@@ -6645,7 +6647,7 @@ function buildFieldCamp() {
   const tx = scene.textures.get('barn');
   for (const [k, f] of Object.entries(BARN_FRAMES)) if (!tx.has(k)) tx.add(k, 0, ...f);
   shadowTex();
-  for (const [k, x, y, w, h] of [CAMP_TREE, FIELD_TREE]) {   // дуб над лагерем; v250: и дуб у стоянки телеги возле поля
+  for (const [k, x, y, w, h] of [CAMP_TREE, FIELD_TREE, ZMEY_TREE]) {   // дуб над лагерем; v250: и дуб у стоянки телеги возле поля
     scene.add.image(x, y, k).setOrigin(0, 0).setDisplaySize(w, h).setDepth(y + h);
     scene.add.image(x + w / 2, y + h * 0.97, 'plantShadow').setDisplaySize(w * 0.85, w * 0.3).setDepth(GROUND - 8); }
   for (const [k, x, b, w, flip] of CAMP) {
