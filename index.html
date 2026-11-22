@@ -194,6 +194,7 @@ body.in-house .hud{z-index:4}   /* v285: «Задание» поверх сте�
 .card.cook-done img{width:min(200px,50vw);height:auto;align-self:center;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25));animation:cdpop .5s cubic-bezier(.3,1.6,.5,1)}
 @keyframes cdpop{from{transform:scale(.4);opacity:0}}
 .house-exit{position:absolute;right:10px;z-index:4;font-size:14px;padding:6px 12px}
+#houseExit{position:static;align-self:flex-start;margin:4px auto 0 0;pointer-events:auto;white-space:nowrap}   /* v291: рядом с плашкой задания */
 body.in-house .stick-zone .stick{display:none}
 body.reaping .side .ghost-btn, body.reaping .stick-zone .stick, body.reaping .bubble, body.reaping .guide{display:none!important}
 #reapExit{top:150px}
@@ -349,6 +350,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   <div class="stick-zone" id="stickZone"><div class="stick idle" id="stick"><div class="knob" id="knob"></div></div></div>
   <div class="hud">
     <div class="quest collapsed" id="questBox" role="button" tabindex="0" aria-expanded="false"><div class="label"><span id="questLabel">Задание</span><span class="qarrow" aria-hidden="true"></span></div><div class="text" id="questText"></div><div class="sub" id="sideQuest" hidden></div></div>
+    <button class="ghost-btn house-exit" id="houseExit" type="button" hidden>Выйти из дома</button>
     <div class="side"><button class="ghost-btn" id="soundBtn" type="button" aria-expanded="false" aria-controls="volMenu">Звук ▾</button><div class="dev-menu vol-menu" id="volMenu" hidden><div class="dev-title">Громкость: <span id="volVal">80%</span></div><input type="range" id="volRange" min="0" max="100" step="5" value="80" aria-label="Громкость"><button class="ghost-btn" id="muteBtn" type="button">Выключить звук</button></div><button class="ghost-btn" id="resetBtn" type="button">Заново</button><button class="ghost-btn" id="devBtn" type="button" aria-expanded="false" aria-controls="devMenu">Тест ▾</button>
       <div class="dev-menu" id="devMenu" hidden>
         <div class="dev-title">Перейти к дню</div>
@@ -359,7 +361,6 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
   </div>
   <div class="recipe" id="recipe" hidden></div>
   <div class="shelf" id="shelf" hidden></div>
-  <button class="ghost-btn house-exit" id="houseExit" type="button" hidden>Выйти из дома</button>
   <button class="ghost-btn house-exit" id="reapExit" type="button" hidden>Отдохнуть</button>
   <button class="ghost-btn house-exit" id="lampBtn" type="button" hidden>Фонарь: вкл</button>
   <button class="bubble" id="bubble" type="button" hidden></button>
@@ -383,7 +384,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 290;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 291;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2122,7 +2123,6 @@ function updateHouse(dt, force) {
   if (force) {
     { const re = $('recipe'), RS = recipeSize(); re.style.top = '0px'; re.style.height = topPx + 'px'; re.style.paddingTop = (RS.top + 12) + 'px'; re.style.boxSizing = 'border-box'; }   // v288: стена — от верха экрана до комнаты, без чёрных просветов renderRecipe(cookS().stage, true);
     $('shelf').style.top = Math.round(topPx + HH * z) + 'px'; { const SS = shelfSize(), sh = $('shelf'); [['--sw', SS.sw], ['--sgap', SS.gap], ['--spt', SS.spt], ['--ph', SS.ph], ['--py', SS.py]].forEach(([k, v]) => sh.style.setProperty(k, v + 'px')); }
-    $('houseExit').style.top = (topPx + 8) + 'px';
   }
 }
 // управление в доме: нажала на пол — героиня идёт туда (держишь палец — идёт за ним, камера едет следом);
@@ -2174,7 +2174,7 @@ const RCARD_ROT = [-2.5, 1.8, -1.2, 2.4, -2, 1.3, -1.6];
 function recipeSize() {   // размер листка: на телефоне стоя видно 3–4 штуки; лёжа — поменьше, справа от «Задания»
   const W = app.clientWidth, H = app.clientHeight, land = W > H;
   const cw = Math.round(land ? Math.min(H * 0.18, 104) : Math.min(W / 4.3, 120)), ch = Math.round(cw * 1.13);   // v287: листки меньше — комната выше
-  return { cw, ch, gap: Math.round(cw * 0.09), pad: land ? 175 : 14, left: 0, top: land ? 0 : 54, land };
+  return { cw, ch, gap: Math.round(cw * 0.09), pad: land ? 300 : 14, left: 0, top: land ? 0 : 54, land };
 }
 function renderRecipe(stage, instant) {
   const el = $('recipe'), R = recipeSize();
