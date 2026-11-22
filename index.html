@@ -347,7 +347,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 278;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 279;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -4985,7 +4985,12 @@ function inStream(x, y) {
 // ===================== v278: рисованный ручей у моста (ПРОБА) =====================
 // Участок карты перерисован в Magnific по снимку (art/stream): stream-paint — полоса берегов (края растворяются в траве),
 // stream-water — только вода: слегка колышется (эффект Displacement) и по ней плывут блики по течению.
-const STREAM_PAINT = { x: 3000, y: -1050, w: 800, h: 900 };
+const STREAM_PAINTS = [   // v279: всё видимое русло — три участка (средний — у моста; верхний и нижний ложатся поверх и плавно в него переходят)
+  { k: 'mid', x: 3000, y: -1050, w: 800, h: 900, d: 0 },
+  { k: 'top', x: 3150, y: -1700, w: 800, h: 770, d: 1 },
+  { k: 'bot', x: 3050, y: -270, w: 800, h: 830, d: 1 },
+];
+const STREAM_PAINT = { x: 3000, y: -1700, w: 950, h: 2260 };   // общая рамка всех участков (для «героиня рядом»)
 const streamFx = { g: null, disp: null, t: 0, glints: [], path: [], len: 0 };
 function waterNoiseTex() {   // бесшовный «шум» для колыхания воды (красный/зелёный — сдвиг по x/y)
   if (scene.textures.exists('waterNoise')) return;
@@ -4999,22 +5004,25 @@ function waterNoiseTex() {   // бесшовный «шум» для колых�
   ctx.putImageData(img, 0, 0); c.refresh();
 }
 function drawStreamPaint() {
-  const P = STREAM_PAINT;
-  scene.add.image(P.x, P.y, 'stream-paint').setOrigin(0, 0).setDisplaySize(P.w, P.h).setDepth(GROUND - 8.39);
-  const w = scene.add.image(P.x, P.y, 'stream-water').setOrigin(0, 0).setDisplaySize(P.w, P.h).setDepth(GROUND - 8.38);
-  try { if (w.preFX) { waterNoiseTex(); streamFx.disp = w.preFX.addDisplacement('waterNoise', 0.004, 0.004); } } catch (e) { streamFx.disp = null; }
-  // ось ручья на участке — по ней плывут блики
-  streamFx.path = STREAM.filter(([x, y]) => y > P.y + 40 && y < P.y + P.h - 40);
+  const P = STREAM_PAINT; streamFx.disp = [];
+  for (const R of STREAM_PAINTS) {
+    scene.add.image(R.x, R.y, 'stream-paint-' + R.k).setOrigin(0, 0).setDisplaySize(R.w, R.h).setDepth(GROUND - 8.395 + R.d * 0.01);
+    const w = scene.add.image(R.x, R.y, 'stream-water-' + R.k).setOrigin(0, 0).setDisplaySize(R.w, R.h).setDepth(GROUND - 8.39 + R.d * 0.01);
+    try { if (w.preFX) { waterNoiseTex(); streamFx.disp.push(w.preFX.addDisplacement('waterNoise', 0.004, 0.004)); } } catch (e) {}
+  }
+  // ось ручья (видимая часть) — по ней плывут блики
+  streamFx.path = STREAM.filter(([x, y]) => y > P.y + 20 && y < 460);
   let L = 0; streamFx.path = streamFx.path.map((p, i, a) => { if (i) L += Math.hypot(p[0] - a[i - 1][0], p[1] - a[i - 1][1]); return [p[0], p[1], L]; }); streamFx.len = L;
   streamFx.g = scene.add.graphics().setDepth(GROUND - 8.37);
-  streamFx.glints = Array.from({ length: 16 }, (_, i) => ({ s: L * i / 16, o: (Math.random() - 0.5) * 34, v: 26 + Math.random() * 18, ph: Math.random() * 6 }));
+  streamFx.glints = Array.from({ length: 40 }, (_, i) => ({ s: L * i / 40, o: (Math.random() - 0.5) * 34, v: 26 + Math.random() * 18, ph: Math.random() * 6 }));
 }
 function streamTick(dt) {   // каждый кадр: блики плывут, вода колышется (только когда героиня рядом)
   const P = STREAM_PAINT, g = streamFx.g, sec = dt / 1000;
   const near = player && player.x > P.x - 700 && player.x < P.x + P.w + 700 && player.y > P.y - 600 && player.y < P.y + P.h + 600;
+  const cam = scene.cameras.main, vy1 = player ? player.y - cam.height / cam.zoom : 0, vy2 = player ? player.y + cam.height / cam.zoom : 0;   // блики — только на видимой части
   g.clear(); if (!near) return;
   streamFx.t += sec;
-  if (streamFx.disp) { streamFx.disp.x = 0.003 + 0.002 * Math.sin(streamFx.t * 1.3); streamFx.disp.y = 0.003 + 0.002 * Math.cos(streamFx.t * 1.1); }
+  for (const f of streamFx.disp) { f.x = 0.003 + 0.002 * Math.sin(streamFx.t * 1.3); f.y = 0.003 + 0.002 * Math.cos(streamFx.t * 1.1); }
   const A = streamFx.path, L = streamFx.len; if (A.length < 2) return;
   for (const q of streamFx.glints) {
     q.s += q.v * sec; if (q.s > L) { q.s -= L; q.o = (Math.random() - 0.5) * 34; }
@@ -5022,6 +5030,7 @@ function streamTick(dt) {   // каждый кадр: блики плывут, �
     const [ax, ay, as] = A[i - 1], [bx, by, bs] = A[i], f = (q.s - as) / Math.max(1, bs - as);
     const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
     const x = ax + dx * f + nx * q.o, y = ay + dy * f + ny * q.o;
+    if (y < vy1 || y > vy2) continue;
     if (x > BRIDGE.x1 && x < BRIDGE.x2 && y > BRIDGE.y1 - 20 && y < BRIDGE.y2 + 40) continue;   // под мостом бликов не видно
     const a = 0.35 + 0.3 * Math.sin(streamFx.t * 2.4 + q.ph), ang = Math.atan2(dy, dx);
     g.fillStyle(0xF4FBF8, a); g.fillEllipse(x, y, 4, 2.2);   // блик
@@ -7286,7 +7295,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('stook', 'assets/fields/stook.webp');
     this.load.image('fieldMouse', 'assets/fields/mouse.webp');
     this.load.image('prop-well', 'assets/props/well.webp');
-    this.load.image('stream-paint', 'assets/river/stream-paint.webp'); this.load.image('stream-water', 'assets/river/stream-water.webp');   // v278: рисованный ручей у моста
+    for (const k of ['mid', 'top', 'bot']) { this.load.image('stream-paint-' + k, 'assets/river/stream-paint-' + k + '.webp'); this.load.image('stream-water-' + k, 'assets/river/stream-water-' + k + '.webp'); }   // v279: рисованный ручей (3 участка)
     this.load.image('bridge', 'assets/props/bridge.webp'); this.load.image('bridge-front', 'assets/props/bridge-front.webp');   // v276: мост
     this.load.image('stoneBoulder', 'assets/props/stone-boulder.webp');
     this.load.image('prop-chop', 'assets/props/chop-block.webp');
