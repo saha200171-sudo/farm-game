@@ -148,8 +148,10 @@ body{height:100%;margin:0;background:var(--grass-deep);color:var(--ink);font-fam
 body.in-barn .quest{display:none}
 /* Дом Сверкеля: сверху шаги рецепта, снизу полка с продуктами (только в доме) */
 body.in-house .side .ghost-btn{display:none}
+body.in-house .hud{z-index:4}   /* v285: «Задание» поверх стены с листками */
 /* v282: рецепт — лента бумажных листков с рисунками этапов; выполненный этап — галочка, лента уезжает влево */
-.recipe{position:absolute;left:0;right:0;overflow:hidden;z-index:1;pointer-events:none;padding:6px 0 10px}
+.recipe{position:absolute;left:0;right:0;overflow:hidden;z-index:1;pointer-events:none;padding:12px 0 14px;   /* v285: листки прибиты к бревенчатой стене (полоса из фона комнаты) */
+  background:url(assets/house/recipe-wall.webp) repeat-x center/auto 100%;box-shadow:inset 0 10px 12px -8px rgba(0,0,0,.7),inset 0 -10px 12px -8px rgba(0,0,0,.7),0 4px 10px rgba(0,0,0,.45)}
 .recipe .track{display:flex;gap:var(--rgap,10px);padding-left:var(--rpad,14px);will-change:transform;transition:transform .65s cubic-bezier(.45,.05,.3,1)}
 .recipe.nojump .track,.recipe.nojump .rcard{transition:none!important}
 .rcard{position:relative;flex:0 0 var(--cw,110px);height:var(--ch,124px);box-sizing:border-box;padding:15px 7px 6px;display:flex;flex-direction:column;align-items:center;
@@ -361,7 +363,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 284;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 285;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2077,7 +2079,7 @@ function leaveHouse() {
 // камера: комната крупно, сверху место под задание и рецепт, снизу — полка
 function houseZoom() { return houseLayout().z; }
 function houseLayout() {   // высота комнаты — сколько остаётся между заданием с рецептом и полкой
-  const W = app.clientWidth, H = app.clientHeight, RS = recipeSize(), topPx = RS.top + RS.ch + 22;   // v282: место под листки рецепта
+  const W = app.clientWidth, H = app.clientHeight, RS = recipeSize(), topPx = RS.top + RS.ch + 26 + 10;   // v282: место под листки рецепта
   const slot = Math.min(72, (W - 16 - 16 - 6 * Math.min(8, W * 0.014)) / 7) * 1.1, shelfH = slot + 16 + 8;
   const roomPx = Math.max(220, H - topPx - shelfH - 26);
   return { topPx, shelfH, z: Math.min(roomPx / HH, H * 0.6 / HH, W / 330) };
@@ -2091,7 +2093,7 @@ function updateHouse(dt, force) {
   cam.centerOn(cx, cy);
   for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.06;   // передний план — чуть быстрее
   if (force) {
-    $('recipe').style.top = (recipeSize().top - 6) + 'px'; renderRecipe(cookS().stage, true);
+    $('recipe').style.top = recipeSize().top + 'px'; renderRecipe(cookS().stage, true);
     $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px';
     $('houseExit').style.top = (topPx + 8) + 'px';
   }
@@ -2145,7 +2147,7 @@ const RCARD_ROT = [-2.5, 1.8, -1.2, 2.4, -2, 1.3, -1.6];
 function recipeSize() {   // размер листка: на телефоне стоя видно 3–4 штуки; лёжа — поменьше, справа от «Задания»
   const W = app.clientWidth, H = app.clientHeight, land = W > H;
   const cw = Math.round(land ? Math.min(H * 0.21, 120) : Math.min(W / 3.45, 150)), ch = Math.round(cw * 1.13);
-  return { cw, ch, gap: Math.round(cw * 0.09), pad: land ? 10 : 14, left: land ? 165 : 0, top: land ? 12 : 58, land };
+  return { cw, ch, gap: Math.round(cw * 0.09), pad: land ? 175 : 14, left: 0, top: land ? 0 : 54, land };
 }
 function renderRecipe(stage, instant) {
   const el = $('recipe'), R = recipeSize();
