@@ -168,11 +168,15 @@ body.in-house .hud{z-index:4}   /* v285: «Задание» поверх сте�
 .rcard svg{position:absolute;inset:8% 10% 20%;width:80%;height:72%;overflow:visible}
 .rcard svg path{fill:none;stroke:#3f7d3a;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:160;stroke-dashoffset:160;transition:stroke-dashoffset .45s ease-out;filter:drop-shadow(0 1px 0 rgba(255,255,255,.7))}
 .rcard.done svg path{stroke-dashoffset:0}
-.shelf{position:absolute;left:8px;right:8px;padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(3px,1.4vw,8px);align-items:center;z-index:1;pointer-events:none;
+.shelf{position:absolute;left:8px;right:8px;padding:8px;display:flex;gap:var(--sgap,8px);align-items:center;z-index:2;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x;   /* v287: крупнее, листается вбок */
   background:linear-gradient(#7a5132,#5c3b22);border:4px solid #3e2715;border-radius:14px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
-.shelf div{aspect-ratio:1/1.1;max-height:72px;border-radius:10px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+.shelf::-webkit-scrollbar{display:none}
+.shelf div{flex:0 0 var(--sw,72px);height:calc(var(--sw,72px) * 1.05);scroll-snap-align:start;border-radius:12px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
 .shelf img{width:88%;height:88%;object-fit:contain;filter:grayscale(1) brightness(.45);opacity:.35;transition:all .3s}
 .shelf img.have{filter:none;opacity:1}
+.card.cook-done{align-items:center;text-align:center}
+.card.cook-done img{width:min(200px,50vw);height:auto;align-self:center;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25));animation:cdpop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes cdpop{from{transform:scale(.4);opacity:0}}
 .house-exit{position:absolute;right:10px;z-index:4;font-size:14px;padding:6px 12px}
 body.in-house .stick-zone .stick{display:none}
 body.reaping .side .ghost-btn, body.reaping .stick-zone .stick, body.reaping .bubble, body.reaping .guide{display:none!important}
@@ -363,7 +367,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 286;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 287;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -584,7 +588,7 @@ function questText() {
     `Загони кур в курятник: ${chickens.filter(c => c.mode === 'asleep').length} из 6`,
     'Отнеси яйца Сверкелю',
     'Осмотри ферму',
-  ][state.step] || ({ 31: 'Найди Змея и представься ему', 71: 'Свари похлёбку к ужину', 61: `Собери яйца в соломе: ${state.items.eggs || 0} из 8` })[state.step] || '';
+  ][state.step] || ({ 31: 'Найди Змея и представься ему', 71: (state.cook || {}).stage >= 7 ? 'Поставь похлёбку на стол' : 'Свари похлёбку к ужину', 61: `Собери яйца в соломе: ${state.items.eggs || 0} из 8` })[state.step] || '';
 }
 function updateHud() {
   const d2 = state.day2.stage;
@@ -2036,6 +2040,7 @@ const HOUSE_FLOOR = [HY + 392, HY + 448];                       // где мож
 const HOUSE_STATIONS = {                                         // станции готовки: центр и верх (для облачка)
   barrel: { x: HX + 70, top: HY + 295 }, shelf: { x: HX + 168, top: HY + 264 },
   hearth: { x: HX + 322, top: HY + 234 }, table: { x: HX + 490, top: HY + 297 },
+  dinner: { x: HX + 893, top: HY + 303 },   // v287: стол для ужина — сюда ставим готовую похлёбку
 };
 const COOK_STEPS = ['Вода', 'Огонь', 'Ячмень', 'Овощи', 'Травы', 'Яйца', 'Помешать'];
 const house = { active: false, built: false, fg: [], hearth: null, hearthCold: null, guests: [] };
@@ -2069,7 +2074,7 @@ function enterHouse() {
   fitCamera(); updateHouse(0, true); updateHud(); renderCook();
 }
 function leaveHouse() {
-  house.active = false; house.guests.forEach(g => g.destroy()); house.guests = [];
+  house.active = false; house.serving = false; house.guests.forEach(g => g.destroy()); house.guests = [];
   player.setScale(house.prevScale || 1);
   player.setPosition(ANCHORS.door.x, ANCHORS.door.y + 34); facing = 1;
   ['recipe', 'shelf', 'houseExit'].forEach(id => $(id).hidden = true);
@@ -2077,10 +2082,15 @@ function leaveHouse() {
   cam.startFollow(player, false, 1, 1); cam.centerOn(player.x, player.y); updateHud();
 }
 // камера: комната крупно, сверху место под задание и рецепт, снизу — полка
+function shelfSize() {   // v287: ячейка инвентаря — стоя видно ~3.5 предмета, лёжа — помельче
+  const W = app.clientWidth, H = app.clientHeight, land = W > H, gap = 8;
+  const sw = Math.round(land ? Math.min(H * 0.19, 96) : (W - 16 - 16 - 8 - gap * 3) / 3.5);
+  return { sw, gap, h: Math.round(sw * 1.05) + 16 + 8 };
+}
 function houseZoom() { return houseLayout().z; }
 function houseLayout() {   // высота комнаты — сколько остаётся между заданием с рецептом и полкой
   const W = app.clientWidth, H = app.clientHeight, RS = recipeSize(), topPx = RS.top + RS.ch + 26 + 10;   // v282: место под листки рецепта
-  const slot = Math.min(72, (W - 16 - 16 - 6 * Math.min(8, W * 0.014)) / 7) * 1.1, shelfH = slot + 16 + 8;
+  const SS = shelfSize(), shelfH = SS.h;
   const roomPx = Math.max(220, H - topPx - shelfH - 26);
   return { topPx, shelfH, z: Math.min(roomPx / HH, H * 0.6 / HH, W / 330) };
 }
@@ -2094,7 +2104,7 @@ function updateHouse(dt, force) {
   for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.06;   // передний план — чуть быстрее
   if (force) {
     $('recipe').style.top = recipeSize().top + 'px'; renderRecipe(cookS().stage, true);
-    $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px';
+    $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px'; { const SS = shelfSize(), sh = $('shelf'); sh.style.setProperty('--sw', SS.sw + 'px'); sh.style.setProperty('--sgap', SS.gap + 'px'); }
     $('houseExit').style.top = (topPx + 8) + 'px';
   }
 }
@@ -2146,7 +2156,7 @@ const cookS = () => state.cook || (state.cook = { stage: 0 });
 const RCARD_ROT = [-2.5, 1.8, -1.2, 2.4, -2, 1.3, -1.6];
 function recipeSize() {   // размер листка: на телефоне стоя видно 3–4 штуки; лёжа — поменьше, справа от «Задания»
   const W = app.clientWidth, H = app.clientHeight, land = W > H;
-  const cw = Math.round(land ? Math.min(H * 0.21, 120) : Math.min(W / 3.45, 150)), ch = Math.round(cw * 1.13);
+  const cw = Math.round(land ? Math.min(H * 0.18, 104) : Math.min(W / 4.3, 120)), ch = Math.round(cw * 1.13);   // v287: листки меньше — комната выше
   return { cw, ch, gap: Math.round(cw * 0.09), pad: land ? 175 : 14, left: 0, top: land ? 0 : 54, land };
 }
 function renderRecipe(stage, instant) {
@@ -2173,13 +2183,20 @@ function renderCook() {
   const c = cookS();
   renderRecipe(c.stage);
   const I = state.items, have = { water: c.water, barley: c.barley, cabbage: (I.kapusta || 0) > 0 || c.chopped, leek: (I.luk || 0) > 0 || c.chopped, herbs: c.herbs, eggs: (I.eggs || 0) > 0, stew: c.stage >= 7 };
-  $('shelf').innerHTML = ['water', 'barley', 'cabbage', 'leek', 'herbs', 'eggs', 'stew']
-    .map(k => `<div><img src="assets/house/icons/${k}.webp?v=${GAME_VERSION}" class="${have[k] ? 'have' : ''}" alt=""></div>`).join('');
+  const keys = ['water', 'barley', 'cabbage', 'leek', 'herbs', 'eggs', 'stew'], sh = $('shelf');
+  if (sh.children.length !== keys.length) sh.innerHTML = keys.map(k => `<div><img src="assets/house/icons/${k}.webp?v=${GAME_VERSION}" alt=""></div>`).join('');
+  keys.forEach((k, i) => {   // v287: появился новый предмет — полка сама прокручивается к нему
+    const img = sh.children[i].firstChild, was = img.classList.contains('have');
+    img.classList.toggle('have', !!have[k]);
+    if (have[k] && !was && sh._ready) sh.scrollTo({ left: Math.max(0, sh.children[i].offsetLeft - sh.clientWidth / 2 + sh.children[i].offsetWidth / 2), behavior: 'smooth' });
+  });
+  sh._ready = true;
 }
 function cookLabel(id) {
   const c = cookS(), I = state.items, st = id.slice(2);
   if (st === 'barrel') return !c.water && c.stage === 0 ? 'Набрать воды' : 'Осмотреть';
   if (st === 'shelf') return c.stage <= 2 && !c.barley ? 'Взять ячмень' : c.stage <= 4 && !c.herbs ? 'Взять травы' : 'Осмотреть';
+  if (st === 'dinner') return c.stage >= 7 && state.step === 71 && !house.serving ? 'Поставить на стол' : 'Осмотреть';
   if (st === 'table') return c.stage <= 3 && !c.chopped && (I.kapusta || 0) > 0 && (I.luk || 0) > 0 ? 'Нарезать овощи' : 'Осмотреть';
   return ['Налить воду', 'Разжечь огонь', 'Засыпать ячмень', 'Положить овощи', 'Добавить травы', 'Разбить яйца', 'Помешать', 'Осмотреть'][c.stage] || 'Осмотреть';
 }
@@ -2190,6 +2207,10 @@ function cookAction(id) {
     if (c.stage <= 2 && !c.barley) { c.barley = true; toast('Взят ячмень'); return done(); }
     if (c.stage <= 4 && !c.herbs) { c.herbs = true; toast('Взяты травы'); return done(); }
     return showThought('Горшки, мешочки, сушёные травы… Всё, что нужно, я уже взяла.');
+  }
+  if (st === 'dinner') {
+    if (c.stage >= 7 && state.step === 71 && !house.serving) { house.serving = true; serveStew(); return; }   // после перезагрузки — можно поставить снова
+    return showThought(c.stage >= 7 ? 'Похлёбка на столе. Сейчас все придут!' : 'Здесь мы ужинаем всей семьёй. Сначала бы сварить похлёбку…');
   }
   if (st === 'table') {
     if (c.stage <= 3 && !c.chopped && (I.kapusta || 0) > 0 && (I.luk || 0) > 0) { I.kapusta--; I.luk--; c.chopped = true; toast('Капуста и порей нарезаны'); chopFx(); return done(); }
@@ -2220,25 +2241,36 @@ function sparkFx() { const h = hearthTop(); for (let k = 0; k < 3; k++) scene.ti
 function stirFx() { const h = hearthTop(); for (let k = 0; k < 5; k++) scene.time.delayedCall(k * 140, () => fxBurst(h.x, h.y - 6, 0xF3EDE0, 6, 30)); }
 function chopFx() { fxBurst(HOUSE_STATIONS.table.x, HY + 300, 0x8DBF5A, 14, 60); }
 // похлёбка готова → ужин втроём → героиню отпускают осмотреть ферму (реплики — черновик)
-function cookDone() {
-  scene.time.delayedCall(700, () => {
-    showThought('Готово! Пахнет так, что даже живот заурчал.', () => {
-      const g = makeChar(GRANDPA_LOOK), z = makeChar(ZMEY_LOOK);
-      [[g, HX + 860, HY + 430], [z, HX + 1000, HY + 432]].forEach(([c, x, y]) => { c.setPosition(x, y).setScale(1.35).setDepth(y).setAlpha(0); scene.tweens.add({ targets: c, alpha: 1, duration: 500 }); house.guests.push(c); });
-      z.bodyG.scaleX = -1;
-      scene.time.delayedCall(700, () => showDialog([
-        ['grandpa', 'Ох, какой дух! Я с порога почуял.'],
-        ['zmey', 'Я тоже. Пришлось бросить очень важное дело. Спал.'],
-        ['grandpa', 'Садитесь, садитесь. Ну-ка… Ох, хороша похлёбка! Сытная, как у моей матери.'],
-        ['zmey', 'Добавка есть? Спрашиваю для охраны фермы. Охрана должна быть сытой.'],
-        ['grandpa', 'Спасибо тебе, дочка. А теперь иди, осмотрись на ферме — тут много чего есть. Дел на всех хватит.'],
-      ], () => {
-        const s = state; s.step = 8; s.cookQuest = false; save();
-        leaveHouse(); progress(); toast('Теперь можно осмотреть ферму', 'info');
-      }));
-    });
+function cookDone() {   // v287: попап «Блюдо готово» → мысль «поставить на стол» → героиня ставит → приходят Сверкель и Змей
+  scene.time.delayedCall(800, () => {
+    openModal(`<div class="card cook-done"><div class="badge">Блюдо готово!</div><img src="assets/house/icons/stew.webp?v=${GAME_VERSION}" alt="">
+      <h2>Ячменная похлёбка</h2><p>Сытная, душистая — с капустой, пореем и травами. Хватит на всю семью!</p>
+      <div class="row"><button class="btn" id="cdOk" type="button">Ура!</button></div></div>`);
+    $('cdOk').onclick = () => { closeModal(); showThought('Пахнет так, что даже живот заурчал! Надо поставить похлёбку на стол — и звать всех ужинать.', () => { updateHud(); progress(); }); };
   });
 }
+function serveStew() {   // похлёбка на столе → ужин втроём → героиню отпускают осмотреть ферму (реплики — черновик)
+  const D = HOUSE_STATIONS.dinner;
+  const bowl = scene.add.image(D.x, HY + 318, 'stew-bowl').setDisplaySize(46, 34).setDepth(HY + 414).setAlpha(0);
+  scene.tweens.add({ targets: bowl, alpha: 1, y: HY + 314, duration: 400 }); house.guests.push(bowl);
+  stirFxAt(D.x, HY + 300);
+  scene.time.delayedCall(900, () => {
+    const g = makeChar(GRANDPA_LOOK), z = makeChar(ZMEY_LOOK);
+    [[g, HX + 760, HY + 430], [z, HX + 1020, HY + 432]].forEach(([c, x, y]) => { c.setPosition(x, y).setScale(1.35).setDepth(y).setAlpha(0); scene.tweens.add({ targets: c, alpha: 1, duration: 500 }); house.guests.push(c); });
+    z.bodyG.scaleX = -1;
+    scene.time.delayedCall(700, () => showDialog([
+      ['grandpa', 'Ох, какой дух! Я с порога почуял.'],
+      ['zmey', 'Я тоже. Пришлось бросить очень важное дело. Спал.'],
+      ['grandpa', 'Садитесь, садитесь. Ну-ка… Ох, хороша похлёбка! Сытная, как у моей матери.'],
+      ['zmey', 'Добавка есть? Спрашиваю для охраны фермы. Охрана должна быть сытой.'],
+      ['grandpa', 'Спасибо тебе, дочка. А теперь иди, осмотрись на ферме — тут много чего есть. Дел на всех хватит.'],
+    ], () => {
+      const s = state; s.step = 8; s.cookQuest = false; save();
+      leaveHouse(); progress(); toast('Теперь можно осмотреть ферму', 'info');
+    }));
+  });
+}
+function stirFxAt(x, y) { for (let k = 0; k < 4; k++) scene.time.delayedCall(k * 150, () => fxBurst(x, y, 0xF3EDE0, 6, 26)); }
 
 
 // ===================== День 4: подарок для Арнхейнд — статуя в саду (схематично, без картинок) =====================
@@ -7361,7 +7393,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('barn', 'assets/barn/barn.webp');
     this.load.image('barn-wall', 'assets/barn/barn-wall.webp');
     this.load.image('barn-floor', 'assets/barn/barn-floor.webp');
-    this.load.image('house', 'assets/house/house.webp');
+    this.load.image('house', 'assets/house/house.webp'); this.load.image('stew-bowl', 'assets/house/icons/stew.webp');
     this.load.image('house-room', 'assets/house/room.webp');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
