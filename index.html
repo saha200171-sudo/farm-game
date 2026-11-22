@@ -383,7 +383,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 289;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 290;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -3584,7 +3584,9 @@ function updateControls() {
   const label = actionLabel(nearId);
   if (bubble.textContent !== label) bubble.textContent = label;
   const a = anchorOf(nearId), cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView;
-  const sx = (a.x - wv.x) * z, sy = (a.y + a.mark - 6 - wv.y) * z;
+  const sx = (a.x - wv.x) * z;
+  let sy = (a.y + a.mark - 6 - wv.y) * z;
+  if (house.active) sy = Math.max(sy, houseLayout().topPx + (bubble.offsetHeight || 40) + 8);   // v290: в доме облачко не уходит под стену с листками рецепта
   bubble.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -100%)`;
   bubble.hidden = false;
 }
