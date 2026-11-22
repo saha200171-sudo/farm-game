@@ -159,7 +159,7 @@ body.in-house .hud{z-index:4}   /* v285: «Задание» поверх сте�
   box-shadow:0 3px 0 rgba(120,85,45,.25),0 6px 14px rgba(0,0,0,.35);transform:rotate(var(--rot,0deg));transition:transform .35s,filter .35s,opacity .35s}
 .rcard::before{content:'';position:absolute;top:4px;left:50%;width:11px;height:11px;margin-left:-5.5px;border-radius:50%;   /* v284: кованый гвоздь вместо скотча */
   background:radial-gradient(circle at 35% 30%,#a59a8c 0 14%,#5a5149 38%,#2d2722 70%,#1d1915 100%);box-shadow:0 1.5px 1.5px rgba(0,0,0,.45),1px 2px 3px rgba(60,35,15,.35),inset 0 0 0 1px rgba(20,15,10,.5)}
-.rcard img{flex:1;min-height:0;width:100%;object-fit:contain;filter:drop-shadow(0 1px 0 rgba(255,255,255,.4))}
+.rcard img{flex:1;min-height:0;width:80%;margin:4% 0 2%;object-fit:contain;   /* v286: картинка чуть меньше */filter:drop-shadow(0 1px 0 rgba(255,255,255,.4))}
 .rcard b{font-family:var(--body,Nunito,sans-serif);font-weight:800;font-size:clamp(13px,3.4vw,15px);line-height:1.1;margin-top:3px;white-space:nowrap}
 .rcard b i{font-style:normal;opacity:.55;margin-right:3px}
 .rcard.todo{filter:saturate(.55) brightness(.8);opacity:.9}
@@ -363,7 +363,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 285;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 286;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
