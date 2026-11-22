@@ -168,12 +168,28 @@ body.in-house .hud{z-index:4}   /* v285: «Задание» поверх сте�
 .rcard svg{position:absolute;inset:8% 10% 20%;width:80%;height:72%;overflow:visible}
 .rcard svg path{fill:none;stroke:#3f7d3a;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:160;stroke-dashoffset:160;transition:stroke-dashoffset .45s ease-out;filter:drop-shadow(0 1px 0 rgba(255,255,255,.7))}
 .rcard.done svg path{stroke-dashoffset:0}
-.shelf{position:absolute;left:8px;right:8px;padding:8px;display:flex;gap:var(--sgap,8px);align-items:center;z-index:2;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x;   /* v287: крупнее, листается вбок */
-  background:linear-gradient(#7a5132,#5c3b22);border:4px solid #3e2715;border-radius:14px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.shelf{position:absolute;left:0;right:0;bottom:0;padding:var(--spt,10px) 16px 0;display:flex;gap:var(--sgap,8px);align-items:flex-start;z-index:2;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x;   /* v289: инвентарь — деревянная полка на бревенчатой стене */
+  background:linear-gradient(#d9b47e,#a77a4a 60%,#5a3a20) no-repeat 0 calc(var(--py,90px) - 5px)/100% 6px,
+    linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0)) no-repeat 0 calc(var(--py,90px) + var(--ph,30px))/100% 18px,
+    url(assets/house/shelf-plank.webp) repeat-x 0 var(--py,90px)/auto var(--ph,30px),
+    url(assets/house/recipe-wall.webp) repeat 0 0/auto 140px #2a1d12;
+  box-shadow:inset 0 14px 14px -10px rgba(0,0,0,.75)}
 .shelf::-webkit-scrollbar{display:none}
-.shelf div{flex:0 0 var(--sw,72px);height:calc(var(--sw,72px) * 1.05);scroll-snap-align:start;border-radius:12px;background:#4a2f1a;display:grid;place-items:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
-.shelf img{width:88%;height:88%;object-fit:contain;filter:grayscale(1) brightness(.45);opacity:.35;transition:all .3s}
-.shelf img.have{filter:none;opacity:1}
+.shelf .slot{flex:0 0 var(--sw,72px);position:relative;display:flex;flex-direction:column;align-items:center;scroll-snap-align:start}
+.shelf .slot .pic{position:relative;width:100%;height:var(--sw,72px)}
+.shelf .slot .pic img{position:absolute;left:6%;bottom:0;width:88%;height:92%;object-fit:contain;object-position:50% 100%;transition:opacity .35s,transform .35s}
+.shelf .slot .ghost{opacity:.5}
+.shelf .slot .item{opacity:0;transform:translateY(6px) scale(.92);filter:drop-shadow(0 3px 2px rgba(0,0,0,.45))}
+.shelf .slot.have .ghost{opacity:0}
+.shelf .slot.have .item{opacity:1;transform:none}
+.shelf .slot.pop .item{animation:shpop .45s cubic-bezier(.3,1.7,.5,1)}
+@keyframes shpop{0%{transform:translateY(-10px) scale(1.15)}100%{transform:none}}
+.shelf .tag{margin-top:calc(var(--ph,30px) * .22);font:800 clamp(11px,3.2vw,13px)/1 var(--body,Nunito,sans-serif);color:#3b2a18;background:linear-gradient(#efdfbc,#dcc496);padding:4px 8px 5px;border-radius:3px;
+  box-shadow:0 2px 3px rgba(0,0,0,.45);white-space:nowrap;transform:rotate(-1.5deg);opacity:.55;transition:opacity .3s}
+.shelf .slot:nth-child(even) .tag{transform:rotate(1.5deg)}
+.shelf .slot.have .tag{opacity:1}
+.shelf-fly{position:absolute;left:0;top:0;z-index:30;pointer-events:none;object-fit:contain;filter:drop-shadow(0 6px 6px rgba(0,0,0,.5))}
 .card.cook-done{align-items:center;text-align:center}
 .card.cook-done img{width:min(200px,50vw);height:auto;align-self:center;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25));animation:cdpop .5s cubic-bezier(.3,1.6,.5,1)}
 @keyframes cdpop{from{transform:scale(.4);opacity:0}}
@@ -367,7 +383,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 288;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 289;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2084,14 +2100,15 @@ function leaveHouse() {
 // камера: комната крупно, сверху место под задание и рецепт, снизу — полка
 function shelfSize() {   // v287: ячейка инвентаря — стоя видно ~3.5 предмета, лёжа — помельче
   const W = app.clientWidth, H = app.clientHeight, land = W > H, gap = 8;
-  const sw = Math.round(land ? Math.min(H * 0.19, 96) : (W - 16 - 16 - 8 - gap * 3) / 3.5);
-  return { sw, gap, h: Math.round(sw * 1.05) + 16 + 8 };
+  const sw = Math.round(land ? Math.min(H * 0.14, 80) : (W - 16 - 16 - gap * 3) / 3.5);
+  const spt = 10, ph = Math.round(sw * 0.36), py = spt + sw - 5;   // v289: доска полки — предметы стоят на ней
+  return { sw, gap, spt, ph, py, h: py + ph + 14 };
 }
 function houseZoom() { return houseLayout().z; }
 function houseLayout() {   // высота комнаты — сколько остаётся между заданием с рецептом и полкой
   const W = app.clientWidth, H = app.clientHeight, RS = recipeSize(), topPx = RS.top + RS.ch + 26 + 10;   // v282: место под листки рецепта
   const SS = shelfSize(), shelfH = SS.h;
-  const roomPx = Math.max(220, H - topPx - shelfH - 26);
+  const roomPx = Math.max(160, H - topPx - shelfH - 6);
   return { topPx, shelfH, z: Math.min(roomPx / HH, H * 0.6 / HH, W / 330) };
 }
 function updateHouse(dt, force) {
@@ -2104,7 +2121,7 @@ function updateHouse(dt, force) {
   for (const f of house.fg) f.x = f.baseX - (cx - (HX + HW / 2)) * 0.06;   // передний план — чуть быстрее
   if (force) {
     { const re = $('recipe'), RS = recipeSize(); re.style.top = '0px'; re.style.height = topPx + 'px'; re.style.paddingTop = (RS.top + 12) + 'px'; re.style.boxSizing = 'border-box'; }   // v288: стена — от верха экрана до комнаты, без чёрных просветов renderRecipe(cookS().stage, true);
-    $('shelf').style.top = Math.round(topPx + HH * z + 12) + 'px'; { const SS = shelfSize(), sh = $('shelf'); sh.style.setProperty('--sw', SS.sw + 'px'); sh.style.setProperty('--sgap', SS.gap + 'px'); }
+    $('shelf').style.top = Math.round(topPx + HH * z) + 'px'; { const SS = shelfSize(), sh = $('shelf'); [['--sw', SS.sw], ['--sgap', SS.gap], ['--spt', SS.spt], ['--ph', SS.ph], ['--py', SS.py]].forEach(([k, v]) => sh.style.setProperty(k, v + 'px')); }
     $('houseExit').style.top = (topPx + 8) + 'px';
   }
 }
@@ -2184,13 +2201,28 @@ function renderCook() {
   renderRecipe(c.stage);
   const I = state.items, have = { water: c.water, barley: c.barley, cabbage: (I.kapusta || 0) > 0 || c.chopped, leek: (I.luk || 0) > 0 || c.chopped, herbs: c.herbs, eggs: (I.eggs || 0) > 0, stew: c.stage >= 7 };
   const keys = ['water', 'barley', 'cabbage', 'leek', 'herbs', 'eggs', 'stew'], sh = $('shelf');
-  if (sh.children.length !== keys.length) sh.innerHTML = keys.map(k => `<div><img src="assets/house/icons/${k}.webp?v=${GAME_VERSION}" alt=""></div>`).join('');
-  keys.forEach((k, i) => {   // v287: появился новый предмет — полка сама прокручивается к нему
-    const img = sh.children[i].firstChild, was = img.classList.contains('have');
-    img.classList.toggle('have', !!have[k]);
-    if (have[k] && !was && sh._ready) sh.scrollTo({ left: Math.max(0, sh.children[i].offsetLeft - sh.clientWidth / 2 + sh.children[i].offsetWidth / 2), behavior: 'smooth' });
+  const NAMES = { water: 'Вода', barley: 'Ячмень', cabbage: 'Капуста', leek: 'Порей', herbs: 'Травы', eggs: 'Яйца', stew: 'Похлёбка' };
+  const COUNT = { cabbage: I.kapusta || 0, leek: I.luk || 0, eggs: I.eggs || 0 };
+  if (sh.children.length !== keys.length) sh.innerHTML = keys.map(k => `<div class="slot"><div class="pic"><img class="ghost" src="assets/house/icons/${k}-ghost.webp?v=${GAME_VERSION}" alt=""><img class="item" src="assets/house/icons/${k}.webp?v=${GAME_VERSION}" alt=""></div><span class="tag"></span></div>`).join('');
+  keys.forEach((k, i) => {   // v289: пустое место — контур мелом; появился предмет — летит к героини на полку
+    const slot = sh.children[i], was = slot.classList.contains('have'), n = COUNT[k];
+    slot.querySelector('.tag').textContent = NAMES[k] + (n > 1 ? ' ×' + n : '');
+    if (have[k] && !was && sh._ready) flyToShelf(slot);
+    else slot.classList.toggle('have', !!have[k]);
   });
   sh._ready = true;
+}
+function flyToShelf(slot) {   // предмет вылетает из рук героини и по дуге встаёт на своё место на полке
+  const sh = $('shelf');
+  sh.scrollLeft = Math.max(0, slot.offsetLeft - sh.clientWidth / 2 + slot.offsetWidth / 2);
+  const cam = scene.cameras.main, z = cam.zoom / DPR, wv = cam.worldView, ar = app.getBoundingClientRect();
+  const sx = (player.x - wv.x) * z, sy = (player.y - 70 - wv.y) * z;
+  const pic = slot.querySelector('.item'), r = pic.getBoundingClientRect(), tx = r.left - ar.left, ty = r.top - ar.top;
+  const f = document.createElement('img'); f.src = pic.src; f.className = 'shelf-fly'; f.style.width = r.width + 'px'; f.style.height = r.height + 'px'; app.appendChild(f);
+  const x0 = sx - r.width / 2, y0 = sy - r.height / 2, mx = (x0 + tx) / 2, my = Math.min(y0, ty) - 90;
+  const a = f.animate([{ transform: `translate(${x0}px,${y0}px) scale(.5)` }, { transform: `translate(${mx}px,${my}px) scale(1.15)`, offset: .45 }, { transform: `translate(${tx}px,${ty}px) scale(1)` }],
+    { duration: REDUCED ? 1 : 700, easing: 'cubic-bezier(.4,0,.3,1)' });
+  a.onfinish = () => { f.remove(); slot.classList.add('have', 'pop'); setTimeout(() => slot.classList.remove('pop'), 500); };
 }
 function cookLabel(id) {
   const c = cookS(), I = state.items, st = id.slice(2);
