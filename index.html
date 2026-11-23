@@ -355,7 +355,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
         <div class="dev-title">Перейти к дню</div>
         <div class="dev-days"><button class="ghost-btn" type="button" data-day="1">День 1</button><button class="ghost-btn" type="button" data-day="2">День 2</button><button class="ghost-btn" type="button" data-day="3">День 3</button><button class="ghost-btn" type="button" data-day="4">День 4</button><button class="ghost-btn" type="button" data-day="5">День 5</button><button class="ghost-btn" type="button" data-day="6">День 6</button></div>
         <div class="dev-title">Быстрые тесты</div>
-        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="herbsBtn" type="button">Травы Арнхейнд</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button><button class="ghost-btn" type="button" data-day="5.5">Черника</button>
+        <button class="ghost-btn" id="skipBtn" type="button" hidden>Пропустить квест Эйнара</button><button class="ghost-btn" id="barnBtn" type="button">Перейти к амбару</button><button class="ghost-btn" id="timeBtn" type="button">Вечер</button><button class="ghost-btn" id="houseBtn" type="button">Готовка в доме</button><button class="ghost-btn" id="herbsBtn" type="button">Травы Арнхейнд</button><button class="ghost-btn" id="fishNetBtn" type="button">Рыбалка: бредень</button><button class="ghost-btn" id="fishTrapBtn" type="button">Рыбалка: верша</button><button class="ghost-btn" id="voiceBtn" type="button">Голоса: вкл</button><button class="ghost-btn" type="button" data-day="2.5">Обед для жнецов</button><button class="ghost-btn" type="button" data-day="2.7">Рыбалка</button><button class="ghost-btn" type="button" data-day="4.5">Статуя</button><button class="ghost-btn" type="button" data-day="5.5">Черника</button>
       </div><button class="ghost-btn" id="bagBtn" type="button" aria-expanded="false" hidden></button><div class="bag" id="bag" hidden></div></div>
   </div>
   <div class="recipe" id="recipe" hidden></div>
@@ -383,7 +383,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 294;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 295;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // v293: отпечатки файлов (tools/update_hashes.py) — картинки просим с ?h=отпечаток: новая версия докачивает только изменённые
 const ASSET_HASH = {"assets/animals/hens.webp":"d1403020","assets/barn/barn-floor.webp":"6fd5b561","assets/barn/barn-wall.webp":"31c3a3fc","assets/barn/barn.webp":"20f6d492","assets/chars/horse.webp":"91f01a2c","assets/chars/iro.png":"b1f0ce32","assets/chars/kale.png":"ef9a4ca0","assets/chars/zmey.webp":"32cff47a","assets/cows/cow-brown.png":"f1eba949","assets/cows/cow-palevaya.png":"90d3e633","assets/cows/cow-pyatna.png":"8f1f7408","assets/cows/cow-ryzhaya.png":"9a8bd2f2","assets/cows/cow-seraya.png":"cbd6be76","assets/cows/cow-shokolad.png":"9052c7d1","assets/cows/cow-white.png":"4208e067","assets/fence/fence.png":"482a4ab6","assets/fields/beds.webp":"622810f6","assets/fields/mouse.webp":"e2f278f2","assets/fields/sheaf.webp":"d9eba813","assets/fields/sickle.webp":"dd51aaa7","assets/fields/stook.webp":"f4ea512e","assets/fields/wheat-plot.webp":"220f0382","assets/fields/wheat-stubble.webp":"155b9e7c","assets/forest/1a_el-2.webp":"d0ecdd15","assets/forest/1b_el-1.webp":"4e8bd44c","assets/forest/1b_el-2.webp":"47ecccb5","assets/forest/2a_young-3.webp":"af767986","assets/forest/2a_young-5.webp":"e64f7f10","assets/forest/2b_young-2.webp":"915665fd","assets/forest/2b_young-4.webp":"a5b2aeae","assets/forest/3a_pine-1.webp":"7aa783b1","assets/forest/3a_pine-2.webp":"66f8295b","assets/forest/3b_pine-1.webp":"28f66833","assets/forest/3b_pine-2.webp":"fc64cec4","assets/forest/4a_larch-1.webp":"99bbe8a8","assets/forest/4a_larch-2.webp":"c173e450","assets/forest/4b_larch-1.webp":"7ab49f46","assets/forest/4b_larch-2.webp":"0c2fa1ea","assets/forest/5a_stump-2.webp":"552998c5","assets/forest/5a_stump-4.webp":"0a228307","assets/forest/5b_stump-1.webp":"87e81281","assets/forest/5b_stump-3.webp":"52d17c8d","assets/forest/6a_boulder-1.webp":"383fdd62","assets/forest/6a_boulder-2.webp":"2138d7b3","assets/forest/6a_boulder-3.webp":"e9760c17","assets/forest/6b_boulder-1.webp":"3c617116","assets/forest/6b_boulder-3.webp":"a23ba857","assets/forest/6b_boulder-4.webp":"c05e9fd4","assets/forest/6b_boulder-5.webp":"389fcccb","assets/forest/8a_bank-2.webp":"3f9003b1","assets/forest/8a_bank-3.webp":"def287bc","assets/forest/8a_bank-4.webp":"2d568018","assets/forest/8a_bank-6.webp":"ffb7dacd","assets/forest/8b_bank-1.webp":"439ad00c","assets/forest/8b_bank-3.webp":"a1a2db18","assets/forest/8b_bank-4.webp":"ca47d279","assets/forest/8b_bank-6.webp":"9e1c2535","assets/garden/bush-poppy.webp":"0ef74e18","assets/garden/iro.webp":"e1261a96","assets/garden/pebbles-a.webp":"08ff8f1b","assets/garden/pebbles-b.webp":"9c7c14cf","assets/garden/pond.webp":"2a1389cb","assets/garden/rock-flat-daisies.webp":"5a6e43a1","assets/garden/rock-leaning-a.webp":"cfc050fe","assets/garden/rock-leaning-b.webp":"c6f4c1b8","assets/garden/rock-long.webp":"9c92e329","assets/garden/rock-moss-flowers.webp":"77c3d3ad","assets/garden/rock-poppies-a.webp":"3475267f","assets/garden/rock-poppies-b.webp":"5e1bafcf","assets/garden/rock-twin.webp":"a77540e3","assets/garden/tuft-clover.webp":"921fdc04","assets/garden/tuft-cornflower.webp":"b972d6ed","assets/garden/tuft-poppy.webp":"4d04d819","assets/ground/grass.jpg":"88377ad5","assets/house/house.webp":"c7c71063","assets/house/icons/barley-ghost.webp":"ddebd556","assets/house/icons/barley.webp":"01377581","assets/house/icons/cabbage-ghost.webp":"05444949","assets/house/icons/cabbage.webp":"2c2b9225","assets/house/icons/eggs-ghost.webp":"efc9ccd4","assets/house/icons/eggs.webp":"e78fa32b","assets/house/icons/herbs-ghost.webp":"88379733","assets/house/icons/herbs.webp":"c2464622","assets/house/icons/leek-ghost.webp":"a25fb9e3","assets/house/icons/leek.webp":"d88385e9","assets/house/icons/stew-ghost.webp":"29d97203","assets/house/icons/stew.webp":"7339acd0","assets/house/icons/water-ghost.webp":"3f4611a4","assets/house/icons/water.webp":"5c39a0e4","assets/house/recipe-wall.webp":"a9b15ead","assets/house/room.webp":"0fede3c8","assets/house/shelf-empty.webp":"7dff13eb","assets/house/shelf-plank.webp":"11b6366e","assets/house/steps/s0.webp":"e770567f","assets/house/steps/s1.webp":"a88c77f0","assets/house/steps/s2.webp":"752361ce","assets/house/steps/s3.webp":"642e3028","assets/house/steps/s4.webp":"a079ebb0","assets/house/steps/s5.webp":"76bf9d3c","assets/house/steps/s6.webp":"cf53069c","assets/houses/ambar.webp":"bc4a99ac","assets/houses/dlinnyj-dom.webp":"1ba7ca59","assets/houses/dom-deda.webp":"7555c710","assets/houses/domik.webp":"e6aba167","assets/houses/drovnik.webp":"fc7e89c9","assets/houses/ketil-dom.webp":"f3974bdf","assets/houses/korovnik.webp":"38120a36","assets/houses/kuryatnik.webp":"5596437a","assets/music/chase2.mp3":"da7267dd","assets/music/day.mp3":"8686af77","assets/music/evening.mp3":"8bdc2ab9","assets/music/minigame.mp3":"dfd239c1","assets/paths/dirt.jpg":"fc18d3b2","assets/paths/path-mask.png":"04b3af03","assets/paths/path-rim.png":"5f045027","assets/props/beam-bottom.png":"ceb1ce4c","assets/props/beam-top.png":"10aa1b55","assets/props/bridge-front.webp":"113e6c03","assets/props/bridge.webp":"a651c058","assets/props/chop-block.webp":"482be41e","assets/props/crossing.webp":"7e3e9aa1","assets/props/field-sign.webp":"cfa0cd37","assets/props/stone-boulder.webp":"359b9d5e","assets/props/well.webp":"f97f8974","assets/river/river-0.webp":"906e734e","assets/river/river-1.webp":"b8b268e1","assets/river/stream-paint-bot.webp":"92fc5d78","assets/river/stream-paint-mid.webp":"b0ab36be","assets/river/stream-paint-top.webp":"391170eb","assets/river/stream-water-bot.webp":"20c53774","assets/river/stream-water-mid.webp":"5b4ecfa1","assets/river/stream-water-top.webp":"0b1755c8","assets/river/water.webp":"2caa0be4","assets/rocks/crag-a1.webp":"5004a480","assets/rocks/crag-a2.webp":"7d3da2f5","assets/rocks/crag-a3.webp":"577b8f93","assets/rocks/crag-a4.webp":"40b6e632","assets/rocks/crag-a5.webp":"a2bf17ec","assets/rocks/crag-a6.webp":"45d61844","assets/rocks/crag-b1.webp":"b0a55520","assets/rocks/crag-b2.webp":"636ed38e","assets/rocks/crag-b3.webp":"6257df6c","assets/rocks/crag-b4.webp":"62122a9c","assets/rocks/crag-b5.webp":"1d5b2d7e","assets/rocks/crag-b6.webp":"369d62bc","assets/trees/bush-1.webp":"dbbf4a0b","assets/trees/bush-2.webp":"3443ea88","assets/trees/bush-3.webp":"49dc7e10","assets/trees/bush-4.webp":"70682cd4","assets/trees/poplar-1.webp":"9f9daf91","assets/trees/poplar-2.webp":"f15ae701","assets/trees/s1-grove-1.webp":"41988a4a","assets/trees/s1-grove-2.webp":"ad1826e8","assets/trees/s1-oak-1.webp":"ceadc004","assets/trees/s1-oak-2.webp":"ac601b33","assets/trees/s2-branchy-2.webp":"3567035d","assets/trees/s2-branchy-3.webp":"bd30274d","assets/trees/s2-grove-1.webp":"0f287691","assets/trees/s2-grove-2.webp":"b7538bd3","assets/trees/s2-oak-1.webp":"88219ab3","assets/trees/s2-oak-2.webp":"45123d53","assets/trees/tree-1.webp":"761ba995","assets/trees/tree-2.webp":"2ef5ab2c","assets/trees/tree-3.webp":"f56c379c","assets/trees/tree-4.webp":"0f76ffd2","icons/apple-touch-icon.png":"a1d54b7f","icons/icon-192.png":"ed5e3cfd","icons/icon-512.png":"83cfad1a","lib/phaser.min.js":"73d8b3a7","manifest.webmanifest":"fdccc92a"}; // @@HASHES@@
 const A = p => p + '?h=' + (ASSET_HASH[p] || GAME_VERSION);
@@ -835,6 +835,8 @@ $('barnBtn').addEventListener('click', () => {
 $('houseExit').addEventListener('click', () => { if (!ui.open && house.active) leaveHouse(); });
 // ВРЕМЕННО для тестов: сразу в дом Сверкеля к готовке похлёбки — с нуля, с капустой, пореем и яйцами в сумке
 $('herbsBtn').addEventListener('click', () => { if (!ui.open) herbsTest(); });
+$('fishNetBtn').addEventListener('click', () => { if (!ui.open) { devMenu(false); fishTest('net'); } });
+$('fishTrapBtn').addEventListener('click', () => { if (!ui.open) { devMenu(false); fishTest('trap'); } });
 $('houseBtn').addEventListener('click', () => {
   if (ui.open || barn.active || house.active) return;
   const s = state;
@@ -2514,7 +2516,7 @@ const FISH_NEED = 15;
 const LEIF_FISH_LINES = ['Лейф с берега: «Мелочь! Вот в Винланде рыба была с лодку!»',
   'Лейф: «Сапог? В Винланде и сапоги ловились — с серебряными пряжками!»',
   'Лейф: «Неплохо! Почти как у меня в молодости… почти»'];
-function startFishing() {
+function startFishing(onDone) {
   if (ui.open) return;
   ui.open = true; stopWalking(); musicUpdate();
   const root = document.createElement('div'); root.className = 'herbs winnow';
@@ -2629,7 +2631,7 @@ function startFishing() {
     $('fishFill').style.width = Math.min(100, Math.round(F.total / FISH_NEED * 100)) + '%'; $('fishN').textContent = `Улов: ${Math.min(F.total, FISH_NEED)} из ${FISH_NEED}`;
     if (F.total >= FISH_NEED) {
       F.done = true; msg(`Полная корзина — ${F.total} рыб!`, true);
-      setTimeout(() => { cancelAnimationFrame(F.raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); afterFishing(F.total); }, 1500);
+      setTimeout(() => { cancelAnimationFrame(F.raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); (onDone || afterFishing)(F.total); }, 1500);
     }
   }
   function tick(now) {
@@ -2660,6 +2662,153 @@ function startFishing() {
   cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} $('fishHint').classList.add('hide'); F.hold = true; });
   ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { F.hold = false; }));
   F.raf = requestAnimationFrame(tick);
+}
+// ===================== Рыбалка, вариант «Верша» (v295, СХЕМАТИЧНО, рисовано кодом; пока — только из меню «Тест») =====================
+// Вид сверху: ручей течёт сверху вниз. Плетёная верша стоит в воде горлом против течения; ведёшь её пальцем поперёк ручья.
+// Рыба пугается плеска: если двигать вершу резко, ближние рыбы разбегаются — подводить надо спокойно и заранее.
+// В вершу влезает VERSHA_CAP рыб; листья и ветки её забивают (2 — и забита). Короткий тап — вытащить: рыба в корзину, верша чистая.
+// Цель — FISH_NEED рыб. Проиграть нельзя. ЗАГЛУШКИ: реплики — черновик
+const VERSHA_CAP = 5;
+function startVersha(onDone) {
+  if (ui.open) return;
+  ui.open = true; stopWalking(); musicUpdate();
+  const root = document.createElement('div'); root.className = 'herbs winnow';
+  root.innerHTML = `<canvas></canvas><div class="win-top"><div class="win-bar"><i id="vFill"></i><span id="vN">Улов: 0 из ${FISH_NEED}</span></div></div>
+    <div class="herbs-hint" id="vHint">Веди вершу пальцем поперёк ручья — горлом навстречу рыбе. Двигай плавно: рыба пугается плеска. Полная или забитая верша — коротко тапни по ней, чтобы вытащить</div><div class="herbs-msg" id="vMsg"></div>`;
+  app.appendChild(root);
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, R = 1;
+  const resize = () => { R = Math.min(window.devicePixelRatio || 1, 2.5); W = root.clientWidth; H = root.clientHeight; cv.width = Math.round(W * R); cv.height = Math.round(H * R); };
+  resize(); window.addEventListener('resize', resize);
+  const V = { t: 0, last: performance.now(), x: 0.5, aim: 0.5, vx: 0, fish: [], junk: [], inTrap: 0, clog: 0, total: 0, spawnT: 0.6, junkT: 3, lift: 0, done: false, raf: 0, spooked: 0, pop: [], tip: 0 };
+  window.__versha = V;
+  const msg = (text, good) => { const m = $('vMsg'); m.textContent = text; m.className = 'herbs-msg show' + (good ? ' good' : ''); clearTimeout(msg.t); msg.t = setTimeout(() => { m.className = 'herbs-msg'; }, 2400); };
+  const geo = () => { const port = H > W, bank = W * (port ? 0.15 : 0.22), sc = Math.min(1.5, Math.max(W, H) / 700); return { L: bank, Rr: W - bank, ty: H * (port ? 0.72 : 0.7), sc, mouth: 34 * sc }; };
+  const trapX = () => { const g = geo(); return g.L + 30 * g.sc + V.x * (g.Rr - g.L - 60 * g.sc); };
+  function spawnFish() {
+    const g = geo(), n = 1 + Math.floor(Math.random() * 3), cx = g.L + 40 + Math.random() * (g.Rr - g.L - 80);
+    for (let i = 0; i < n; i++) V.fish.push({ x: cx + (Math.random() - 0.5) * 50 * g.sc, y: -30 - i * 40 * g.sc, vy: (55 + Math.random() * 35) * g.sc, ph: Math.random() * 6, wob: 0.6 + Math.random() * 0.8, flee: 0, fx: 0 });
+  }
+  function spawnJunk() { const g = geo(); V.junk.push({ x: g.L + 30 + Math.random() * (g.Rr - g.L - 60), y: -30, k: Math.random() < 0.6 ? 'leaf' : 'stick', r: Math.random() * 6, vy: 70 * g.sc }); }
+  function draw() {
+    const g = geo(), tx = trapX(), ty = g.ty, s = g.sc, lifted = V.lift > 0;
+    ctx.setTransform(R, 0, 0, R, 0, 0);
+    ctx.fillStyle = '#86AE5E'; ctx.fillRect(0, 0, W, H);   // берега
+    ctx.fillStyle = '#C9B48A'; ctx.fillRect(g.L - 10 * s, 0, 10 * s, H); ctx.fillRect(g.Rr, 0, 10 * s, H);   // песок у кромки
+    const wat = ctx.createLinearGradient(g.L, 0, g.Rr, 0); wat.addColorStop(0, '#5E93A8'); wat.addColorStop(0.5, '#6FA6B8'); wat.addColorStop(1, '#5E93A8');
+    ctx.fillStyle = wat; ctx.fillRect(g.L, 0, g.Rr - g.L, H);
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 2;   // струи течения
+    for (let i = 0; i < 9; i++) { const x = g.L + (i + 0.5) * (g.Rr - g.L) / 9, y = ((V.t * 90 * s + i * 137) % (H + 80)) - 80; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 46 * s); ctx.stroke(); }
+    // Змей на правом берегу с корзиной, героиня — на левом (верша в её руках на верёвке)
+    ctx.fillStyle = '#5E8A4A'; ctx.beginPath(); ctx.arc(g.Rr + (W - g.Rr) / 2, H * 0.86, 18 * s, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#3A2A1E'; ctx.beginPath(); ctx.arc(g.Rr + (W - g.Rr) / 2, H * 0.86 - 4 * s, 11 * s, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#9A6B3E'; ctx.beginPath(); ctx.ellipse(g.Rr + (W - g.Rr) / 2, H * 0.94, 20 * s, 12 * s, 0, 0, 6.29); ctx.fill();   // корзина
+    ctx.fillStyle = '#4FA3D9'; ctx.beginPath(); ctx.arc(g.L / 2, ty + 70 * s, 16 * s, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#B5523B'; ctx.beginPath(); ctx.arc(g.L / 2, ty + 66 * s, 10 * s, 0, 6.29); ctx.fill();
+    ctx.strokeStyle = 'rgba(230,220,190,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(g.L / 2 + 10 * s, ty + 66 * s); ctx.quadraticCurveTo((g.L / 2 + tx) / 2, ty + 90 * s, tx, ty + 46 * s); ctx.stroke();   // верёвка
+    ctx.fillStyle = 'rgba(46,36,24,0.7)'; ctx.font = `700 ${Math.round(13 * s + 2)}px Nunito, sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText('Змей', g.Rr + (W - g.Rr) / 2, H * 0.86 - 26 * s);
+    // мусор и рыбы
+    for (const j of V.junk) {
+      ctx.save(); ctx.translate(j.x, j.y); ctx.rotate(j.r);
+      if (j.k === 'leaf') { ctx.fillStyle = '#D98A3A'; ctx.beginPath(); ctx.ellipse(0, 0, 9 * s, 5 * s, 0, 0, 6.29); ctx.fill(); }
+      else { ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 4 * s; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-16 * s, 0); ctx.lineTo(16 * s, 0); ctx.moveTo(4 * s, 0); ctx.lineTo(12 * s, -8 * s); ctx.stroke(); }
+      ctx.restore();
+    }
+    for (const f of V.fish) {
+      const ang = Math.atan2(f.vy, f.fx + Math.cos(V.t * 3 + f.ph) * 20 * f.wob);
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(ang); ctx.scale(s, s);
+      ctx.fillStyle = f.flee > 0 ? 'rgba(30,50,60,0.35)' : 'rgba(30,50,60,0.55)';   // тень рыбы под водой
+      ctx.beginPath(); ctx.ellipse(0, 0, 15, 5.5, 0, 0, 6.29); ctx.fill(); ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-21, -6); ctx.lineTo(-21, 6); ctx.fill();
+      ctx.restore();
+    }
+    // верша: плетёный конус, горло смотрит вверх (против течения)
+    ctx.save(); ctx.translate(tx, ty - (lifted ? 10 * s : 0)); if (lifted) ctx.scale(1.08, 1.08);
+    if (Math.abs(V.vx) > 0.5) { ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; for (let k = 1; k <= 2; k++) { ctx.beginPath(); ctx.arc(0, 10 * s, (24 + k * 12 + (V.t * 60) % 12) * s, 0, 6.29); ctx.stroke(); } }   // плеск
+    ctx.fillStyle = V.clog >= 2 ? '#8E7A55' : '#B8925A'; ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(-g.mouth, -14 * s); ctx.quadraticCurveTo(-g.mouth * 0.9, 40 * s, 0, 62 * s); ctx.quadraticCurveTo(g.mouth * 0.9, 40 * s, g.mouth, -14 * s); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(110,74,44,0.6)'; ctx.lineWidth = 1.5;
+    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(k * g.mouth / 2.6, -12 * s); ctx.lineTo(k * 2 * s, 58 * s); ctx.stroke(); }
+    for (let k = 1; k <= 3; k++) { ctx.beginPath(); ctx.ellipse(0, -14 * s + k * 17 * s, g.mouth * (1 - k * 0.22), 5 * s, 0, 0, Math.PI); ctx.stroke(); }
+    ctx.fillStyle = '#3E6E80'; ctx.beginPath(); ctx.ellipse(0, -14 * s, g.mouth, 9 * s, 0, 0, 6.29); ctx.fill(); ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 3; ctx.stroke();   // горло
+    for (let k = 0; k < Math.min(V.inTrap, VERSHA_CAP); k++) { ctx.fillStyle = '#9DB3AA'; ctx.beginPath(); ctx.ellipse((k % 2 ? 6 : -6) * s, (8 + k * 9) * s, 9 * s, 3.5 * s, 0, 0, 6.29); ctx.fill(); }   // рыба внутри
+    if (V.clog) { ctx.fillStyle = '#D98A3A'; for (let k = 0; k < V.clog; k++) { ctx.beginPath(); ctx.ellipse((k ? 8 : -8) * s, -10 * s, 8 * s, 4 * s, k, 0, 6.29); ctx.fill(); } }
+    ctx.restore();
+    // счётчик на верше
+    ctx.fillStyle = V.inTrap >= VERSHA_CAP || V.clog >= 2 ? '#C9472F' : 'rgba(255,253,244,0.92)';
+    ctx.beginPath(); ctx.roundRect(tx - 30 * s, ty + 68 * s, 60 * s, 22 * s, 11 * s); ctx.fill();
+    ctx.fillStyle = V.inTrap >= VERSHA_CAP || V.clog >= 2 ? '#fff' : '#3a2c1c'; ctx.font = `800 ${Math.round(13 * s)}px Nunito, sans-serif`;
+    ctx.fillText(V.clog >= 2 ? 'забита!' : `${V.inTrap} / ${VERSHA_CAP}`, tx, ty + 84 * s);
+    for (const p of V.pop) { ctx.globalAlpha = p.a; ctx.fillStyle = '#2E6B2A'; ctx.font = `800 ${Math.round(22 * s + 6)}px Nunito, sans-serif`; ctx.fillText(p.t, p.x, p.y); }
+    ctx.globalAlpha = 1;
+  }
+  function liftTrap() {   // вытащить вершу: рыба — Змею в корзину, мусор — прочь
+    if (V.lift > 0 || V.done) return;
+    V.lift = 0.6;
+    const n = V.inTrap, g = geo();
+    if (n) { V.total += n; V.pop.push({ t: '+' + n, x: trapX(), y: g.ty - 40 * g.sc, a: 1 }); }
+    if (!n && !V.clog) msg('Пусто… Змей: «Рано тянешь! Пусть рыба зайдёт»');
+    else if (V.clog >= 2 && !n) msg('Вычистила листья. Змей: «Чистая верша — полная верша!»');
+    else if (n >= VERSHA_CAP) msg(`Полная верша! +${n}. Змей: «Вот это заход!»`, true);
+    else if (n) msg(`+${n}`, true);
+    V.inTrap = 0; V.clog = 0;
+    $('vFill').style.width = Math.min(100, Math.round(V.total / FISH_NEED * 100)) + '%'; $('vN').textContent = `Улов: ${Math.min(V.total, FISH_NEED)} из ${FISH_NEED}`;
+    if (V.total >= FISH_NEED) {
+      V.done = true; setTimeout(() => msg(`Полная корзина — ${V.total} рыб!`, true), 300);
+      setTimeout(() => { cancelAnimationFrame(V.raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); (onDone || afterFishing)(V.total); }, 1600);
+    }
+  }
+  function tick(now) {
+    const dt = Math.min(50, now - V.last) / 1000; V.last = now; V.t += dt;
+    const g = geo(), s = g.sc;
+    V.lift = Math.max(0, V.lift - dt); V.spooked = Math.max(0, V.spooked - dt);
+    // верша плывёт к пальцу, но не быстрее предела; скорость — для «плеска»
+    const prev = V.x, maxV = 1.6;
+    V.x += Math.max(-maxV * dt, Math.min(maxV * dt, (V.aim - V.x) * Math.min(1, dt * 10)));
+    V.vx = V.vx * 0.8 + ((V.x - prev) / Math.max(dt, 0.001)) * 0.2;
+    if (!V.done) {
+      if ((V.spawnT -= dt) <= 0) { spawnFish(); V.spawnT = 1.1 + Math.random() * 1.1; }
+      if ((V.junkT -= dt) <= 0) { spawnJunk(); V.junkT = 3 + Math.random() * 3; }
+    }
+    const tx = trapX(), ty = g.ty, full = V.inTrap >= VERSHA_CAP || V.clog >= 2, splash = Math.abs(V.vx) > 0.5;
+    for (const f of V.fish) {
+      // плеск рядом — рыба шарахается в сторону и ненадолго против течения
+      if (splash && !f.flee && Math.hypot(f.x - tx, f.y - ty) < 150 * s && f.y < ty) {
+        f.flee = 1.1; f.fx = (f.x < tx ? -1 : 1) * (120 + Math.random() * 60) * s;
+        if (!V.spooked) { V.spooked = 3; msg('Тише! Рыба пугается плеска — веди вершу плавно'); }
+      }
+      if (f.flee > 0) { f.flee -= dt; f.y -= 30 * s * dt; f.x += f.fx * dt; f.fx *= 1 - dt * 1.5; }
+      else { f.y += f.vy * dt; f.x += Math.cos(V.t * 3 + f.ph) * 20 * f.wob * dt; }
+      f.x = Math.max(g.L + 12, Math.min(g.Rr - 12, f.x));
+      // вход в горло верши (сверху)
+      if (!full && V.lift <= 0 && f.y > ty - 16 * s && f.y < ty + 6 * s && Math.abs(f.x - tx) < g.mouth * 0.85) { f.caught = true; V.inTrap++; if (V.inTrap === VERSHA_CAP) msg('Верша полная — тапни по ней, вытащим!'); }
+    }
+    for (const j of V.junk) {
+      j.y += j.vy * dt; j.r += dt;
+      if (V.lift <= 0 && j.y > ty - 16 * s && j.y < ty + 6 * s && Math.abs(j.x - tx) < g.mouth * 0.85 && V.clog < 2) { j.gone = true; V.clog++; if (V.clog >= 2) msg('Верша забилась листьями! Тапни — вытащим и почистим'); }
+    }
+    V.fish = V.fish.filter(f => !f.caught && f.y < H + 40); V.junk = V.junk.filter(j => !j.gone && j.y < H + 40);
+    for (const p of V.pop) { p.y -= dt * 40; p.a -= dt * 0.8; } V.pop = V.pop.filter(p => p.a > 0);
+    draw();
+    V.raf = requestAnimationFrame(tick);
+  }
+  const aim = e => { const r = cv.getBoundingClientRect(), g = geo(); V.aim = Math.max(0, Math.min(1, (e.clientX - r.left - g.L - 30 * g.sc) / (g.Rr - g.L - 60 * g.sc))); };
+  let down = null;
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} $('vHint').classList.add('hide'); down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  cv.addEventListener('pointermove', e => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) { down.moved = true; aim(e); } });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, e => {
+    if (down && !down.moved && performance.now() - down.t < 350) {   // короткий тап: по верше — вытащить, мимо — подвести туда
+      const r = cv.getBoundingClientRect(), g = geo(), px = e.clientX - r.left, py = e.clientY - r.top;
+      if (Math.abs(px - trapX()) < 60 * g.sc && Math.abs(py - (g.ty + 30 * g.sc)) < 80 * g.sc) liftTrap(); else aim(e);
+    }
+    down = null;
+  }));
+  window.__vLift = liftTrap;   // для теста
+  V.raf = requestAnimationFrame(tick);
+}
+function fishTest(kind) {   // ВРЕМЕННО: из меню «Тест» — сравнить два варианта рыбалки (без последствий для сюжета)
+  const done = n => showDialog([['zmey', `${n} рыбин! Неплохо для пробы. Какой способ тебе больше по душе?`]]);
+  if (kind === 'trap') startVersha(done); else startFishing(done);
 }
 function afterFishing(n) {
   const F = state.day2.fish;
