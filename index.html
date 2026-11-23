@@ -289,7 +289,6 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 .push-beat .word.go{color:#C9472F}
 #armCv,#tugCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 #winCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
-#fishCv{display:block;margin:0 auto;width:min(300px,72vw);touch-action:none;border-radius:14px;border:3px solid var(--wood)}
 .fish-bar{position:relative;height:22px;border:3px solid var(--wood);border-radius:999px;background:#EADFC8;overflow:hidden}
 .fish-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:#86C46F;transition:background .15s}
 .fish-bar.strain i{background:#E0553A}
@@ -384,7 +383,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 293;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 294;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // v293: отпечатки файлов (tools/update_hashes.py) — картинки просим с ?h=отпечаток: новая версия докачивает только изменённые
 const ASSET_HASH = {"assets/animals/hens.webp":"d1403020","assets/barn/barn-floor.webp":"6fd5b561","assets/barn/barn-wall.webp":"31c3a3fc","assets/barn/barn.webp":"20f6d492","assets/chars/horse.webp":"91f01a2c","assets/chars/iro.png":"b1f0ce32","assets/chars/kale.png":"ef9a4ca0","assets/chars/zmey.webp":"32cff47a","assets/cows/cow-brown.png":"f1eba949","assets/cows/cow-palevaya.png":"90d3e633","assets/cows/cow-pyatna.png":"8f1f7408","assets/cows/cow-ryzhaya.png":"9a8bd2f2","assets/cows/cow-seraya.png":"cbd6be76","assets/cows/cow-shokolad.png":"9052c7d1","assets/cows/cow-white.png":"4208e067","assets/fence/fence.png":"482a4ab6","assets/fields/beds.webp":"622810f6","assets/fields/mouse.webp":"e2f278f2","assets/fields/sheaf.webp":"d9eba813","assets/fields/sickle.webp":"dd51aaa7","assets/fields/stook.webp":"f4ea512e","assets/fields/wheat-plot.webp":"220f0382","assets/fields/wheat-stubble.webp":"155b9e7c","assets/forest/1a_el-2.webp":"d0ecdd15","assets/forest/1b_el-1.webp":"4e8bd44c","assets/forest/1b_el-2.webp":"47ecccb5","assets/forest/2a_young-3.webp":"af767986","assets/forest/2a_young-5.webp":"e64f7f10","assets/forest/2b_young-2.webp":"915665fd","assets/forest/2b_young-4.webp":"a5b2aeae","assets/forest/3a_pine-1.webp":"7aa783b1","assets/forest/3a_pine-2.webp":"66f8295b","assets/forest/3b_pine-1.webp":"28f66833","assets/forest/3b_pine-2.webp":"fc64cec4","assets/forest/4a_larch-1.webp":"99bbe8a8","assets/forest/4a_larch-2.webp":"c173e450","assets/forest/4b_larch-1.webp":"7ab49f46","assets/forest/4b_larch-2.webp":"0c2fa1ea","assets/forest/5a_stump-2.webp":"552998c5","assets/forest/5a_stump-4.webp":"0a228307","assets/forest/5b_stump-1.webp":"87e81281","assets/forest/5b_stump-3.webp":"52d17c8d","assets/forest/6a_boulder-1.webp":"383fdd62","assets/forest/6a_boulder-2.webp":"2138d7b3","assets/forest/6a_boulder-3.webp":"e9760c17","assets/forest/6b_boulder-1.webp":"3c617116","assets/forest/6b_boulder-3.webp":"a23ba857","assets/forest/6b_boulder-4.webp":"c05e9fd4","assets/forest/6b_boulder-5.webp":"389fcccb","assets/forest/8a_bank-2.webp":"3f9003b1","assets/forest/8a_bank-3.webp":"def287bc","assets/forest/8a_bank-4.webp":"2d568018","assets/forest/8a_bank-6.webp":"ffb7dacd","assets/forest/8b_bank-1.webp":"439ad00c","assets/forest/8b_bank-3.webp":"a1a2db18","assets/forest/8b_bank-4.webp":"ca47d279","assets/forest/8b_bank-6.webp":"9e1c2535","assets/garden/bush-poppy.webp":"0ef74e18","assets/garden/iro.webp":"e1261a96","assets/garden/pebbles-a.webp":"08ff8f1b","assets/garden/pebbles-b.webp":"9c7c14cf","assets/garden/pond.webp":"2a1389cb","assets/garden/rock-flat-daisies.webp":"5a6e43a1","assets/garden/rock-leaning-a.webp":"cfc050fe","assets/garden/rock-leaning-b.webp":"c6f4c1b8","assets/garden/rock-long.webp":"9c92e329","assets/garden/rock-moss-flowers.webp":"77c3d3ad","assets/garden/rock-poppies-a.webp":"3475267f","assets/garden/rock-poppies-b.webp":"5e1bafcf","assets/garden/rock-twin.webp":"a77540e3","assets/garden/tuft-clover.webp":"921fdc04","assets/garden/tuft-cornflower.webp":"b972d6ed","assets/garden/tuft-poppy.webp":"4d04d819","assets/ground/grass.jpg":"88377ad5","assets/house/house.webp":"c7c71063","assets/house/icons/barley-ghost.webp":"ddebd556","assets/house/icons/barley.webp":"01377581","assets/house/icons/cabbage-ghost.webp":"05444949","assets/house/icons/cabbage.webp":"2c2b9225","assets/house/icons/eggs-ghost.webp":"efc9ccd4","assets/house/icons/eggs.webp":"e78fa32b","assets/house/icons/herbs-ghost.webp":"88379733","assets/house/icons/herbs.webp":"c2464622","assets/house/icons/leek-ghost.webp":"a25fb9e3","assets/house/icons/leek.webp":"d88385e9","assets/house/icons/stew-ghost.webp":"29d97203","assets/house/icons/stew.webp":"7339acd0","assets/house/icons/water-ghost.webp":"3f4611a4","assets/house/icons/water.webp":"5c39a0e4","assets/house/recipe-wall.webp":"a9b15ead","assets/house/room.webp":"0fede3c8","assets/house/shelf-empty.webp":"7dff13eb","assets/house/shelf-plank.webp":"11b6366e","assets/house/steps/s0.webp":"e770567f","assets/house/steps/s1.webp":"a88c77f0","assets/house/steps/s2.webp":"752361ce","assets/house/steps/s3.webp":"642e3028","assets/house/steps/s4.webp":"a079ebb0","assets/house/steps/s5.webp":"76bf9d3c","assets/house/steps/s6.webp":"cf53069c","assets/houses/ambar.webp":"bc4a99ac","assets/houses/dlinnyj-dom.webp":"1ba7ca59","assets/houses/dom-deda.webp":"7555c710","assets/houses/domik.webp":"e6aba167","assets/houses/drovnik.webp":"fc7e89c9","assets/houses/ketil-dom.webp":"f3974bdf","assets/houses/korovnik.webp":"38120a36","assets/houses/kuryatnik.webp":"5596437a","assets/music/chase2.mp3":"da7267dd","assets/music/day.mp3":"8686af77","assets/music/evening.mp3":"8bdc2ab9","assets/music/minigame.mp3":"dfd239c1","assets/paths/dirt.jpg":"fc18d3b2","assets/paths/path-mask.png":"04b3af03","assets/paths/path-rim.png":"5f045027","assets/props/beam-bottom.png":"ceb1ce4c","assets/props/beam-top.png":"10aa1b55","assets/props/bridge-front.webp":"113e6c03","assets/props/bridge.webp":"a651c058","assets/props/chop-block.webp":"482be41e","assets/props/crossing.webp":"7e3e9aa1","assets/props/field-sign.webp":"cfa0cd37","assets/props/stone-boulder.webp":"359b9d5e","assets/props/well.webp":"f97f8974","assets/river/river-0.webp":"906e734e","assets/river/river-1.webp":"b8b268e1","assets/river/stream-paint-bot.webp":"92fc5d78","assets/river/stream-paint-mid.webp":"b0ab36be","assets/river/stream-paint-top.webp":"391170eb","assets/river/stream-water-bot.webp":"20c53774","assets/river/stream-water-mid.webp":"5b4ecfa1","assets/river/stream-water-top.webp":"0b1755c8","assets/river/water.webp":"2caa0be4","assets/rocks/crag-a1.webp":"5004a480","assets/rocks/crag-a2.webp":"7d3da2f5","assets/rocks/crag-a3.webp":"577b8f93","assets/rocks/crag-a4.webp":"40b6e632","assets/rocks/crag-a5.webp":"a2bf17ec","assets/rocks/crag-a6.webp":"45d61844","assets/rocks/crag-b1.webp":"b0a55520","assets/rocks/crag-b2.webp":"636ed38e","assets/rocks/crag-b3.webp":"6257df6c","assets/rocks/crag-b4.webp":"62122a9c","assets/rocks/crag-b5.webp":"1d5b2d7e","assets/rocks/crag-b6.webp":"369d62bc","assets/trees/bush-1.webp":"dbbf4a0b","assets/trees/bush-2.webp":"3443ea88","assets/trees/bush-3.webp":"49dc7e10","assets/trees/bush-4.webp":"70682cd4","assets/trees/poplar-1.webp":"9f9daf91","assets/trees/poplar-2.webp":"f15ae701","assets/trees/s1-grove-1.webp":"41988a4a","assets/trees/s1-grove-2.webp":"ad1826e8","assets/trees/s1-oak-1.webp":"ceadc004","assets/trees/s1-oak-2.webp":"ac601b33","assets/trees/s2-branchy-2.webp":"3567035d","assets/trees/s2-branchy-3.webp":"bd30274d","assets/trees/s2-grove-1.webp":"0f287691","assets/trees/s2-grove-2.webp":"b7538bd3","assets/trees/s2-oak-1.webp":"88219ab3","assets/trees/s2-oak-2.webp":"45123d53","assets/trees/tree-1.webp":"761ba995","assets/trees/tree-2.webp":"2ef5ab2c","assets/trees/tree-3.webp":"f56c379c","assets/trees/tree-4.webp":"0f76ffd2","icons/apple-touch-icon.png":"a1d54b7f","icons/icon-192.png":"ed5e3cfd","icons/icon-512.png":"83cfad1a","lib/phaser.min.js":"73d8b3a7","manifest.webmanifest":"fdccc92a"}; // @@HASHES@@
 const A = p => p + '?h=' + (ASSET_HASH[p] || GAME_VERSION);
@@ -1118,7 +1117,8 @@ function talkZmey() {
   const d3 = state.day3.stage;
   if (!d3 && state.time.day === 2 && state.day2.fish.stage === 1) return showDialog([   // ЗАГЛУШКА: реплики — черновик
     ['zmey', 'А вот и рыбачка! Сеть принесла? Отлично. Видишь тени под водой? Это обед на завтра.'],
-    ['zmey', 'Тяни назад и отпускай — сеть полетит. А как вытаскивать — покажу. Главное — не рви, когда рыба бьётся.'],
+    ['zmey', 'Берём бредень вдвоём: я за один шест, ты за другой. Опускаем — рыба сама заплывает. Поднимаем — улов наш.'],
+    ['zmey', 'Только коряги и щуки смотри — порвут сеть, и вся рыба уйдёт. Видишь такую — поднимай!'],
   ], startFishing);
   // ЗАГЛУШКИ: реплики Змея в день 3 — черновик
   if (d3 === 1) return showDialog([
@@ -2505,112 +2505,160 @@ function startPolishGame() {
   window.__polishRub = rub;   // для теста
   draw();
 }
-// ===================== День 2: рыбалка со Змеем (v192, схематично) =====================
-// 3 заброса: тянешь палец назад, как рогатку, и отпускаешь — сеть летит; накрыть кругом тени рыб.
-// Потом вытягивание: держишь — тянешь; когда рыба бьётся (полоска красная) — отпусти, иначе одна рыба уйдёт.
+// ===================== День 2: рыбалка со Змеем — «Бредень» (v294, СХЕМАТИЧНО, рисовано кодом) =====================
+// Вид сбоку, в разрезе: героиня и Змей стоят в реке и держат бредень за два шеста. Течение несёт слева направо стайки рыб,
+// коряги, щук и старый сапог. Держишь палец — сеть опущена и ловит; отпускаешь — сеть поднимается, пойманная рыба — в корзину.
+// Коряга или щука в сети рвут её — вся рыба из сети уходит. Цель — FISH_NEED рыб. Проиграть нельзя.
 // ЗАГЛУШКИ: реплики Змея и Лейфа — черновик
-const FISH_CASTS = 3;
+const FISH_NEED = 15;
 const LEIF_FISH_LINES = ['Лейф с берега: «Мелочь! Вот в Винланде рыба была с лодку!»',
   'Лейф: «Сапог? В Винланде и сапоги ловились — с серебряными пряжками!»',
   'Лейф: «Неплохо! Почти как у меня в молодости… почти»'];
 function startFishing() {
   if (ui.open) return;
-  openModal(`<div class="card mg chop" id="fishCard"><div class="badge">Мини-игра</div><h2>Рыбалка</h2>
-    <canvas id="fishCv" width="300" height="340"></canvas>
-    <div class="fish-bar" id="fishBar"><i></i></div>
-    <div class="chop-msg" id="fishMsg">Тяни палец назад от сети и отпускай</div>
-    <div class="mg-stats"><span id="fishCast">Заброс 1 из ${FISH_CASTS}</span><span id="fishN">Рыба: 0</span></div></div>`);
-  const cv = $('fishCv'), ctx = cv.getContext('2d'), W = 300, H = 340, O = { x: 150, y: 318 }, R = 46;
-  const F = { phase: 'aim', cast: 0, total: 0, net: null, drag: null, fishes: [], inNet: 0, boot: false, prog: 0, strain: 0, hold: false, thrash: false, tt: 1.4, t: 0, raf: 0, last: 0, done: false };
+  ui.open = true; stopWalking(); musicUpdate();
+  const root = document.createElement('div'); root.className = 'herbs winnow';
+  root.innerHTML = `<canvas></canvas><div class="win-top"><div class="win-bar"><i id="fishFill"></i><span id="fishN">Улов: 0 из ${FISH_NEED}</span></div></div>
+    <div class="herbs-hint" id="fishHint">Держи палец — опускаем бредень, рыба заплывает в сеть. Отпусти — поднимаем и забираем улов. Коряги и щуки рвут сеть — поднимай раньше!</div><div class="herbs-msg" id="fishMsg"></div>`;
+  app.appendChild(root);
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, R = 1;
+  const resize = () => { R = Math.min(window.devicePixelRatio || 1, 2.5); W = root.clientWidth; H = root.clientHeight; cv.width = Math.round(W * R); cv.height = Math.round(H * R); };
+  resize(); window.addEventListener('resize', resize);
+  const F = { t: 0, last: performance.now(), hold: false, d: 0, items: [], total: 0, spawnT: 1.2, torn: 0, done: false, raf: 0, boot: false, leif: 0, waves: 0, pop: [] };
   window.__fish = F;
-  const msg = t => { $('fishMsg').textContent = t; };
-  const spawn = () => { F.fishes = Array.from({ length: 6 }, () => ({ x: 30 + Math.random() * 240, y: 30 + Math.random() * 190, a: Math.random() * 6.28, v: 14 + Math.random() * 14 })); };
-  spawn();
-  const pos = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
-  const target = d => ({ x: Math.max(R, Math.min(W - R, O.x - (d.x - O.x) * 2.2)), y: Math.max(R, Math.min(250, O.y - (d.y - O.y) * 2.2 - 40)) });
-  function draw() {
-    ctx.fillStyle = '#5E93A8'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(255,255,255,0.08)'; for (let i = 0; i < 7; i++) ctx.fillRect(0, 20 + i * 44 + Math.sin(F.t + i) * 3, W, 3);
-    ctx.fillStyle = '#8A6A44'; ctx.fillRect(110, 290, 80, 50); ctx.fillStyle = '#6E5236'; for (let i = 0; i < 4; i++) ctx.fillRect(110, 296 + i * 12, 80, 2);   // мостки
-    ctx.fillStyle = 'rgba(25,45,60,0.45)';
-    for (const f of F.fishes) { ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a); ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(-19, -5); ctx.lineTo(-19, 5); ctx.fill(); ctx.restore(); }
-    if (F.phase === 'aim' && F.drag) {   // прицел
-      const tg = target(F.drag);
-      ctx.setLineDash([5, 6]); ctx.strokeStyle = 'rgba(255,253,244,0.9)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(tg.x, tg.y); ctx.stroke(); ctx.beginPath(); ctx.arc(tg.x, tg.y, R, 0, 6.28); ctx.stroke(); ctx.setLineDash([]);
-      ctx.strokeStyle = '#3A2A1E'; ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(F.drag.x, F.drag.y); ctx.stroke();
+  const msg = (text, good) => { const m = $('fishMsg'); m.textContent = text; m.className = 'herbs-msg show' + (good ? ' good' : ''); clearTimeout(msg.t); msg.t = setTimeout(() => { m.className = 'herbs-msg'; }, 2400); };
+  // геометрия: поверхность воды, дно, края сети
+  const geo = () => { const port = H > W, sY = H * (port ? 0.36 : 0.52), bY = H * (port ? 0.9 : 0.93), x1 = W * (port ? 0.2 : 0.3), x2 = W * (port ? 0.8 : 0.7); return { sY, bY, x1, x2, sc: Math.min(1.5, Math.max(W, H) / 700) }; };
+  const netBox = () => { const g = geo(), top = g.sY + 2 - (1 - F.d) * 14; return { x1: g.x1, x2: g.x2, top, bot: top + 10 + F.d * (g.bY - g.sY - 20) }; };   // поднятая сеть собирается у поверхности
+  function spawn() {
+    const g = geo(), r = Math.random(), sp = Math.max(W, H) / 900;   // скорость — одинаковая стоя и лёжа
+    if (r < 0.6) {   // стайка рыб на одной глубине
+      const n = 2 + Math.floor(Math.random() * 4), y = g.sY + 30 + Math.random() * (g.bY - g.sY - 70), v = (75 + Math.random() * 45) * sp;
+      for (let i = 0; i < n; i++) F.items.push({ k: 'fish', x: -30 - i * 34 * g.sc - Math.random() * 20, y: y + (Math.random() - 0.5) * 34 * g.sc, v, ph: Math.random() * 6, s: 0.8 + Math.random() * 0.4 });
+    } else if (r < 0.7 && !F.boot) {
+      F.items.push({ k: 'boot', x: -40, y: g.bY - 24 * g.sc, v: 45 * sp, ph: 0, s: 1 });
+    } else if (r < 0.84) {   // коряга плывёт у поверхности
+      F.items.push({ k: 'snag', x: -90, y: g.sY + 26 * g.sc + Math.random() * 40, v: 85 * sp, ph: Math.random() * 6, s: 1 });
+    } else {   // щука — быстрая
+      F.items.push({ k: 'pike', x: -70, y: g.sY + 40 + Math.random() * (g.bY - g.sY - 90), v: 160 * sp, ph: 0, s: 1 });
     }
-    if (F.net) {   // сеть
-      const sh = F.thrash && F.phase === 'pull' ? Math.sin(F.t * 40) * 3 : 0, n = F.net;
-      ctx.strokeStyle = 'rgba(240,232,210,0.95)'; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(n.x + sh, n.y, n.r, 0, 6.28); ctx.stroke();
-      for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(n.x + sh + k * n.r / 3, n.y - n.r * 0.94); ctx.lineTo(n.x + sh + k * n.r / 3, n.y + n.r * 0.94); ctx.stroke(); ctx.beginPath(); ctx.moveTo(n.x + sh - n.r * 0.94, n.y + k * n.r / 3); ctx.lineTo(n.x + sh + n.r * 0.94, n.y + k * n.r / 3); ctx.stroke(); }
-      if (F.phase === 'pull') { ctx.strokeStyle = '#3A2A1E'; ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(n.x, n.y + n.r); ctx.stroke(); }
-    }
-    ctx.fillStyle = '#5B7FA6'; ctx.beginPath(); ctx.arc(O.x, O.y, 7, 0, 6.28); ctx.fill();   // героиня на краю мостков
   }
-  function bar() { const b = $('fishBar'); b.firstChild.style.width = Math.round(F.prog * 100) + '%'; b.classList.toggle('strain', F.thrash); }
+  const drawFish = (x, y, s, col, len) => {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, len, len * 0.36, 0, 0, 6.29); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-len * 0.85, 0); ctx.lineTo(-len * 1.35, -len * 0.35); ctx.lineTo(-len * 1.35, len * 0.35); ctx.fill();
+    ctx.fillStyle = '#1D2A22'; ctx.beginPath(); ctx.arc(len * 0.6, -len * 0.08, len * 0.08, 0, 6.29); ctx.fill();
+    ctx.restore();
+  };
+  function drawItem(it) {
+    const g = geo(), s = g.sc * it.s;
+    if (it.k === 'fish') drawFish(it.x, it.y + Math.sin(F.t * 3 + it.ph) * 3, s, it.got ? '#C9D6CF' : '#9DB3AA', 16);
+    else if (it.k === 'pike') drawFish(it.x, it.y + Math.sin(F.t * 4) * 2, g.sc, '#5F7A4A', 34);
+    else if (it.k === 'boot') {
+      ctx.save(); ctx.translate(it.x, it.y); ctx.scale(g.sc, g.sc); ctx.fillStyle = '#5A3A22';
+      ctx.fillRect(-10, -26, 18, 26); ctx.beginPath(); ctx.ellipse(6, -4, 18, 8, 0, 0, 6.29); ctx.fill(); ctx.restore();
+    } else if (it.k === 'snag') {
+      ctx.save(); ctx.translate(it.x, it.y + Math.sin(F.t * 1.5 + it.ph) * 4); ctx.rotate(0.15 * Math.sin(F.t + it.ph)); ctx.scale(g.sc, g.sc);
+      ctx.strokeStyle = '#4A3423'; ctx.lineCap = 'round'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(-60, 0); ctx.lineTo(55, 6); ctx.stroke();
+      ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(-20, 2); ctx.lineTo(-38, -26); ctx.moveTo(20, 4); ctx.lineTo(34, 32); ctx.moveTo(40, 5); ctx.lineTo(60, -18); ctx.stroke(); ctx.restore();
+    }
+  }
+  function drawPerson(x, y, sc, body, hair, isZmey) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(-16, -58, 32, 62, 10); ctx.fill();   // по пояс в воде — видна верхняя часть
+    ctx.fillStyle = isZmey ? '#E9C39A' : '#F2CBA8'; ctx.beginPath(); ctx.arc(0, -76, 17, 0, 6.29); ctx.fill();
+    ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(0, -82, 17, Math.PI, 0); ctx.fill();
+    ctx.restore();
+  }
+  function draw() {
+    const g = geo(), nb = netBox();
+    ctx.setTransform(R, 0, 0, R, 0, 0);
+    const sky = ctx.createLinearGradient(0, 0, 0, g.sY); sky.addColorStop(0, '#BFDCE6'); sky.addColorStop(1, '#EFE6C8'); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, g.sY);
+    ctx.fillStyle = '#8FB466'; ctx.beginPath(); ctx.moveTo(0, g.sY - 50); ctx.quadraticCurveTo(W * 0.12, g.sY - 70, W * 0.2, g.sY); ctx.lineTo(0, g.sY); ctx.fill();   // берег слева
+    ctx.beginPath(); ctx.moveTo(W, g.sY - 40); ctx.quadraticCurveTo(W * 0.86, g.sY - 60, W * 0.8, g.sY); ctx.lineTo(W, g.sY); ctx.fill();   // берег справа
+    // дальний берег, на нём Лейф на камне (смотрит и комментирует)
+    ctx.fillStyle = '#A3C27A'; ctx.fillRect(0, g.sY - 14 * g.sc, W, 14 * g.sc + 1);
+    const lx = W * 0.5, ly = g.sY - 14 * g.sc;
+    ctx.fillStyle = '#8A8478'; ctx.beginPath(); ctx.ellipse(lx, ly, 22 * g.sc, 9 * g.sc, 0, 0, 6.29); ctx.fill();
+    drawPerson(lx, ly - 4 * g.sc, g.sc * 0.55, '#7A5A8A', '#C9C2B5', false);
+    // вода
+    const wat = ctx.createLinearGradient(0, g.sY, 0, g.bY); wat.addColorStop(0, '#7FB2C2'); wat.addColorStop(1, '#3E6E80'); ctx.fillStyle = wat; ctx.fillRect(0, g.sY, W, H - g.sY);
+    ctx.fillStyle = '#8C7A5A'; ctx.beginPath(); ctx.moveTo(0, g.bY + 6); for (let x = 0; x <= W; x += 40) ctx.lineTo(x, g.bY + 4 + Math.sin(x * 0.05) * 5); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();   // дно
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; for (let i = 0; i < 6; i++) { const y = g.sY + 18 + i * (g.bY - g.sY) / 6; ctx.fillRect(((F.t * 40 + i * 97) % (W + 120)) - 120, y, 90, 2); }   // струи течения
+    // рыбы и прочее (позади сети)
+    for (const it of F.items) drawItem(it);
+    // сеть: шесты у героини и Змея, ячейки между ними
+    const shake = F.torn > 0 ? Math.sin(F.t * 40) * 3 : 0;
+    ctx.strokeStyle = '#6E4A2C'; ctx.lineWidth = 6 * g.sc; ctx.lineCap = 'round';
+    for (const x of [nb.x1, nb.x2]) { ctx.beginPath(); ctx.moveTo(x + shake, g.sY - 70 * g.sc); ctx.lineTo(x + shake, Math.max(nb.bot, g.sY + 30 * g.sc)); ctx.stroke(); }
+    ctx.strokeStyle = F.torn > 0 ? 'rgba(200,120,90,0.8)' : 'rgba(240,232,210,0.85)'; ctx.lineWidth = 1.5;
+    const step = 16 * g.sc;
+    ctx.beginPath();
+    for (let x = nb.x1; x <= nb.x2 + 0.5; x += step) { ctx.moveTo(x + shake, nb.top); ctx.lineTo(x + shake + Math.sin(F.t * 2 + x) * 2, nb.bot); }
+    for (let y = nb.top; y <= nb.bot + 0.5; y += step) { ctx.moveTo(nb.x1 + shake, y); ctx.lineTo(nb.x2 + shake, y + Math.sin(F.t * 2 + y) * 2); }
+    ctx.stroke();
+    ctx.strokeStyle = '#D9C9A0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(nb.x1, nb.top); ctx.lineTo(nb.x2, nb.top); ctx.moveTo(nb.x1, nb.bot); ctx.lineTo(nb.x2, nb.bot); ctx.stroke();   // верёвки по краю
+    // героиня (слева) и Змей (справа) держат шесты — стоят по пояс в воде
+    drawPerson(nb.x1 - 26 * g.sc, g.sY + 6, g.sc, '#4FA3D9', '#B5523B', false);
+    drawPerson(nb.x2 + 30 * g.sc, g.sY + 6, g.sc * 1.15, '#5E8A4A', '#3A2A1E', true);
+    ctx.fillStyle = 'rgba(46,36,24,0.75)'; ctx.font = `700 ${Math.round(Math.min(16, W * 0.04))}px Nunito, sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText('Змей', nb.x2 + 30 * g.sc + (g.sY - 112 * g.sc * 1.15 < 66 ? 54 * g.sc : 0), Math.max(66, g.sY - 112 * g.sc * 1.15));   // лёжа — сбоку от головы, не под полоской улова ctx.fillText('Лейф', W * 0.5, g.sY - 70 * g.sc);
+    // поверхность воды поверх людей (по пояс)
+    ctx.fillStyle = 'rgba(127,178,194,0.55)'; ctx.fillRect(0, g.sY, W, 6);
+    // всплывающие «+N»
+    for (const p of F.pop) { ctx.globalAlpha = p.a; ctx.fillStyle = p.c; ctx.font = `800 ${Math.round(22 * g.sc + 8)}px Nunito, sans-serif`; ctx.fillText(p.t, p.x, p.y); }
+    ctx.globalAlpha = 1;
+  }
+  function inNet(it, nb) { return it.x > nb.x1 + 6 && it.x < nb.x2 - 6 && it.y > nb.top && it.y < nb.bot; }
+  function tear(what) {
+    const freed = F.items.filter(i => i.got && i.k === 'fish');
+    freed.forEach(i => { i.got = false; i.v = 140 * W / 600; });
+    F.torn = 1.6;
+    msg((what === 'pike' ? 'Щука прогрызла сеть!' : 'Коряга порвала сеть!') + (freed.length ? ` Ушло рыб: ${freed.length}. ` : ' ') + 'Змей: «Чиню-чиню! Секунду!»');
+  }
+  function bank() {   // сеть поднялась — забираем улов
+    const got = F.items.filter(i => i.got);
+    const fish = got.filter(i => i.k === 'fish').length, boot = got.some(i => i.k === 'boot');
+    if (!got.length) return;
+    F.items = F.items.filter(i => !i.got);
+    if (fish) { F.total += fish; F.pop.push({ t: '+' + fish, x: W / 2, y: geo().sY - 30, a: 1, c: '#2E6B2A' }); }
+    if (boot) { F.boot = true; msg('…и старый сапог! Змей: «Это мой! Год его искал»'); }
+    else if (fish >= 4) msg(`+${fish}! Змей: «Вот это заход! Лейф, видал?»`, true);
+    else if (fish && F.leif < LEIF_FISH_LINES.length && F.total >= (F.leif + 1) * 4) msg(LEIF_FISH_LINES[F.leif++], true);
+    $('fishFill').style.width = Math.min(100, Math.round(F.total / FISH_NEED * 100)) + '%'; $('fishN').textContent = `Улов: ${Math.min(F.total, FISH_NEED)} из ${FISH_NEED}`;
+    if (F.total >= FISH_NEED) {
+      F.done = true; msg(`Полная корзина — ${F.total} рыб!`, true);
+      setTimeout(() => { cancelAnimationFrame(F.raf); window.removeEventListener('resize', resize); root.remove(); ui.open = false; musicUpdate(); afterFishing(F.total); }, 1500);
+    }
+  }
   function tick(now) {
-    if (F.done) return;
-    const dt = Math.min(0.12, (now - (F.last || now)) / 1000); F.last = now; F.t += dt;
-    for (const f of F.fishes) { f.a += (Math.random() - 0.5) * dt * 2; f.x += Math.cos(f.a) * f.v * dt; f.y += Math.sin(f.a) * f.v * dt;
-      if (f.x < 20 || f.x > W - 20) f.a = Math.PI - f.a; if (f.y < 20 || f.y > 240) f.a = -f.a; f.x = Math.max(20, Math.min(W - 20, f.x)); f.y = Math.max(20, Math.min(240, f.y)); }
-    if (F.phase === 'pull') pullStep(dt);
+    if (F.done) { draw(); return; }
+    const dt = Math.min(50, now - F.last) / 1000; F.last = now; F.t += dt;
+    F.torn = Math.max(0, F.torn - dt);
+    const want = F.hold && F.torn <= 0 ? 1 : 0, was = F.d;
+    F.d += (want - F.d) * Math.min(1, dt * (want ? 5 : 4));
+    if (was > 0.3 && F.d <= 0.3) bank();
+    if ((F.spawnT -= dt) <= 0) { spawn(); F.spawnT = 1.1 + Math.random() * 1.2; }
+    const nb = netBox();
+    for (const it of F.items) {
+      if (it.got) {   // в сети: плавает внутри и поднимается вместе с ней
+        it.ox = it.ox ?? it.x; it.x += Math.sin(F.t * 2 + it.ph) * 20 * dt; it.x = Math.max(nb.x1 + 14, Math.min(nb.x2 - 14, it.x));
+        it.y = nb.top + it.ry * (nb.bot - nb.top);
+        continue;
+      }
+      it.x += it.v * dt;
+      if (F.d > 0.85 && F.torn <= 0 && inNet(it, nb)) {
+        if (it.k === 'snag' || it.k === 'pike') { tear(it.k); it.v *= 1.4; continue; }
+        it.got = true; it.ry = (it.y - nb.top) / (nb.bot - nb.top);
+      }
+    }
+    F.items = F.items.filter(i => i.got || i.x < W + 120);
+    for (const p of F.pop) { p.y -= dt * 40; p.a -= dt * 0.8; } F.pop = F.pop.filter(p => p.a > 0);
     draw(); F.raf = requestAnimationFrame(tick);
   }
-  function pullStep(dt) {
-    if ((F.tt -= dt) <= 0) { F.thrash = !F.thrash; F.tt = F.thrash ? 0.8 + Math.random() * 0.5 : 1.1 + Math.random() * 0.9; }
-    if (F.hold && !F.thrash) F.prog += dt * 0.33;
-    if (F.hold && F.thrash) F.strain += dt * 1.6; else F.strain = Math.max(0, F.strain - dt * 0.8);
-    if (F.strain >= 1) {   // сорвалась одна рыба
-      F.strain = 0; if (F.inNet > 0) { F.inNet--; msg('Ой! Одна рыба ушла — отпускай, когда сеть дёргается!'); } else msg('Осторожно — сеть чуть не порвалась!');
-    } else msg(F.thrash ? 'Рыба бьётся — отпусти!' : (F.hold ? 'Тяни, тяни…' : 'Держи палец — тяни сеть'));
-    const n = F.net; n.x += (O.x - n.x) * dt * F.prog * 0.9; n.y = n.y0 + (O.y - 40 - n.y0) * Math.min(1, F.prog);
-    for (const f of F.netFish) { f.x = n.x + f.dx; f.y = n.y + f.dy; }
-    bar();
-    if (F.prog >= 1) finishCast();
-  }
-  function cast(tg) {
-    F.phase = 'fly'; F.net = { x: O.x, y: O.y, r: 10 };
-    const t0 = performance.now();
-    const fly = () => {
-      const k = Math.min(1, (performance.now() - t0) / 420);
-      F.net.x = O.x + (tg.x - O.x) * k; F.net.y = O.y + (tg.y - O.y) * k - Math.sin(k * Math.PI) * 40; F.net.r = 10 + (R - 10) * k;
-      if (k < 1) return requestAnimationFrame(fly);
-      const caught = F.fishes.filter(f => Math.hypot(f.x - tg.x, f.y - tg.y) < R);
-      if (!caught.length) {   // мимо — заброс не считается
-        msg('Пусто! Змей: «Рыба над тобой смеётся. Целься в тени!»'); F.net = null; F.phase = 'aim'; return;
-      }
-      F.fishes = F.fishes.filter(f => !caught.includes(f));
-      F.netFish = caught.map(f => ({ ...f, dx: f.x - tg.x, dy: f.y - tg.y }));
-      F.inNet = caught.length; F.boot = F.cast === 1;   // на втором забросе — старый сапог
-      Object.assign(F, { phase: 'pull', prog: 0, strain: 0, thrash: false, tt: 1.2 }); F.net.y0 = F.net.y;
-      msg(`В сети ${caught.length}! Держи палец — тяни сеть`);
-    };
-    fly();
-  }
-  function finishCast() {
-    F.phase = 'show'; F.cast++; F.total += F.inNet; F.net = null; F.netFish = [];
-    $('fishN').textContent = `Рыба: ${F.total}`; F.prog = 0; F.thrash = false; bar();
-    msg((F.boot ? `+${F.inNet} и… старый сапог! Змей: «Это мой! Год его искал». ` : `+${F.inNet}. `) + LEIF_FISH_LINES[F.cast - 1]);
-    if (F.cast >= FISH_CASTS) {
-      F.done = true; cancelAnimationFrame(F.raf);
-      setTimeout(() => { closeModal(); afterFishing(F.total); }, 1800);
-      return;
-    }
-    setTimeout(() => { if (F.fishes.length < 4) spawn(); F.phase = 'aim'; $('fishCast').textContent = `Заброс ${F.cast + 1} из ${FISH_CASTS}`; msg('Тяни палец назад от сети и отпускай'); }, 1800);
-  }
-  cv.addEventListener('pointerdown', e => {
-    e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-    if (F.phase === 'aim') F.drag = pos(e);
-    if (F.phase === 'pull') F.hold = true;
-  });
-  cv.addEventListener('pointermove', e => { if (F.phase === 'aim' && F.drag) F.drag = pos(e); });
-  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => {
-    F.hold = false;
-    if (F.phase === 'aim' && F.drag) { const d = F.drag; F.drag = null; if (Math.hypot(d.x - O.x, d.y - O.y) > 14) cast(target(d)); }
-  }));
-  window.__fishCast = (x, y) => cast({ x, y });   // для теста
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) {} $('fishHint').classList.add('hide'); F.hold = true; });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { F.hold = false; }));
   F.raf = requestAnimationFrame(tick);
 }
 function afterFishing(n) {
