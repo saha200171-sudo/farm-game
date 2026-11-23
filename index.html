@@ -384,7 +384,7 @@ body.overview .hud, body.overview .stick-zone, body.overview .guide, body.overvi
 <script>
 // ===================== Общие настройки =====================
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
-const GAME_VERSION = 291;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
+const GAME_VERSION = 292;   // совпадает с номером в sw.js (farm-vN); видно в окне «Заново»
 // Слои земли (трава, дорожки, поля, тени) — глубже любых персонажей и деревьев, даже с отрицательной y
 const GROUND = -5000;
 // Карта: y от −1000 до 2000. Верх (y < 0) — поле с пшеницей, низ (y > 1000) — пастбище Эйнара
@@ -2075,6 +2075,10 @@ function buildHouse() {
     else if (layer === 1) { im.setDepth(HY + HH + 600); im.baseX = HX + x; house.fg.push(im); }
     else im.setDepth(HY + y + h);
     if (k === 'h8') house.hearth = im;
+    if (k === 'h6') {   // v292: полка без ячменя и трав (картинка пользователя) — когда всё забрано
+      house.shelf = im;
+      house.shelfEmpty = scene.add.image(HX + x, HY + y, 'shelf-empty').setOrigin(0, 0).setDisplaySize(w, h).setDepth(im.depth).setVisible(false);
+    }
   }
   const H8 = HOUSE_ITEMS.find(i => i[0] === 'h8');   // холодный очаг на месте горящего
   house.hearthCold = scene.add.image(HX + H8[2], HY + H8[3], 'house', 'hcold').setOrigin(0, 0).setDisplaySize(H8[4], H8[5]).setDepth(HY + H8[3] + H8[5]);
@@ -2199,6 +2203,7 @@ function renderRecipe(stage, instant) {
 function renderCook() {
   const c = cookS();
   renderRecipe(c.stage);
+  if (house.shelfEmpty) { const empty = (c.barley || c.stage > 2) && (c.herbs || c.stage > 4); house.shelf.setVisible(!empty); house.shelfEmpty.setVisible(empty); }
   const I = state.items, have = { water: c.water, barley: c.barley, cabbage: (I.kapusta || 0) > 0 || c.chopped, leek: (I.luk || 0) > 0 || c.chopped, herbs: c.herbs, eggs: (I.eggs || 0) > 0, stew: c.stage >= 7 };
   const keys = ['water', 'barley', 'cabbage', 'leek', 'herbs', 'eggs', 'stew'], sh = $('shelf');
   const NAMES = { water: 'Вода', barley: 'Ячмень', cabbage: 'Капуста', leek: 'Порей', herbs: 'Травы', eggs: 'Яйца', stew: 'Похлёбка' };
@@ -7427,7 +7432,7 @@ class FarmScene extends Phaser.Scene {
     this.load.image('barn', 'assets/barn/barn.webp');
     this.load.image('barn-wall', 'assets/barn/barn-wall.webp');
     this.load.image('barn-floor', 'assets/barn/barn-floor.webp');
-    this.load.image('house', 'assets/house/house.webp'); this.load.image('stew-bowl', 'assets/house/icons/stew.webp');
+    this.load.image('house', 'assets/house/house.webp'); this.load.image('stew-bowl', 'assets/house/icons/stew.webp'); this.load.image('shelf-empty', 'assets/house/shelf-empty.webp');
     this.load.image('house-room', 'assets/house/room.webp');
     this.load.image('dirt', 'assets/paths/dirt.jpg');
     this.load.image('pathMask', 'assets/paths/path-mask.png');
